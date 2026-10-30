@@ -11,7 +11,7 @@ publish = false
 [dependencies]
 dirs = "7.0.0"
 jiff = { version = "0.2.37", features = ["serde"] }
-rusqlite = { version = "0.40.2", default-features = false, features = ["bundled", "cache", "fallible_uint"] }
+rusqlite = { version = "0.41.0", default-features = false, features = ["bundled", "cache", "fallible_uint"] }
 ring = "0.17.14"
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "1.0.229", features = ["derive"] }
