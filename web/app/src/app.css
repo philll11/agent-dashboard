@@ -1183,16 +1183,21 @@ a:hover {
   gap: 8px;
 }
 
+/* The chart takes the height its panel has, 176 pixels of plot at least, so that it fills a panel
+   that a taller one beside it stretches. The plot and its axis leave the column labels' 20 pixels
+   below them. */
 .columns {
   display: flex;
+  flex: 1 0 auto;
   gap: 10px;
+  min-height: 196px;
 }
 
 .axis-labels {
   position: relative;
   flex: none;
   width: 34px;
-  height: 180px;
+  margin-bottom: 20px;
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -1207,7 +1212,9 @@ a:hover {
 
 .plot {
   position: relative;
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
   border-radius: var(--ctl-radius-in);
 }
@@ -1216,11 +1223,11 @@ a:hover {
   position: absolute;
   top: 0;
   right: 0;
+  bottom: 20px;
   left: 0;
   display: flex;
   flex-direction: column-reverse;
   justify-content: space-between;
-  height: 176px;
 }
 
 .gridlines div {
@@ -1234,7 +1241,7 @@ a:hover {
 .band {
   position: absolute;
   top: 0;
-  height: 176px;
+  bottom: 20px;
   border-radius: 4px;
   background: var(--band);
 }
@@ -1242,8 +1249,9 @@ a:hover {
 .stacks {
   position: relative;
   display: grid;
-  align-items: end;
-  height: 176px;
+  flex: 1;
+  align-items: stretch;
+  min-height: 176px;
 }
 
 .stack {
@@ -1252,7 +1260,6 @@ a:hover {
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
-  height: 176px;
 }
 
 .segment {
@@ -1266,7 +1273,9 @@ a:hover {
 
 .column-labels {
   display: grid;
+  height: 14px;
   margin-top: 6px;
+  line-height: 14px;
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;

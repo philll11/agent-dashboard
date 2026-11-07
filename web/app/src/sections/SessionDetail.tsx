@@ -12,7 +12,7 @@ import type {
   WhoRow,
 } from "@agent-dashboard/protocol";
 
-import { agentName } from "../agents";
+import { agentName, nameUnder } from "../agents";
 import { LineChart } from "../charts/lines";
 import { moneyTick, niceScale } from "../charts/scale";
 import { useHost, useStatus } from "../context";
@@ -486,7 +486,7 @@ function WhoAndCredits({ detail, timeZone }: { detail: Detail; timeZone: string 
                       style={{ background: seriesFill(series.get(row.model.id) ?? "other") }}
                     />
                     <span className={unpriced(row.model) ? "mono" : undefined}>
-                      {row.model.name}
+                      {nameUnder(detail.agent, row.model.name)}
                     </span>
                   </span>
                 </td>

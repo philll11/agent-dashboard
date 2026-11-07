@@ -14,12 +14,19 @@
   - text: /History since \d+ July \d+ · read just now/
 - main:
   - heading "Settings" [level=1]
-  - region "Claude Code data folders":
-    - heading "Claude Code data folders" [level=2]
-    - text: Where to read transcripts from. CLAUDE_CONFIG_DIR is used when it is set.
-    - button "Add folder"
-    - list:
-      - listitem: /\/home\/you\/\.claude , From CLAUDE_CONFIG_DIR · \d+ transcripts · \d+ MB , Found/
+  - region "Data folders":
+    - heading "Data folders" [level=2]
+    - text: Where to read each agent's transcripts from. CLAUDE_CONFIG_DIR and COPILOT_HOME are used when they are set. Holds the data of
+    - 'button "Holds the data of: Claude Code"'
+    - button "Add a folder…"
+    - region "Claude Code":
+      - heading "Claude Code" [level=3]
+      - list:
+        - listitem: /\/home\/you\/\.claude , From CLAUDE_CONFIG_DIR · \d+ transcripts · \d+ MB , Found/
+    - region "Copilot CLI":
+      - heading "Copilot CLI" [level=3]
+      - list:
+        - listitem: /\/home\/you\/\.copilot , From COPILOT_HOME · 9 transcripts · \d+ KB , Found/
   - region "History":
     - heading "History" [level=2]
     - term: Stored in
@@ -28,6 +35,8 @@
     - definition: /\d+ July \d+ to today · \d+,\d+ requests in \d+ sessions · 7 MB/
     - term: Claude Code clean-up
     - definition: /Claude Code deletes transcripts after \d+ days; everything read before then stays here\./
+    - term: Copilot CLI clean-up
+    - definition: Copilot CLI documents none; whatever it deletes, everything read stays here.
     - button "Show in folder"
     - button "Export all history…"
   - region "Plan limits":

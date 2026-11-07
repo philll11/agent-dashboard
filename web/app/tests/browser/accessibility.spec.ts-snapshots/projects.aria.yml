@@ -14,22 +14,32 @@
   - text: /History since \d+ July \d+ · read just now/
 - main:
   - heading "Projects" [level=1]
-  - text: /\d+ projects in the last \d+ days · \$\d+\.\d+ API-equivalent/
+  - text: /\d+ projects in the last \d+ days · \$\d+\.\d+ including estimates/
   - 'button /Date range: Last \d+ days/'
+  - 'button "Agent: All agents"'
   - 'button "Model: All models"'
   - button "Export"
   - region "Projects":
     - table:
       - rowgroup:
-        - row /Project Daily cost, \d+ days Sessions Requests Tokens API-equivalent cost Share/:
+        - row /Project Daily cost, \d+ days Sessions Requests Tokens Cost Share/:
           - columnheader "Project"
           - columnheader /Daily cost, \d+ days/
           - columnheader "Sessions"
           - columnheader "Requests"
           - columnheader "Tokens"
-          - columnheader "API-equivalent cost"
+          - columnheader "Cost"
           - columnheader "Share"
       - rowgroup:
+        - 'row /Claude Code Daily cost for Claude Code over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ \d+ \d+,\d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \+ unpriced \d+%/':
+          - rowheader "Claude Code"
+          - 'cell /Daily cost for Claude Code over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for Claude Code over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell /\d+/
+          - cell /\d+,\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+ \+ unpriced/
+          - cell /\d+%/
         - 'row /agent-dashboard ~\/code\/agent-dashboard Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ \d+ \d+,\d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \+ unpriced \d+%/':
           - rowheader "agent-dashboard ~/code/agent-dashboard":
             - link "agent-dashboard ~/code/agent-dashboard":
@@ -105,4 +115,80 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell /\$\d+\.\d+/
           - cell "4%"
-  - paragraph: A project is the folder a session ran in. "Other projects" groups the 6 projects with less than 2% each; choose one in Sessions to see them.
+      - rowgroup:
+        - 'row /Copilot CLI Daily cost for Copilot CLI over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 9 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ 7%/':
+          - rowheader "Copilot CLI"
+          - 'cell /Daily cost for Copilot CLI over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for Copilot CLI over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "9"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell "7%"
+        - 'row /infra ~\/code\/infra Daily cost for infra over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 3 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \d+%/':
+          - rowheader "infra ~/code/infra":
+            - link "infra ~/code/infra":
+              - /url: "#project--home-you-code-infra"
+          - 'cell /Daily cost for infra over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for infra over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "3"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell /\d+%/
+        - 'row /walkthrough ~\/code\/walkthrough Daily cost for walkthrough over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 1 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \d+%/':
+          - rowheader "walkthrough ~/code/walkthrough":
+            - link "walkthrough ~/code/walkthrough":
+              - /url: "#project--home-you-code-walkthrough"
+          - 'cell /Daily cost for walkthrough over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for walkthrough over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "1"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell /\d+%/
+        - 'row /agent-dashboard ~\/code\/agent-dashboard Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 2 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \d+%/':
+          - rowheader "agent-dashboard ~/code/agent-dashboard":
+            - link "agent-dashboard ~/code/agent-dashboard":
+              - /url: "#project--home-you-code-agent-dashboard"
+          - 'cell /Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "2"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell /\d+%/
+        - 'row /website ~\/code\/website Daily cost for website over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 1 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \d+%/':
+          - rowheader "website ~/code/website":
+            - link "website ~/code/website":
+              - /url: "#project--home-you-code-website"
+          - 'cell /Daily cost for website over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for website over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "1"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell /\d+%/
+        - 'row /cli-tools ~\/code\/cli-tools Daily cost for cli-tools over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 1 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ 7%/':
+          - rowheader "cli-tools ~/code/cli-tools":
+            - link "cli-tools ~/code/cli-tools":
+              - /url: "#project--home-you-code-cli-tools"
+          - 'cell /Daily cost for cli-tools over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for cli-tools over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "1"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell "7%"
+        - 'row /notes ~\/notes Daily cost for notes over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 1 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ 5%/':
+          - rowheader "notes ~/notes":
+            - link "notes ~/notes":
+              - /url: "#project--home-you-notes"
+          - 'cell /Daily cost for notes over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for notes over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "1"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell "5%"
+  - paragraph: A project is the folder a session ran in. "Other projects" groups an agent's projects with less than 2% of its cost each; choose one in Sessions to see them.
