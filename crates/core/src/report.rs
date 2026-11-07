@@ -683,9 +683,11 @@ pub struct SessionDetail {
     pub mcp_tools: Vec<Credit>,
     /// Requests credited to neither a skill nor an MCP server.
     pub uncredited: Totals,
-    /// The Claude Code version and entry point of its latest request.
+    /// The agent's version and entry point of its latest request.
     pub agent_version: Option<String>,
     pub entrypoint: Option<String>,
+    /// Requests by who started them, where the agent says: `user`, `agent` or `sub-agent`.
+    pub by_initiator: BTreeMap<String, u64>,
 }
 
 /// One session's requests, its subagents' included, added up; `None` when it has none.
@@ -721,8 +723,12 @@ pub fn session_detail(
             uncredited: Totals::default(),
             agent_version: None,
             entrypoint: None,
+            by_initiator: BTreeMap::new(),
         });
         detail.first_ms = detail.first_ms.min(request.timestamp_ms);
+        if let Some(initiator) = request.initiator {
+            *detail.by_initiator.entry(initiator.to_owned()).or_default() += 1;
+        }
         detail.last_ms = detail.last_ms.max(request.timestamp_ms);
         detail.totals.add(request, cost);
         models

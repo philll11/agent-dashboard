@@ -282,6 +282,23 @@ dismissed: boolean, };
 export type Imported = { requests: number, importedMs: number, };
 
 /**
+ * A session's requests by who started them.
+ */
+export type Initiators = { 
+/**
+ * Requests the person's own prompts started.
+ */
+you: number, 
+/**
+ * Requests the agent made on its own, such as after a tool ran.
+ */
+agent: number, 
+/**
+ * Requests its sub-agents made.
+ */
+subAgents: number, };
+
+/**
  * How close a plan window is to its limit.
  */
 export type Level = "normal" | "warning" | "critical";
@@ -488,6 +505,10 @@ transcript?: string | null, firstMs: number, lastMs: number, agentVersion?: stri
  * `claude-code` or `copilot-cli`.
  */
 agent: string, 
+/**
+ * Requests by who started them, for an agent that records it, as Copilot CLI does.
+ */
+initiators?: Initiators | null, 
 /**
  * How the agent was started, such as Claude Code's `cli` or Copilot CLI's `github/cli`.
  */

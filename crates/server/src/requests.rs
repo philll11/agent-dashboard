@@ -25,11 +25,11 @@ use crate::names::{model_name, project_names};
 use crate::protocol::{
     Access, AgentChoice, Choices, Cost, CostPoint, CostProvenance, Credit, Day, DayCost, Days,
     EndpointParams, FastPrices, Folder, FolderParams, FolderState, Health, HistoryFacts,
-    ImportDone, ImportOffer, Imported, Level, LongPrompt, Model, ModelDay, ModelRow, Overview,
-    OverviewParams, PriceDrift, PriceRefresh, PriceRow, Prices, PricesParams, Project, ProjectRow,
-    Provenance, SessionDetail, SessionParams, SessionRow, SessionsPage, SessionsParams, Settings,
-    SettingsChange, Status, StatusLineApply, StatusLineParams, StatusLinePlan, Tokens, Totals,
-    WhoRow, WindowReading,
+    ImportDone, ImportOffer, Imported, Initiators, Level, LongPrompt, Model, ModelDay, ModelRow,
+    Overview, OverviewParams, PriceDrift, PriceRefresh, PriceRow, Prices, PricesParams, Project,
+    ProjectRow, Provenance, SessionDetail, SessionParams, SessionRow, SessionsPage, SessionsParams,
+    Settings, SettingsChange, Status, StatusLineApply, StatusLineParams, StatusLinePlan, Tokens,
+    Totals, WhoRow, WindowReading,
 };
 use crate::statusline;
 use crate::workers::Triggers;
@@ -405,6 +405,14 @@ impl Answers {
             last_ms: detail.last_ms,
             agent_version: detail.agent_version.clone(),
             agent: stored.agent.as_str().to_owned(),
+            initiators: (!detail.by_initiator.is_empty()).then(|| {
+                let count = |name: &str| detail.by_initiator.get(name).copied().unwrap_or(0);
+                Initiators {
+                    you: count("user"),
+                    agent: count("agent"),
+                    sub_agents: count("sub-agent"),
+                }
+            }),
             entrypoint: detail.entrypoint.clone(),
             totals: totals(&detail.totals),
             own: totals(&detail.own),

@@ -165,7 +165,7 @@ describe("the status bar item", () => {
   it("shows today's cost once the five-hour window has reset", () => {
     const item = statusItem(summary(), Date.parse("2026-10-10T01:21:00Z"));
     expect(item.text).toBe("$5.10 today");
-    expect(item.label).toBe("API-equivalent cost today $5.10. Open the usage dashboard.");
+    expect(item.label).toBe("Cost today $5.10, API-equivalent estimate. Open the usage dashboard.");
     expect(item.lines[0]).toEqual({ label: "Five-hour window", value: "reset at 14:20" });
   });
 
@@ -183,7 +183,7 @@ interface GlanceExample {
   timeZone: string;
   limits: WindowReading[];
   today: { usd: number; unpricedRequests: number };
-  expect: { lines: [string, string][]; source: string | null; statusText: string };
+  expect: { lines: [string, string][]; sources: string[]; statusText: string };
 }
 
 const GLANCE = JSON.parse(
@@ -202,12 +202,14 @@ describe("the glance's shared examples", () => {
     );
     expect(item.lines.map((line) => [line.label, line.value])).toEqual(example.expect.lines);
     expect(item.text).toBe(example.expect.statusText);
-    const { source } = example.expect;
-    if (source === null) {
+    const { sources } = example.expect;
+    if (sources.length === 0) {
       expect(item.note).not.toMatch(/^Limits: /);
     } else {
-      const prefix = `Limits: ${source.charAt(0).toLowerCase()}${source.slice(1)}`;
-      expect(item.note.slice(0, prefix.length)).toBe(prefix);
+      const sentence = sources
+        .map((source) => `${source.charAt(0).toLowerCase()}${source.slice(1)}`)
+        .join("; ");
+      expect(item.note.startsWith(`Limits: ${sentence}. `)).toBe(true);
     }
   });
 });

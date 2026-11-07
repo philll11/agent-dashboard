@@ -205,11 +205,13 @@ fn menu(app: &AppHandle, shown: &Shown) -> tauri::Result<Menu<Wry>> {
                 None::<&str>,
             )?));
         }
-        if let Some(source) = &glance.source {
-            items.push(Box::new(PredefinedMenuItem::separator(app)?));
+        for (index, source) in glance.sources.iter().enumerate() {
+            if index == 0 {
+                items.push(Box::new(PredefinedMenuItem::separator(app)?));
+            }
             items.push(Box::new(MenuItem::with_id(
                 app,
-                "source",
+                format!("source-{index}"),
                 source,
                 false,
                 None::<&str>,
@@ -267,10 +269,10 @@ fn pixels(scale: f64) -> u32 {
 
 /// What the icon shows for a glance.
 fn face(glance: Option<&Glance>) -> Face {
-    match glance.and_then(|glance| glance.five_hour) {
-        Some(five_hour) => Face::Number {
-            used: five_hour.used,
-            level: five_hour.level,
+    match glance.and_then(|glance| glance.figure) {
+        Some(figure) => Face::Number {
+            used: figure.used,
+            level: figure.level,
         },
         None => Face::Gauge,
     }

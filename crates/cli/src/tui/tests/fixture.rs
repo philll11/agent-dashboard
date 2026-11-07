@@ -924,6 +924,7 @@ impl Fixture {
             last_ms: last,
             agent_version: Some("2.4.1".to_owned()),
             agent: "claude-code".to_owned(),
+            initiators: None,
             entrypoint: Some("cli".to_owned()),
             own: Totals {
                 requests: 186,

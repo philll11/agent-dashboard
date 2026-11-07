@@ -420,6 +420,9 @@ pub struct SessionDetail {
     pub agent_version: Option<String>,
     /// `claude-code` or `copilot-cli`.
     pub agent: String,
+    /// Requests by who started them, for an agent that records it, as Copilot CLI does.
+    #[ts(optional = nullable)]
+    pub initiators: Option<Initiators>,
     /// How the agent was started, such as Claude Code's `cli` or Copilot CLI's `github/cli`.
     #[ts(optional = nullable)]
     pub entrypoint: Option<String>,
@@ -511,6 +514,19 @@ pub enum StatusLine {
     Unknown {
         reason: String,
     },
+}
+
+/// A session's requests by who started them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "protocol.ts")]
+pub struct Initiators {
+    /// Requests the person's own prompts started.
+    pub you: u64,
+    /// Requests the agent made on its own, such as after a tool ran.
+    pub agent: u64,
+    /// Requests its sub-agents made.
+    pub sub_agents: u64,
 }
 
 /// An agent the dashboard can filter by.

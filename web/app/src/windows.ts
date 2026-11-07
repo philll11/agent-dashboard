@@ -3,10 +3,12 @@
 
 import type { Level, WindowReading } from "@agent-dashboard/protocol";
 
-/** What a window is called: `Five-hour window`, `Weekly, all models`, `Weekly, Fable`. */
+/** What a window is called: `Five-hour window`, `Weekly, all models`, `Weekly, Fable`, or Copilot
+ * CLI's `Copilot allowance`. */
 export function windowName(reading: WindowReading): string {
   if (reading.window === "five_hour") return "Five-hour window";
   if (reading.window === "seven_day") return "Weekly, all models";
+  if (reading.window === "monthly") return "Copilot allowance";
   if (reading.model) return `Weekly, ${reading.model}`;
   if (reading.window === "spend_limit") return "Spend limit";
   return reading.window;
@@ -15,6 +17,7 @@ export function windowName(reading: WindowReading): string {
 /** What a screen reader calls a window's meter: `Weekly Fable window`. */
 export function meterName(reading: WindowReading): string {
   if (reading.window === "five_hour") return "Five-hour window";
+  if (reading.window === "monthly") return "Copilot CLI's monthly allowance";
   if (reading.window === "seven_day") return "Weekly window";
   if (reading.model) return `Weekly ${reading.model} window`;
   return windowName(reading);
@@ -23,11 +26,13 @@ export function meterName(reading: WindowReading): string {
 function rank(reading: WindowReading): number {
   if (reading.window === "five_hour") return 0;
   if (reading.window === "seven_day") return 1;
+  if (reading.window === "monthly") return 4;
   if (reading.model) return 2;
   return 3;
 }
 
-/** Five-hour first, then weekly, then each model's weekly window, then any other. */
+/** Claude Code's windows first: five-hour, then weekly, then each model's weekly window, then any
+ * other; then Copilot CLI's allowance. */
 export function inOrder(readings: readonly WindowReading[]): WindowReading[] {
   return [...readings].sort(
     (a, b) => rank(a) - rank(b) || (a.model ?? a.window).localeCompare(b.model ?? b.window),
