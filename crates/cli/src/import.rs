@@ -1,12 +1,12 @@
-//! `claude-dashboard import`: bringing in history that another tool recorded.
+//! `agent-dashboard import`: bringing in history that another tool recorded.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use claude_dashboard_core::import::{self, ImportReport};
+use agent_dashboard_core::import::{self, ImportReport};
 
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::fmt::grouped;
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::fmt::grouped;
 
 use crate::report::ready_history;
 

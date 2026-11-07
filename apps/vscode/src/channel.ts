@@ -18,7 +18,7 @@ import type {
   Params,
   Show,
   ToExtension,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 import * as vscode from "vscode";
 import { ErrorCodes, ResponseError } from "vscode-jsonrpc/node";
 
@@ -254,7 +254,7 @@ export class Channel implements vscode.Disposable {
       return server.extensionRequest("export/save", { export: params, path: file.fsPath });
     }
     const { rows, what, content } = await server.extensionRequest("export/content", params);
-    if (content == null) throw new Error("claude-dashboard returned no content to save.");
+    if (content == null) throw new Error("agent-dashboard returned no content to save.");
     await vscode.workspace.fs.writeFile(file, Buffer.from(content, "utf8"));
     return { rows, what };
   }
@@ -314,7 +314,7 @@ function failure(error: unknown): { code: number; message: string } {
 /** The file an export is saved to: the person's choice in a save dialog. */
 async function chooseFile(name: string, format: ExportFormat): Promise<vscode.Uri | undefined> {
   // A test cannot answer a save dialog, so a folder named here receives the file instead.
-  const folder = process.env.CLAUDE_DASHBOARD_EXPORT_TO;
+  const folder = process.env.AGENT_DASHBOARD_EXPORT_TO;
   if (folder) return vscode.Uri.file(join(folder, name));
   const label = format === "csv" ? "CSV" : "JSON";
   return vscode.window.showSaveDialog({

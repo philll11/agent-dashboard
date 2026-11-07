@@ -5,10 +5,10 @@ use std::io::{IsTerminal, Write};
 use std::ops::ControlFlow;
 use std::time::{Duration, Instant};
 
-use claude_dashboard_core::history::{History, HistoryError};
-use claude_dashboard_core::ingest::{self, Progress, Report};
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::fmt::grouped;
+use agent_dashboard_core::history::{History, HistoryError};
+use agent_dashboard_core::ingest::{self, Progress, Report};
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::fmt::grouped;
 
 /// How long a first ingest runs before it shows its progress.
 const QUIET_FOR: Duration = Duration::from_millis(300);

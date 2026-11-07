@@ -1,9 +1,9 @@
-// Dashboard for Claude Code: a status bar item, a sidebar tree, and the dashboard in a view in the
-// panel and in an editor tab, all fed by `claude-dashboard serve`, which reads Claude Code's
+// Dashboard for Coding Agents: a status bar item, a sidebar tree, and the dashboard in a view in the
+// panel and in an editor tab, all fed by `agent-dashboard serve`, which reads Claude Code's
 // transcripts into the history every surface shares. The extension starts once VS Code has, so that
 // new activity is read as VS Code opens.
 
-import type { Show } from "@claude-dashboard/protocol";
+import type { Show } from "@agent-dashboard/protocol";
 import * as vscode from "vscode";
 
 import { Channels } from "./channel";
@@ -16,11 +16,11 @@ import { DashboardView, VIEW_ID } from "./view";
 
 /** What the tree's welcome content and the walkthrough go by. */
 function setContext(key: string, value: string | boolean): void {
-  void vscode.commands.executeCommand("setContext", `claudeDashboard.${key}`, value);
+  void vscode.commands.executeCommand("setContext", `agentDashboard.${key}`, value);
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const log = vscode.window.createOutputChannel("Dashboard for Claude Code", { log: true });
+  const log = vscode.window.createOutputChannel("Dashboard for Coding Agents", { log: true });
   const server = new Server(context.extensionPath, log);
   const summary = new SummaryModel(server, log);
   const statusBar = new StatusBar();
@@ -56,7 +56,7 @@ export function activate(context: vscode.ExtensionContext): void {
     channels,
     dashboard,
     view,
-    vscode.window.createTreeView("claudeDashboard.summary", { treeDataProvider: tree }),
+    vscode.window.createTreeView("agentDashboard.summary", { treeDataProvider: tree }),
     vscode.window.registerWebviewPanelSerializer(PANEL_TYPE, dashboard),
     vscode.window.registerWebviewViewProvider(VIEW_ID, view),
     server.onDidChangeState(shown),
@@ -69,35 +69,35 @@ export function activate(context: vscode.ExtensionContext): void {
       setContext("limitsConnected", current.limitsConnected);
       setContext("importOffered", summary.importOffered);
     }),
-    vscode.commands.registerCommand("claudeDashboard.open", () => {
+    vscode.commands.registerCommand("agentDashboard.open", () => {
       dashboard.open();
     }),
-    vscode.commands.registerCommand("claudeDashboard.openInEditor", () => {
+    vscode.commands.registerCommand("agentDashboard.openInEditor", () => {
       dashboard.open();
     }),
-    vscode.commands.registerCommand("claudeDashboard.show", (show: Show) => {
+    vscode.commands.registerCommand("agentDashboard.show", (show: Show) => {
       dashboard.open(show);
     }),
-    vscode.commands.registerCommand("claudeDashboard.refresh", () =>
+    vscode.commands.registerCommand("agentDashboard.refresh", () =>
       server.request("refresh", null).catch((error: unknown) => {
         log.error(`Cannot read new activity: ${String(error)}`);
       }),
     ),
-    vscode.commands.registerCommand("claudeDashboard.connectLimits", () => {
+    vscode.commands.registerCommand("agentDashboard.connectLimits", () => {
       dashboard.open({ section: "limits" });
     }),
-    vscode.commands.registerCommand("claudeDashboard.importHistory", () => {
+    vscode.commands.registerCommand("agentDashboard.importHistory", () => {
       dashboard.open({ section: "settings" });
     }),
-    vscode.commands.registerCommand("claudeDashboard.chooseFolders", () => {
+    vscode.commands.registerCommand("agentDashboard.chooseFolders", () => {
       dashboard.open({ section: "settings" });
     }),
-    vscode.commands.registerCommand("claudeDashboard.showLog", () => {
+    vscode.commands.registerCommand("agentDashboard.showLog", () => {
       log.show();
     }),
-    vscode.commands.registerCommand("claudeDashboard.restart", () => server.restart()),
+    vscode.commands.registerCommand("agentDashboard.restart", () => server.restart()),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration("claudeDashboard.server.path")) void server.restart();
+      if (event.affectsConfiguration("agentDashboard.server.path")) void server.restart();
     }),
   );
   void server.start();

@@ -21,10 +21,10 @@ use std::io::{self, BufWriter, Write};
 use std::ops::ControlFlow;
 use std::path::Path;
 
-use claude_dashboard_core::history::{History, HistoryError, SessionKey, StoredRequest};
-use claude_dashboard_core::limits;
-use claude_dashboard_core::pricing;
-use claude_dashboard_core::report::{self, Bucket, DayTotals, Range, Totals};
+use agent_dashboard_core::history::{History, HistoryError, SessionKey, StoredRequest};
+use agent_dashboard_core::limits;
+use agent_dashboard_core::pricing;
+use agent_dashboard_core::report::{self, Bucket, DayTotals, Range, Totals};
 use jiff::civil::Date;
 use jiff::{Span, Timestamp};
 use serde::Serialize;
@@ -82,7 +82,7 @@ impl From<Fault> for ExportError {
 pub type Progress<'a> = &'a mut dyn FnMut(u64, u64) -> ControlFlow<()>;
 
 /// The file name to suggest for an export, such as
-/// `claude-dashboard-sessions-2026-09-13-to-2026-10-12.csv`.
+/// `agent-dashboard-sessions-2026-09-13-to-2026-10-12.csv`.
 ///
 /// # Errors
 ///
@@ -118,7 +118,7 @@ pub fn file_name(params: &ExportParams, span: Option<(Date, Date)>) -> String {
         (dataset, _, Some((first, last))) => format!("{}-{first}-to-{last}", stem(dataset)),
         (dataset, _, None) => stem(dataset).to_owned(),
     };
-    format!("claude-dashboard-{stem}.{extension}")
+    format!("agent-dashboard-{stem}.{extension}")
 }
 
 /// What a dataset's rows are called in a file name.
@@ -192,7 +192,7 @@ pub fn save(
         ExportError::Failed(format!("Cannot write to {}: {error}", folder.display()))
     };
     let mut file = tempfile::Builder::new()
-        .prefix(".claude-dashboard-")
+        .prefix(".agent-dashboard-")
         .suffix(".part")
         .tempfile_in(folder)
         .map_err(cannot_write)?;
@@ -229,7 +229,7 @@ pub fn content(
     let rows = match write(app, params, &mut out, true, progress) {
         Err(_) if out.overflowed => {
             return Err(ExportError::Failed(format!(
-                "The export is larger than {} MB. Save it on the computer where claude-dashboard runs, or run claude-dashboard export there.",
+                "The export is larger than {} MB. Save it on the computer where agent-dashboard runs, or run agent-dashboard export there.",
                 LONGEST_CONTENT / (1024 * 1024)
             )));
         }

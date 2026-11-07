@@ -1,20 +1,20 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Dashboard for Claude Code",
-  "mainBinaryName": "claude-dashboard-desktop",
-  "identifier": "io.github.philll11.claude-dashboard",
+  "productName": "Dashboard for Coding Agents",
+  "mainBinaryName": "agent-dashboard-desktop",
+  "identifier": "io.github.philll11.agent-dashboard",
   "build": {
     "frontendDist": "../../../web/app/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "pnpm --filter @claude-dashboard/app dev",
-    "beforeBuildCommand": "pnpm --filter @claude-dashboard/app build"
+    "beforeDevCommand": "pnpm --filter @agent-dashboard/app dev",
+    "beforeBuildCommand": "pnpm --filter @agent-dashboard/app build"
   },
   "app": {
     "windows": [
       {
         "label": "main",
         "create": false,
-        "title": "Dashboard for Claude Code",
+        "title": "Dashboard for Coding Agents",
         "width": 1296,
         "height": 860,
         "minWidth": 800,
@@ -50,7 +50,7 @@
     "publisher": "Leonard Phillips",
     "copyright": "Copyright (c) 2026 Leonard Phillips",
     "license": "MIT",
-    "homepage": "https://github.com/philll11/claude-dashboard",
+    "homepage": "https://github.com/philll11/agent-dashboard",
     "category": "DeveloperTool",
     "shortDescription": "See how you use Claude Code: plan limits, usage and API-equivalent cost.",
     "longDescription": "See how you use Claude Code: how close you are to your plan limits, what your usage would cost at API prices, and where it goes.",
@@ -72,7 +72,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBNzQyMUY5RDVGOTkwMzUKUldRMWtQblYrU0YwNnVycmxQcjZFbE13TVhEVmJnN0Nub3Frc3JOOXZsQ0ZQckgvZW1adlNGTEMK",
       "endpoints": [
-        "https://github.com/philll11/claude-dashboard/releases/latest/download/latest.json"
+        "https://github.com/philll11/agent-dashboard/releases/latest/download/desktop-update.json"
       ],
       "windows": {
         "installMode": "passive"

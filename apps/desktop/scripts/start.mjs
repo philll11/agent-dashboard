@@ -6,7 +6,7 @@
 // screen as well. An app it installs, it uninstalls again.
 //
 //   node scripts/start.mjs --target aarch64-apple-darwin
-//   node scripts/start.mjs --app "<folder>/Dashboard for Claude Code.app"
+//   node scripts/start.mjs --app "<folder>/Dashboard for Coding Agents.app"
 //   node scripts/start.mjs --installer <setup.exe or .deb>
 
 import { execFileSync, spawn } from "node:child_process";
@@ -18,7 +18,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
-import { prepare } from "@claude-dashboard/app/testing";
+import { prepare } from "@agent-dashboard/app/testing";
 
 import { newAppFolders } from "./app-folders.mjs";
 import { install } from "./installer.mjs";
@@ -36,20 +36,20 @@ if ([values.target, values.app, values.installer].filter(Boolean).length !== 1) 
 
 /** The app's program inside a macOS app bundle, or the program itself elsewhere. */
 function program(app) {
-  return process.platform === "darwin" ? join(app, "Contents/MacOS/claude-dashboard-desktop") : app;
+  return process.platform === "darwin" ? join(app, "Contents/MacOS/agent-dashboard-desktop") : app;
 }
 
-/** The app as built for `target`, with the claude-dashboard program Tauri put next to it. */
+/** The app as built for `target`, with the agent-dashboard program Tauri put next to it. */
 function built(target) {
   const release = join(repository, "target", target, "release");
   return process.platform === "darwin"
     ? globSync(
-        `${release}/bundle/macos/*.app/Contents/MacOS/claude-dashboard-desktop`.replaceAll(
+        `${release}/bundle/macos/*.app/Contents/MacOS/agent-dashboard-desktop`.replaceAll(
           "\\",
           "/",
         ),
       )[0]
-    : join(release, `claude-dashboard-desktop${process.platform === "win32" ? ".exe" : ""}`);
+    : join(release, `agent-dashboard-desktop${process.platform === "win32" ? ".exe" : ""}`);
 }
 
 const prepared = await prepare();
@@ -75,7 +75,7 @@ const started = Date.now();
 const child = spawn(app, [], {
   env: {
     ...prepared.env,
-    CLAUDE_DASHBOARD_HISTORY: history,
+    AGENT_DASHBOARD_HISTORY: history,
     // WebView2 keeps the window's storage in a folder of the check's own.
     WEBVIEW2_USER_DATA_FOLDER: join(prepared.folder, "webview"),
   },

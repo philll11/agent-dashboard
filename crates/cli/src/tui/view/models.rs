@@ -1,8 +1,8 @@
 //! Models: cost per day by model, each model's tokens by kind, its share of fast mode and of the
 //! cost, and the prices the estimate uses. A page that scrolls when it does not fit.
 
-use claude_dashboard_server::fmt::{compact, grouped, percent, price, short_date};
-use claude_dashboard_server::protocol::{ModelRow, Overview, PriceRow, Prices};
+use agent_dashboard_server::fmt::{compact, grouped, percent, price, short_date};
+use agent_dashboard_server::protocol::{ModelRow, Overview, PriceRow, Prices};
 
 use super::chart;
 use super::overview::{cost_chart, cost_text, tokens_of};
@@ -204,7 +204,7 @@ fn draw_page(c: &mut Canvas, state: &State, overview: &Overview) {
             c.text(
                 3,
                 y + 1,
-                "claude-dashboard prices update looks for its price.",
+                "agent-dashboard prices update looks for its price.",
                 theme.muted(),
             );
             y += 2;

@@ -1,5 +1,5 @@
-use claude_dashboard_core::pricing::{PriceTable, PriceTableError, Rates, Request};
-use claude_dashboard_core::tokens::Tokens;
+use agent_dashboard_core::pricing::{PriceTable, PriceTableError, Rates, Request};
+use agent_dashboard_core::tokens::Tokens;
 
 /// 2026-10-10T06:16:27.123Z.
 const OCTOBER_2026: i64 = 1_791_612_987_123;

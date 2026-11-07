@@ -1,17 +1,17 @@
-//! `claude-dashboard limits`: each plan window and the recent five-hour windows; turning
+//! `agent-dashboard limits`: each plan window and the recent five-hour windows; turning
 //! Anthropic's usage endpoint on or off; and what `doctor` says about it.
 
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_core::usage_endpoint::{self, Outcome, Refresh, State};
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::export::{WindowRow, csv_field};
-use claude_dashboard_server::fmt::{ago, clock, day_label, money, percent, resets};
-use claude_dashboard_server::glance::{in_order, window_name};
-use claude_dashboard_server::limits::{CONSENT, login_note, sentence, trouble, view};
-use claude_dashboard_server::protocol::{FiveHourWindow, Level, Limits, Provenance, WindowView};
+use agent_dashboard_core::history::History;
+use agent_dashboard_core::usage_endpoint::{self, Outcome, Refresh, State};
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::export::{WindowRow, csv_field};
+use agent_dashboard_server::fmt::{ago, clock, day_label, money, percent, resets};
+use agent_dashboard_server::glance::{in_order, window_name};
+use agent_dashboard_server::limits::{CONSENT, login_note, sentence, trouble, view};
+use agent_dashboard_server::protocol::{FiveHourWindow, Level, Limits, Provenance, WindowView};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
 use serde::Serialize;
@@ -372,7 +372,7 @@ pub fn endpoint(app: &App, on: bool, yes: bool) -> ExitCode {
         println!("The usage endpoint is off.");
         return ExitCode::SUCCESS;
     }
-    println!("\nThe usage endpoint is on. Turn it off with claude-dashboard limits endpoint off.");
+    println!("\nThe usage endpoint is on. Turn it off with agent-dashboard limits endpoint off.");
     // Asking once now shows whether the endpoint works with this computer's login.
     let asked = matches!(refresh(app, &mut history), Some(Refresh::Asked(_)));
     let state = history.usage_endpoint().unwrap_or_default();

@@ -1,6 +1,6 @@
 {
-  "name": "claude-dashboard",
-  "displayName": "Dashboard for Claude Code",
+  "name": "agent-dashboard",
+  "displayName": "Dashboard for Coding Agents",
   "description": "See how you use Claude Code: plan limits, usage, API-equivalent cost and where it goes.",
   "version": "1.1.0",
   "publisher": "philll11",
@@ -12,12 +12,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/philll11/claude-dashboard.git",
+    "url": "https://github.com/philll11/agent-dashboard.git",
     "directory": "apps/vscode"
   },
-  "homepage": "https://github.com/philll11/claude-dashboard#readme",
+  "homepage": "https://github.com/philll11/agent-dashboard#readme",
   "bugs": {
-    "url": "https://github.com/philll11/claude-dashboard/issues"
+    "url": "https://github.com/philll11/agent-dashboard/issues"
   },
   "categories": [
     "AI",
@@ -49,89 +49,89 @@
   "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished",
-    "onWebviewPanel:claudeDashboard.dashboard"
+    "onWebviewPanel:agentDashboard.dashboard"
   ],
   "contributes": {
     "commands": [
       {
-        "command": "claudeDashboard.open",
+        "command": "agentDashboard.open",
         "title": "Open Dashboard",
-        "category": "Dashboard for Claude Code",
+        "category": "Dashboard for Coding Agents",
         "icon": "$(link-external)"
       },
       {
-        "command": "claudeDashboard.openInEditor",
+        "command": "agentDashboard.openInEditor",
         "title": "Open in Editor",
-        "category": "Dashboard for Claude Code",
+        "category": "Dashboard for Coding Agents",
         "icon": "$(link-external)"
       },
       {
-        "command": "claudeDashboard.refresh",
+        "command": "agentDashboard.refresh",
         "title": "Read New Activity",
-        "category": "Dashboard for Claude Code",
+        "category": "Dashboard for Coding Agents",
         "icon": "$(refresh)"
       },
       {
-        "command": "claudeDashboard.connectLimits",
+        "command": "agentDashboard.connectLimits",
         "title": "Connect Plan Limits",
-        "category": "Dashboard for Claude Code"
+        "category": "Dashboard for Coding Agents"
       },
       {
-        "command": "claudeDashboard.importHistory",
+        "command": "agentDashboard.importHistory",
         "title": "Bring In History from claude-usage",
-        "category": "Dashboard for Claude Code"
+        "category": "Dashboard for Coding Agents"
       },
       {
-        "command": "claudeDashboard.chooseFolders",
+        "command": "agentDashboard.chooseFolders",
         "title": "Choose Data Folders",
-        "category": "Dashboard for Claude Code"
+        "category": "Dashboard for Coding Agents"
       },
       {
-        "command": "claudeDashboard.showLog",
+        "command": "agentDashboard.showLog",
         "title": "Show Log",
-        "category": "Dashboard for Claude Code"
+        "category": "Dashboard for Coding Agents"
       },
       {
-        "command": "claudeDashboard.restart",
-        "title": "Restart claude-dashboard",
-        "category": "Dashboard for Claude Code"
+        "command": "agentDashboard.restart",
+        "title": "Restart agent-dashboard",
+        "category": "Dashboard for Coding Agents"
       },
       {
-        "command": "claudeDashboard.show",
+        "command": "agentDashboard.show",
         "title": "Show Section",
-        "category": "Dashboard for Claude Code"
+        "category": "Dashboard for Coding Agents"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "claudeDashboard.show",
+          "command": "agentDashboard.show",
           "when": "false"
         },
         {
-          "command": "claudeDashboard.openInEditor",
+          "command": "agentDashboard.openInEditor",
           "when": "false"
         }
       ],
       "view/title": [
         {
-          "command": "claudeDashboard.refresh",
-          "when": "view == claudeDashboard.summary",
+          "command": "agentDashboard.refresh",
+          "when": "view == agentDashboard.summary",
           "group": "navigation@1"
         },
         {
-          "command": "claudeDashboard.open",
-          "when": "view == claudeDashboard.summary",
+          "command": "agentDashboard.open",
+          "when": "view == agentDashboard.summary",
           "group": "navigation@2"
         },
         {
-          "command": "claudeDashboard.refresh",
-          "when": "view == claudeDashboard.view",
+          "command": "agentDashboard.refresh",
+          "when": "view == agentDashboard.view",
           "group": "navigation@1"
         },
         {
-          "command": "claudeDashboard.openInEditor",
-          "when": "view == claudeDashboard.view",
+          "command": "agentDashboard.openInEditor",
+          "when": "view == agentDashboard.view",
           "group": "navigation@2"
         }
       ]
@@ -139,115 +139,115 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "claudeDashboard",
-          "title": "Dashboard for Claude Code",
+          "id": "agentDashboard",
+          "title": "Dashboard for Coding Agents",
           "icon": "media/activity.svg"
         }
       ],
       "panel": [
         {
-          "id": "claudeDashboardUsage",
+          "id": "agentDashboardUsage",
           "title": "Usage dashboard",
           "icon": "media/activity.svg"
         }
       ]
     },
     "views": {
-      "claudeDashboard": [
+      "agentDashboard": [
         {
-          "id": "claudeDashboard.summary",
-          "name": "Dashboard for Claude Code",
-          "contextualTitle": "Dashboard for Claude Code",
+          "id": "agentDashboard.summary",
+          "name": "Dashboard for Coding Agents",
+          "contextualTitle": "Dashboard for Coding Agents",
           "icon": "media/activity.svg"
         }
       ],
-      "claudeDashboardUsage": [
+      "agentDashboardUsage": [
         {
           "type": "webview",
-          "id": "claudeDashboard.view",
+          "id": "agentDashboard.view",
           "name": "Usage dashboard",
-          "contextualTitle": "Dashboard for Claude Code",
+          "contextualTitle": "Dashboard for Coding Agents",
           "icon": "media/activity.svg"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "claudeDashboard.summary",
+        "view": "agentDashboard.summary",
         "contents": "Reading your Claude Code history…",
-        "when": "claudeDashboard.state == starting"
+        "when": "agentDashboard.state == starting"
       },
       {
-        "view": "claudeDashboard.summary",
-        "contents": "claude-dashboard has stopped, so the dashboard cannot show your usage.\n[Restart claude-dashboard](command:claudeDashboard.restart)\n[Show the log](command:claudeDashboard.showLog)",
-        "when": "claudeDashboard.state == stopped"
+        "view": "agentDashboard.summary",
+        "contents": "agent-dashboard has stopped, so the dashboard cannot show your usage.\n[Restart agent-dashboard](command:agentDashboard.restart)\n[Show the log](command:agentDashboard.showLog)",
+        "when": "agentDashboard.state == stopped"
       },
       {
-        "view": "claudeDashboard.summary",
-        "contents": "The extension has no claude-dashboard program for this platform. Set claudeDashboard.server.path to one, such as a build from the GitHub release.\n[Open the setting](command:workbench.action.openSettings?%22claudeDashboard.server.path%22)",
-        "when": "claudeDashboard.state == noProgram"
+        "view": "agentDashboard.summary",
+        "contents": "The extension has no agent-dashboard program for this platform. Set agentDashboard.server.path to one, such as a build from the GitHub release.\n[Open the setting](command:workbench.action.openSettings?%22agentDashboard.server.path%22)",
+        "when": "agentDashboard.state == noProgram"
       }
     ],
     "configuration": {
-      "title": "Dashboard for Claude Code",
+      "title": "Dashboard for Coding Agents",
       "properties": {
-        "claudeDashboard.server.path": {
+        "agentDashboard.server.path": {
           "type": "string",
           "default": "",
           "scope": "machine",
-          "markdownDescription": "The `claude-dashboard` program to run instead of the one that comes with the extension, such as a build of your own. Leave it empty to use the one that comes with the extension."
+          "markdownDescription": "The `agent-dashboard` program to run instead of the one that comes with the extension, such as a build of your own. Leave it empty to use the one that comes with the extension."
         }
       }
     },
     "walkthroughs": [
       {
         "id": "start",
-        "title": "Get started with Dashboard for Claude Code",
+        "title": "Get started with Dashboard for Coding Agents",
         "description": "Record your plan limits, bring in older history, and choose where Claude Code keeps its data.",
         "steps": [
           {
             "id": "connectLimits",
             "title": "Record your plan limits",
-            "description": "Claude Code passes your plan limits to its status line. Connect claude-dashboard's status line to record them; the dashboard shows the change to Claude Code's settings before making it, and you can undo it.\n[Connect plan limits](command:claudeDashboard.connectLimits)",
+            "description": "Claude Code passes your plan limits to its status line. Connect agent-dashboard's status line to record them; the dashboard shows the change to Claude Code's settings before making it, and you can undo it.\n[Connect plan limits](command:agentDashboard.connectLimits)",
             "media": {
               "markdown": "media/walkthrough/limits.md"
             },
             "completionEvents": [
-              "onContext:claudeDashboard.limitsConnected"
+              "onContext:agentDashboard.limitsConnected"
             ]
           },
           {
             "id": "importHistory",
             "title": "Bring in your claude-usage history",
-            "description": "If you used the claude-usage dashboard, it kept requests that Claude Code has since deleted. Bring them into your history once.\n[Bring in history](command:claudeDashboard.importHistory)",
+            "description": "If you used the claude-usage dashboard, it kept requests that Claude Code has since deleted. Bring them into your history once.\n[Bring in history](command:agentDashboard.importHistory)",
             "media": {
               "markdown": "media/walkthrough/import.md"
             },
-            "when": "claudeDashboard.importOffered",
+            "when": "agentDashboard.importOffered",
             "completionEvents": [
-              "onCommand:claudeDashboard.importHistory"
+              "onCommand:agentDashboard.importHistory"
             ]
           },
           {
             "id": "chooseFolders",
             "title": "Choose your data folders",
-            "description": "claude-dashboard reads the folder where Claude Code keeps its data. Add any other, such as Claude Code's folder in WSL.\n[Choose data folders](command:claudeDashboard.chooseFolders)",
+            "description": "agent-dashboard reads the folder where Claude Code keeps its data. Add any other, such as Claude Code's folder in WSL.\n[Choose data folders](command:agentDashboard.chooseFolders)",
             "media": {
               "markdown": "media/walkthrough/folders.md"
             },
             "completionEvents": [
-              "onCommand:claudeDashboard.chooseFolders"
+              "onCommand:agentDashboard.chooseFolders"
             ]
           },
           {
             "id": "openDashboard",
             "title": "Open the dashboard",
-            "description": "See where your usage goes: sessions, projects, models and limits.\n[Open the dashboard](command:claudeDashboard.open)",
+            "description": "See where your usage goes: sessions, projects, models and limits.\n[Open the dashboard](command:agentDashboard.open)",
             "media": {
               "markdown": "media/walkthrough/dashboard.md"
             },
             "completionEvents": [
-              "onCommand:claudeDashboard.open"
+              "onCommand:agentDashboard.open"
             ]
           }
         ]
@@ -263,8 +263,8 @@
     "package": "node scripts/package.mjs"
   },
   "dependencies": {
-    "@claude-dashboard/app": "workspace:*",
-    "@claude-dashboard/protocol": "workspace:*",
+    "@agent-dashboard/app": "workspace:*",
+    "@agent-dashboard/protocol": "workspace:*",
     "vscode-jsonrpc": "9.0.3"
   },
   "devDependencies": {

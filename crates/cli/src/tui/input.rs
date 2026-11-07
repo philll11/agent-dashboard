@@ -4,7 +4,7 @@
 use std::thread;
 use std::time::Duration;
 
-use claude_dashboard_server::app;
+use agent_dashboard_server::app;
 use crossbeam_channel::Sender;
 use ratatui::crossterm::event::{self, KeyEventKind};
 

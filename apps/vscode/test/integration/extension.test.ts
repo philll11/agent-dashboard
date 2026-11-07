@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 import * as vscode from "vscode";
 
-const ID = "philll11.claude-dashboard";
+const ID = "philll11.agent-dashboard";
 
 function dashboardTabs(): vscode.Tab[] {
   return vscode.window.tabGroups.all
@@ -16,7 +16,7 @@ function dashboardTabs(): vscode.Tab[] {
     .filter(
       (tab) =>
         tab.input instanceof vscode.TabInputWebview &&
-        tab.input.viewType.endsWith("claudeDashboard.dashboard"),
+        tab.input.viewType.endsWith("agentDashboard.dashboard"),
     );
 }
 
@@ -43,7 +43,7 @@ function largestTranscript(projects: string): string {
   return largest.path;
 }
 
-/** The history's files as they stand, which change while claude-dashboard writes to them. */
+/** The history's files as they stand, which change while agent-dashboard writes to them. */
 function historyState(history: string): string {
   return [history, `${history}-wal`]
     .map((file) => {
@@ -57,7 +57,7 @@ function historyState(history: string): string {
     .join(" ");
 }
 
-describe("Dashboard for Claude Code", () => {
+describe("Dashboard for Coding Agents", () => {
   before(async () => {
     const extension = vscode.extensions.getExtension(ID);
     assert.ok(extension, `${ID} is installed`);
@@ -71,37 +71,37 @@ describe("Dashboard for Claude Code", () => {
   it("registers its commands", async () => {
     const commands = await vscode.commands.getCommands(true);
     for (const command of [
-      "claudeDashboard.open",
-      "claudeDashboard.openInEditor",
-      "claudeDashboard.show",
-      "claudeDashboard.refresh",
-      "claudeDashboard.connectLimits",
-      "claudeDashboard.importHistory",
-      "claudeDashboard.chooseFolders",
-      "claudeDashboard.showLog",
-      "claudeDashboard.restart",
+      "agentDashboard.open",
+      "agentDashboard.openInEditor",
+      "agentDashboard.show",
+      "agentDashboard.refresh",
+      "agentDashboard.connectLimits",
+      "agentDashboard.importHistory",
+      "agentDashboard.chooseFolders",
+      "agentDashboard.showLog",
+      "agentDashboard.restart",
     ]) {
       assert.ok(commands.includes(command), command);
     }
   });
 
   it("lets only user and remote settings choose the program", () => {
-    const setting = vscode.workspace.getConfiguration("claudeDashboard").inspect("server.path");
+    const setting = vscode.workspace.getConfiguration("agentDashboard").inspect("server.path");
     assert.equal(setting?.defaultValue, "");
     const manifest = vscode.extensions.getExtension(ID)?.packageJSON as {
       contributes: { configuration: { properties: Record<string, { scope: string }> } };
     };
     assert.equal(
-      manifest.contributes.configuration.properties["claudeDashboard.server.path"]?.scope,
+      manifest.contributes.configuration.properties["agentDashboard.server.path"]?.scope,
       "machine",
     );
   });
 
   it("opens the dashboard in one editor tab", async () => {
-    await vscode.commands.executeCommand("claudeDashboard.open");
+    await vscode.commands.executeCommand("agentDashboard.open");
     await until(() => dashboardTabs().length === 1, "The dashboard opening");
-    await vscode.commands.executeCommand("claudeDashboard.show", { section: "limits" });
-    await vscode.commands.executeCommand("claudeDashboard.open");
+    await vscode.commands.executeCommand("agentDashboard.show", { section: "limits" });
+    await vscode.commands.executeCommand("agentDashboard.open");
     // VS Code marks the tab active a moment after it comes forward.
     await until(() => dashboardTabs()[0]?.isActive === true, "The dashboard coming forward");
     const tabs = dashboardTabs();
@@ -122,44 +122,44 @@ describe("Dashboard for Claude Code", () => {
     const views = manifest.contributes.views[container.id];
     assert.deepEqual(
       views?.map((view) => [view.id, view.type, view.name]),
-      [["claudeDashboard.view", "webview", "Usage dashboard"]],
+      [["agentDashboard.view", "webview", "Usage dashboard"]],
     );
   });
 
   it("shows the view in the panel without opening an editor tab", async () => {
-    await vscode.commands.executeCommand("claudeDashboard.view.focus");
-    await vscode.commands.executeCommand("claudeDashboard.openInEditor");
+    await vscode.commands.executeCommand("agentDashboard.view.focus");
+    await vscode.commands.executeCommand("agentDashboard.openInEditor");
     await until(() => dashboardTabs().length === 1, "The dashboard opening in the editor");
     await vscode.commands.executeCommand("workbench.action.closeAllEditors");
-    await vscode.commands.executeCommand("claudeDashboard.view.focus");
+    await vscode.commands.executeCommand("agentDashboard.view.focus");
     await new Promise((resolve) => setTimeout(resolve, 1_000));
     assert.equal(dashboardTabs().length, 0);
   });
 
   it("opens the dashboard from a tree item", async () => {
-    await vscode.commands.executeCommand("claudeDashboard.show", {
+    await vscode.commands.executeCommand("agentDashboard.show", {
       section: "sessions",
-      project: "C--code-claude-dashboard",
+      project: "C--code-agent-dashboard",
     });
     await until(() => dashboardTabs().length === 1, "The dashboard opening");
   });
 
-  it("starts claude-dashboard again on request", async () => {
-    await vscode.commands.executeCommand("claudeDashboard.restart");
-    await vscode.commands.executeCommand("claudeDashboard.refresh");
+  it("starts agent-dashboard again on request", async () => {
+    await vscode.commands.executeCommand("agentDashboard.restart");
+    await vscode.commands.executeCommand("agentDashboard.refresh");
   });
 
-  it("leaves reading to claude-dashboard, so the extension host stays idle", async () => {
+  it("leaves reading to agent-dashboard, so the extension host stays idle", async () => {
     // With the dashboard both in an editor tab and in the view, each told of every change.
-    await vscode.commands.executeCommand("claudeDashboard.open");
+    await vscode.commands.executeCommand("agentDashboard.open");
     await until(() => dashboardTabs().length === 1, "The dashboard opening");
-    await vscode.commands.executeCommand("claudeDashboard.view.focus");
+    await vscode.commands.executeCommand("agentDashboard.view.focus");
     const root = process.env.CLAUDE_CONFIG_DIR ?? "";
-    const history = process.env.CLAUDE_DASHBOARD_HISTORY ?? "";
+    const history = process.env.AGENT_DASHBOARD_HISTORY ?? "";
     assert.ok(root && history, "the tests name a Claude Code folder and a history");
     const projects = join(root, "projects");
     const transcript = readFileSync(largestTranscript(projects));
-    // Copies of one transcript: claude-dashboard reads every byte of them, though they add no
+    // Copies of one transcript: agent-dashboard reads every byte of them, though they add no
     // requests to the history.
     const copies = join(projects, "C--load");
     mkdirSync(copies, { recursive: true });
@@ -172,15 +172,15 @@ describe("Dashboard for Claude Code", () => {
       const before = historyState(history);
       const cpu = process.cpuUsage();
       const started = performance.now();
-      await vscode.commands.executeCommand("claudeDashboard.refresh");
-      await until(() => historyState(history) !== before, "claude-dashboard reading the copies");
+      await vscode.commands.executeCommand("agentDashboard.refresh");
+      await until(() => historyState(history) !== before, "agent-dashboard reading the copies");
       // The read has finished once the history has stayed the same for two seconds. What the
       // extension host used until the history last changed is what it used while the read went on.
       let state = historyState(history);
       let changed = performance.now();
       let used = process.cpuUsage(cpu);
       while (performance.now() - changed < 2000) {
-        assert.ok(performance.now() - started < 120_000, "claude-dashboard finished reading");
+        assert.ok(performance.now() - started < 120_000, "agent-dashboard finished reading");
         await new Promise((resolve) => setTimeout(resolve, 100));
         const now = historyState(history);
         if (now !== state) {
@@ -191,7 +191,7 @@ describe("Dashboard for Claude Code", () => {
       }
       const share = (used.user + used.system) / 1000 / (changed - started);
       console.log(
-        `      The extension host used ${(share * 100).toFixed(1)}% of a processor while claude-dashboard read ${String(Math.round(bytes / 1024 / 1024))} MiB in ${String(Math.round(changed - started))} ms.`,
+        `      The extension host used ${(share * 100).toFixed(1)}% of a processor while agent-dashboard read ${String(Math.round(bytes / 1024 / 1024))} MiB in ${String(Math.round(changed - started))} ms.`,
       );
       assert.ok(share < 0.1, `the extension host used ${(share * 100).toFixed(1)}% of a processor`);
     } finally {

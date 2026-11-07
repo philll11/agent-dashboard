@@ -1,6 +1,6 @@
 # VS Code talks to the bundled binary with JSON-RPC over stdio
 
-The VS Code extension starts the bundled binary with `claude-dashboard serve --stdio` and exchanges JSON-RPC messages with it, framed like the Language Server Protocol, instead of running a local web server.
+The VS Code extension starts the bundled binary with `agent-dashboard serve --stdio` and exchanges JSON-RPC messages with it, framed like the Language Server Protocol, instead of running a local web server.
 There are no ports to allocate, no firewall prompts, and nothing another local process can connect to.
 The Rust types are the single source of truth for this API, and the TypeScript types used by the extension and the web UI are generated from them.
 

@@ -1,7 +1,7 @@
 //! Plan limits from Anthropic's usage endpoint, when the person turns it on (ADR 0005).
 //!
 //! The endpoint is undocumented, so its readings are experimental, and it needs Claude Code's
-//! login. claude-dashboard reads that login without changing it, never refreshes it, and sends
+//! login. agent-dashboard reads that login without changing it, never refreshes it, and sends
 //! it only to the endpoint, over HTTPS, checked against the operating system's certificates.
 //! Every process on the machine together asks at most once per [`INTERVAL_MS`], and only when no
 //! reading is newer than that, and waits longer after the endpoint says it is asked too often.

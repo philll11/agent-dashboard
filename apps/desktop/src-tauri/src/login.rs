@@ -1,8 +1,8 @@
 //! Opening the app at login, hidden in its item: a value in the Run key on Windows, a launch agent
 //! on macOS and an autostart entry on Linux, as `auto-launch` makes them.
 
+use agent_dashboard_server::Fault;
 use auto_launch::{AutoLaunch, AutoLaunchBuilder};
-use claude_dashboard_server::Fault;
 use tauri::AppHandle;
 
 use crate::lifecycle::HIDDEN;
@@ -126,25 +126,25 @@ mod tests {
     fn a_run_key_value_quotes_the_path_so_its_arguments_reach_the_app() {
         assert_eq!(
             command_line_word(
-                r"C:\Users\you\AppData\Local\Dashboard for Claude Code\claude-dashboard-desktop.exe"
+                r"C:\Users\you\AppData\Local\Dashboard for Coding Agents\agent-dashboard-desktop.exe"
             ),
-            r#""C:\Users\you\AppData\Local\Dashboard for Claude Code\claude-dashboard-desktop.exe""#
+            r#""C:\Users\you\AppData\Local\Dashboard for Coding Agents\agent-dashboard-desktop.exe""#
         );
     }
 
     #[test]
     fn a_plain_path_is_its_own_exec_word() {
         assert_eq!(
-            exec_word("/usr/bin/claude-dashboard-desktop"),
-            "/usr/bin/claude-dashboard-desktop"
+            exec_word("/usr/bin/agent-dashboard-desktop"),
+            "/usr/bin/agent-dashboard-desktop"
         );
     }
 
     #[test]
     fn a_path_with_a_space_is_quoted_in_the_exec_key() {
         assert_eq!(
-            exec_word("/home/you/Apps/Dashboard for Claude Code.AppImage"),
-            r#""/home/you/Apps/Dashboard for Claude Code.AppImage""#
+            exec_word("/home/you/Apps/Dashboard for Coding Agents.AppImage"),
+            r#""/home/you/Apps/Dashboard for Coding Agents.AppImage""#
         );
     }
 

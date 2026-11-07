@@ -1,8 +1,8 @@
-// Packages the extension with vsce: for one platform with its claude-dashboard program, or for no
+// Packages the extension with vsce: for one platform with its agent-dashboard program, or for no
 // platform, as the package VS Code installs where no other fits, which explains that the platform
-// needs `claudeDashboard.server.path`.
+// needs `agentDashboard.server.path`.
 //
-//   node scripts/package.mjs --target win32-x64 --program <claude-dashboard.exe> [--out <file>]
+//   node scripts/package.mjs --target win32-x64 --program <agent-dashboard.exe> [--out <file>]
 //   node scripts/package.mjs [--out <file>]
 
 import { execFileSync } from "node:child_process";
@@ -34,7 +34,7 @@ for (const file of ["LICENSE", "CHANGELOG.md"])
 const server = join(root, "server");
 rmSync(server, { recursive: true, force: true });
 if (values.program) {
-  const name = values.target.startsWith("win32-") ? "claude-dashboard.exe" : "claude-dashboard";
+  const name = values.target.startsWith("win32-") ? "agent-dashboard.exe" : "agent-dashboard";
   mkdirSync(server);
   copyFileSync(resolve(values.program), join(server, name));
   chmodSync(join(server, name), 0o755);

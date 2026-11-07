@@ -1,5 +1,5 @@
 // The messages between the dashboard in a VS Code webview and the extension that hosts it. The
-// extension passes requests on to `claude-dashboard serve`, and its answers and notifications
+// extension passes requests on to `agent-dashboard serve`, and its answers and notifications
 // back.
 
 import type { ExportParams, Exported } from "./generated/protocol";

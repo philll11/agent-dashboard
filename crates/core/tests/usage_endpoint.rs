@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::PathBuf;
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_core::limits::{FIVE_HOUR, LimitSnapshot, SEVEN_DAY, Source};
-use claude_dashboard_core::roots;
-use claude_dashboard_core::usage_endpoint::{
+use agent_dashboard_core::history::History;
+use agent_dashboard_core::limits::{FIVE_HOUR, LimitSnapshot, SEVEN_DAY, Source};
+use agent_dashboard_core::roots;
+use agent_dashboard_core::usage_endpoint::{
     self, Answer, INTERVAL_MS, LoginSource, Outcome, Refresh,
 };
 

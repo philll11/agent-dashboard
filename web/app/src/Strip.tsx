@@ -13,7 +13,7 @@ import type {
   StatusLine,
   Totals,
   WindowReading,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 
 import { Meter } from "./charts/small";
 import { useHost } from "./context";

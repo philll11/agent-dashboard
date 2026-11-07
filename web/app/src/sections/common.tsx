@@ -2,7 +2,7 @@
 
 import { type ReactNode, useMemo } from "react";
 
-import type { Days, Totals } from "@claude-dashboard/protocol";
+import type { Days, Totals } from "@agent-dashboard/protocol";
 
 import { useHost, useStatus } from "../context";
 import { useRequest } from "../data";

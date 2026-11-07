@@ -51,7 +51,7 @@ test.describe("in the panel", () => {
 
   test("names the project of the latest session elsewhere", async ({ dashboard, page }) => {
     await dashboard.open({ placement: "view", folders: ["/home/you/code/elsewhere"] });
-    await expect(strip(page).getByText("Latest session · claude-dashboard")).toBeVisible();
+    await expect(strip(page).getByText("Latest session · agent-dashboard")).toBeVisible();
     await dashboard.check("view-elsewhere");
   });
 
@@ -122,7 +122,7 @@ test.describe("in the panel", () => {
     await dashboard.open({ placement: "view" });
     await expect(strip(page).getByRole("link", { name: "Review the runbook" })).toBeVisible();
     await page.evaluate(() => {
-      window.claudeDashboardBridge?.setFolders?.({
+      window.agentDashboardBridge?.setFolders?.({
         folders: ["/home/you/code/website"],
         ignoreCase: false,
       });
@@ -162,7 +162,7 @@ test.describe("in the panel", () => {
   test("paints its last figures at once when shown again", async ({ dashboard, page, browser }) => {
     await dashboard.open({ placement: "view" });
     await dashboard.settled();
-    const state = await page.evaluate(() => window.claudeDashboardBridge?.memory?.());
+    const state = await page.evaluate(() => window.agentDashboardBridge?.memory?.());
     expect(state).toMatchObject({ section: "overview", strip: { as: 1 } });
 
     // Shown again, before the server has answered anything.

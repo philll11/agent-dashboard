@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use claude_dashboard_core::history::{History, ProjectKey};
+use agent_dashboard_core::history::{History, ProjectKey};
 
 use crate::app::App;
 
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn a_project_is_named_by_as_much_of_its_folder_as_tells_it_apart() {
         let names = short_names(&[
-            Some(r"C:\code\claude-dashboard"),
+            Some(r"C:\code\agent-dashboard"),
             Some(r"C:\code\api\workspace"),
             Some(r"C:\bench\matrix\A-fathom-1\workspace"),
             Some(r"C:\bench\smoke\A-fathom-1\workspace\"),
@@ -86,7 +86,7 @@ mod tests {
         assert_eq!(
             names,
             [
-                Some("claude-dashboard".to_owned()),
+                Some("agent-dashboard".to_owned()),
                 Some("api/workspace".to_owned()),
                 Some("matrix/A-fathom-1/workspace".to_owned()),
                 Some("smoke/A-fathom-1/workspace".to_owned()),

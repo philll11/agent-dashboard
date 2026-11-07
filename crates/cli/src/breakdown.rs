@@ -4,15 +4,15 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
-use claude_dashboard_core::history::{History, ProjectKey, SessionKey};
-use claude_dashboard_core::report::{self, Range};
+use agent_dashboard_core::history::{History, ProjectKey, SessionKey};
+use agent_dashboard_core::report::{self, Range};
 use jiff::Span;
 use jiff::civil::Date;
 
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::fmt::short_date;
-use claude_dashboard_server::names::{model_name, project_names};
-use claude_dashboard_server::protocol::Dataset;
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::fmt::short_date;
+use agent_dashboard_server::names::{model_name, project_names};
+use agent_dashboard_server::protocol::Dataset;
 
 use crate::report::{Output, Row, cells, ready_history, sum, table, total_row};
 use crate::style::Paint;

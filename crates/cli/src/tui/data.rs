@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use claude_dashboard_server::Server;
-use claude_dashboard_server::app::App;
+use agent_dashboard_server::Server;
+use agent_dashboard_server::app::App;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
 use super::answers::Ask;

@@ -180,10 +180,9 @@ describe("the desktop app", () => {
       60_000,
     );
     const path = await session().findElement(By.css('[role="status"] .toast-path')).getText();
-    const range =
-      /^claude-dashboard-sessions-(\d{4}-\d{2}-\d{2})-to-(\d{4}-\d{2}-\d{2})\.csv$/.exec(
-        basename(path),
-      );
+    const range = /^agent-dashboard-sessions-(\d{4}-\d{2}-\d{2})-to-(\d{4}-\d{2}-\d{2})\.csv$/.exec(
+      basename(path),
+    );
     assert.ok(range, `the file has the suggested name: ${path}`);
     assert.equal(dirname(path), exportFolder);
     const [, first = "", last = ""] = range;
@@ -199,9 +198,9 @@ describe("the desktop app", () => {
     await shoot("export-saved");
   });
 
-  it("connects Claude Code's status line to a copy of claude-dashboard next to the history", async () => {
+  it("connects Claude Code's status line to a copy of agent-dashboard next to the history", async () => {
     await open("Settings");
-    assert.equal(statusLine(), "claude-dashboard statusline");
+    assert.equal(statusLine(), "agent-dashboard statusline");
 
     await press("Disconnect");
     let dialog = await session().wait(until.elementLocated(By.css("dialog[open]")), 10_000);
@@ -222,10 +221,10 @@ describe("the desktop app", () => {
     const copy = join(
       folder,
       "bin",
-      process.platform === "win32" ? "claude-dashboard.exe" : "claude-dashboard",
+      process.platform === "win32" ? "agent-dashboard.exe" : "agent-dashboard",
     );
-    assert.ok(existsSync(copy), `the status line's copy of claude-dashboard is at ${copy}`);
-    assert.match(statusLine() ?? "", /\/bin\/claude-dashboard(\.exe)? statusline$/);
+    assert.ok(existsSync(copy), `the status line's copy of agent-dashboard is at ${copy}`);
+    assert.match(statusLine() ?? "", /\/bin\/agent-dashboard(\.exe)? statusline$/);
     await shoot("status-line-connected");
   });
 
@@ -265,11 +264,11 @@ describe("the desktop app", () => {
       10_000,
     );
 
-    closeWindow("Dashboard for Claude Code");
-    await session().wait(() => !windowShown("Dashboard for Claude Code"), 10_000);
+    closeWindow("Dashboard for Coding Agents");
+    await session().wait(() => !windowShown("Dashboard for Coding Agents"), 10_000);
     const second = spawn(app, ["--section", "overview"], { env, stdio: "ignore" });
     await new Promise((resolve) => second.on("exit", resolve));
-    await session().wait(() => windowShown("Dashboard for Claude Code"), 20_000);
+    await session().wait(() => windowShown("Dashboard for Coding Agents"), 20_000);
     await session().wait(async () => (await heading()) === "Overview", 20_000);
 
     await open("Settings");

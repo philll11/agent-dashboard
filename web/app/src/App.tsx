@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import type { Status } from "@claude-dashboard/protocol";
+import type { Status } from "@agent-dashboard/protocol";
 
 import { HostContext, StatusContext, useHost } from "./context";
 import { Store, StoreContext, useReadingProgress, useRequest } from "./data";
@@ -150,7 +150,7 @@ function Shell() {
         <div className="sidebar">
           <div className="brand">
             <span className="brand-name">Dashboard</span>
-            <span className="brand-for">for Claude Code</span>
+            <span className="brand-for">for Coding Agents</span>
           </div>
           {links}
           <div className="sidebar-foot">
@@ -174,14 +174,11 @@ function Shell() {
         </StatusContext.Provider>
       ) : status.error && errorCode(status.error) === HISTORY_TOO_NEW ? (
         <Problem
-          title="Your history needs a newer claude-dashboard"
+          title="Your history needs a newer agent-dashboard"
           detail="A newer version has changed it in a way this one cannot read. Install the newest release to see it again."
         />
       ) : status.error ? (
-        <Problem
-          title="The dashboard cannot reach claude-dashboard"
-          detail={status.error.message}
-        />
+        <Problem title="The dashboard cannot reach agent-dashboard" detail={status.error.message} />
       ) : null}
     </main>
   );

@@ -2,9 +2,9 @@
 //! the recent five-hour windows, where the readings come from, the consent turning Anthropic's
 //! usage endpoint on asks for, and what went wrong the last time it was asked.
 
-use claude_dashboard_core::history::{History, HistoryError};
-use claude_dashboard_core::limits::{self, FIVE_HOUR, FIVE_HOURS_MS};
-use claude_dashboard_core::usage_endpoint::{Outcome, State};
+use agent_dashboard_core::history::{History, HistoryError};
+use agent_dashboard_core::limits::{self, FIVE_HOUR, FIVE_HOURS_MS};
+use agent_dashboard_core::usage_endpoint::{Outcome, State};
 use jiff::Timestamp;
 
 use crate::app::App;
@@ -101,6 +101,7 @@ pub fn view(app: &App, history: &History) -> Result<Limits, HistoryError> {
         recent,
         status_line: match statusline::connection(app) {
             Connection::Connected { wrapping } => StatusLine::Connected { wrapping },
+            Connection::Predecessor { wrapping } => StatusLine::Predecessor { wrapping },
             Connection::NotConnected { .. } => StatusLine::NotConnected,
             Connection::Unknown(reason) => StatusLine::Unknown { reason },
         },
@@ -121,14 +122,14 @@ pub fn view(app: &App, history: &History) -> Result<Limits, HistoryError> {
 pub const CONSENT: [&str; 5] = [
     "It reads the login Claude Code keeps on this computer and sends it only to api.anthropic.com.",
     "It never changes or refreshes that login.",
-    "It asks at most once every 5 minutes, shared by every claude-dashboard window.",
+    "It asks at most once every 5 minutes, shared by every agent-dashboard window.",
     "The endpoint is undocumented, so it can change or stop working at any time.",
     "Anthropic's terms say Claude Code's login is for Claude Code and Anthropic's own apps, and Anthropic may act on other uses without notice.",
 ];
 
-const LOGIN_EXPIRED: &str = "Claude Code's login on this computer has expired, so the usage endpoint can't be asked. Open Claude Code once to sign in again; claude-dashboard never refreshes the login itself.";
+const LOGIN_EXPIRED: &str = "Claude Code's login on this computer has expired, so the usage endpoint can't be asked. Open Claude Code once to sign in again; agent-dashboard never refreshes the login itself.";
 
-const LOGIN_REFUSED: &str = "The usage endpoint did not accept Claude Code's login on this computer. Open Claude Code once to sign in again; claude-dashboard never refreshes the login itself.";
+const LOGIN_REFUSED: &str = "The usage endpoint did not accept Claude Code's login on this computer. Open Claude Code once to sign in again; agent-dashboard never refreshes the login itself.";
 
 /// What a report says under the plan limits while the endpoint needs Claude Code's login
 /// renewed, which only the person can do.

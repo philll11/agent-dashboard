@@ -66,7 +66,7 @@ export function install(installer, folder) {
     }
     nsis(installer, "/S", `/D=${folder}`);
     return {
-      app: join(folder, "claude-dashboard-desktop.exe"),
+      app: join(folder, "agent-dashboard-desktop.exe"),
       uninstall() {
         // `_?=` runs the uninstaller in place until it has finished, rather than from a copy of
         // itself that carries on after this returns.
@@ -103,7 +103,7 @@ export function install(installer, folder) {
   }
   execFileSync("sudo", ["dpkg", "-i", installer], { stdio: "inherit" });
   return {
-    app: "/usr/bin/claude-dashboard-desktop",
+    app: "/usr/bin/agent-dashboard-desktop",
     uninstall() {
       execFileSync("sudo", ["dpkg", "-r", name], { stdio: "inherit" });
     },

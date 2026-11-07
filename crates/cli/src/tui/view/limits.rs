@@ -1,8 +1,8 @@
 //! Plan limits: the Overview's box of meters, and the Limits section with each window's use and
 //! pace, the recent five-hour windows, and where the readings come from.
 
-use claude_dashboard_server::fmt::{ago, clock, day_label, money, percent, resets, when};
-use claude_dashboard_server::protocol::{
+use agent_dashboard_server::fmt::{ago, clock, day_label, money, percent, resets, when};
+use agent_dashboard_server::protocol::{
     Endpoint, FiveHourWindow, Level, Limits, Provenance, StatusLine, WindowReading, WindowView,
 };
 use jiff::{Timestamp, Zoned};
@@ -40,7 +40,7 @@ pub fn ordered(readings: &[WindowReading]) -> Vec<&WindowReading> {
 
 /// What a window is called in the Limits section: `Weekly, all models`.
 fn name(reading: &WindowReading) -> String {
-    claude_dashboard_server::glance::window_name(reading)
+    agent_dashboard_server::glance::window_name(reading)
 }
 
 /// What a window is called in the Overview's narrower box: `Weekly, all`.
@@ -226,7 +226,7 @@ fn recording(c: &mut Canvas, state: &State, row: i32) {
         let x = c.text(
             2,
             row + 1,
-            "claude-dashboard statusline connect",
+            "agent-dashboard statusline connect",
             theme.accent(),
         );
         c.text(
@@ -241,12 +241,7 @@ fn recording(c: &mut Canvas, state: &State, row: i32) {
         row += 2;
     }
     if !limits.endpoint.enabled {
-        let x = c.text(
-            2,
-            row,
-            "claude-dashboard limits endpoint on",
-            theme.accent(),
-        );
+        let x = c.text(2, row, "agent-dashboard limits endpoint on", theme.accent());
         c.text(
             x + 3,
             row,
@@ -607,9 +602,23 @@ fn sources(c: &mut Canvas, state: &State, limits: &Limits, y: i32, wide: bool) {
             };
             c.text(x, y, text, theme.text())
         }
+        StatusLine::Predecessor { .. } => {
+            x = c.text(x, y, "▲ ", theme.warn());
+            x = c.text(
+                x,
+                y,
+                if wide {
+                    "runs claude-dashboard  switch with "
+                } else {
+                    "runs claude-dashboard  "
+                },
+                theme.text(),
+            );
+            c.text(x, y, "agent-dashboard statusline connect", theme.accent())
+        }
         StatusLine::NotConnected => {
             x = c.text(x, y, "not connected  ", theme.text());
-            c.text(x, y, "claude-dashboard statusline connect", theme.accent())
+            c.text(x, y, "agent-dashboard statusline connect", theme.accent())
         }
         StatusLine::Unknown { reason } => {
             x = c.text(x, y, "▲ ", theme.warn());
@@ -663,7 +672,7 @@ fn endpoint_line(
         }
     } else {
         let x = c.text(x, y, "off  ", theme.text());
-        c.text(x, y, "claude-dashboard limits endpoint on", theme.accent())
+        c.text(x, y, "agent-dashboard limits endpoint on", theme.accent())
     };
     // The note at the right goes where the line leaves room for it.
     let note = if endpoint.enabled {

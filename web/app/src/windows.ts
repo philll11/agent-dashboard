@@ -1,7 +1,7 @@
 // Plan windows as every surface names, orders and labels them: the dashboard, and VS Code's
 // status bar and sidebar.
 
-import type { Level, WindowReading } from "@claude-dashboard/protocol";
+import type { Level, WindowReading } from "@agent-dashboard/protocol";
 
 /** What a window is called: `Five-hour window`, `Weekly, all models`, `Weekly, Fable`. */
 export function windowName(reading: WindowReading): string {

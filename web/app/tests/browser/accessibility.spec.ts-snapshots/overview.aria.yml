@@ -58,7 +58,7 @@
     - heading "Top projects" [level=2]
     - text: /API-equivalent cost · last \d+ days/
     - list:
-      - listitem: /claude-dashboard , \$\d+\.\d+/
+      - listitem: /agent-dashboard , \$\d+\.\d+/
       - listitem: /api-gateway , \$\d+\.\d+/
       - listitem: /website , \$\d+\.\d+/
       - listitem: /infra , \$\d+\.\d+/

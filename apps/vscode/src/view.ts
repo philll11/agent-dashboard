@@ -9,7 +9,7 @@ import type { Channel, Channels } from "./channel";
 import { page, pageOptions } from "./page";
 
 /** The view's id, which `contributes.views` names. */
-export const VIEW_ID = "claudeDashboard.view";
+export const VIEW_ID = "agentDashboard.view";
 
 export class DashboardView implements vscode.WebviewViewProvider, vscode.Disposable {
   #channel: Channel | undefined;

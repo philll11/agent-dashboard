@@ -93,7 +93,7 @@ const DIALOGS: Record<string, Dialog> = {
     desktop: true,
     async open(page) {
       await page.evaluate(() => {
-        window.claudeDashboardBridge?.askClose?.();
+        window.agentDashboardBridge?.askClose?.();
       });
       return { shown: page.getByRole("dialog") };
     },

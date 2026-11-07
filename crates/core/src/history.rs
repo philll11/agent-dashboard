@@ -3,6 +3,7 @@
 //!
 //! The database holds numbers, names and titles, never prompt or code content.
 
+mod adopt;
 mod lock;
 mod migrations;
 mod reader;
@@ -17,6 +18,7 @@ use std::time::{Duration, Instant};
 
 use rusqlite::{Connection, ErrorCode, OpenFlags, OptionalExtension, TransactionBehavior};
 
+pub use adopt::{PREDECESSOR, predecessor_path};
 pub use lock::IngestLock;
 pub use reader::{StoredImport, StoredProject, StoredReportedCost, StoredRequest, StoredSession};
 pub use writer::{
@@ -32,12 +34,12 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(30);
 /// Where the history lives unless the caller chooses another place.
 ///
 /// That is the operating system's folder for local app data, never a data root:
-/// `%LOCALAPPDATA%\claude-dashboard` on Windows, `~/Library/Application Support/claude-dashboard` on
-/// macOS, and `$XDG_DATA_HOME/claude-dashboard` (by default `~/.local/share/claude-dashboard`) on
+/// `%LOCALAPPDATA%\agent-dashboard` on Windows, `~/Library/Application Support/agent-dashboard` on
+/// macOS, and `$XDG_DATA_HOME/agent-dashboard` (by default `~/.local/share/agent-dashboard`) on
 /// Linux. `None` when the operating system names no such folder.
 #[must_use]
 pub fn default_path() -> Option<PathBuf> {
-    dirs::data_local_dir().map(|folder| folder.join("claude-dashboard").join("history.sqlite"))
+    dirs::data_local_dir().map(|folder| folder.join("agent-dashboard").join("history.sqlite"))
 }
 
 /// What this process may do with the history.
@@ -45,7 +47,7 @@ pub fn default_path() -> Option<PathBuf> {
 pub enum Access {
     /// Read and record.
     ReadWrite,
-    /// Read only, because a newer claude-dashboard has upgraded the history to `schema`.
+    /// Read only, because a newer agent-dashboard has upgraded the history to `schema`.
     ReadOnly { schema: u32 },
 }
 
@@ -54,19 +56,27 @@ pub enum Access {
 pub enum HistoryError {
     #[error("cannot use {}: {source}", path.display())]
     File { path: PathBuf, source: io::Error },
-    #[error("{} is not a claude-dashboard history", path.display())]
+    #[error("{} is not an agent-dashboard history", path.display())]
     NotAHistory { path: PathBuf },
+    #[error(
+        "cannot bring in claude-dashboard's history from {}: {source}; move that file away to start without it",
+        path.display()
+    )]
+    Predecessor {
+        path: PathBuf,
+        source: Box<HistoryError>,
+    },
     #[error(
         "SQLite cannot keep a write-ahead log for {} (journal mode \"{mode}\"); the history must be on a local disk",
         path.display()
     )]
     WalUnavailable { path: PathBuf, mode: String },
     #[error(
-        "a newer claude-dashboard has upgraded the history (schema {schema}); update claude-dashboard to read it"
+        "a newer agent-dashboard has upgraded the history (schema {schema}); update agent-dashboard to read it"
     )]
     TooNew { schema: u32 },
     #[error(
-        "a newer claude-dashboard has upgraded the history (schema {schema}); update claude-dashboard to keep recording"
+        "a newer agent-dashboard has upgraded the history (schema {schema}); update agent-dashboard to keep recording"
     )]
     ReadOnly { schema: u32 },
     #[error(transparent)]
@@ -91,15 +101,33 @@ pub struct History {
 
 impl History {
     /// Opens the history at `path`, creating it and its folder when missing and upgrading it when
-    /// an older claude-dashboard created it.
+    /// an older agent-dashboard created it.
+    ///
+    /// The default history starts from a copy of claude-dashboard's, where one is kept (see
+    /// [`History::open_adopting`]); a history chosen elsewhere starts empty.
     ///
     /// # Errors
     ///
-    /// [`HistoryError::NotAHistory`] for an SQLite file that claude-dashboard did not create,
-    /// [`HistoryError::WalUnavailable`] where SQLite cannot keep a write-ahead log,
-    /// [`HistoryError::TooNew`] when the history needs a newer claude-dashboard to be read, and
-    /// file or SQLite errors.
+    /// As [`History::open_adopting`].
     pub fn open(path: &Path) -> Result<Self, HistoryError> {
+        let predecessor = (default_path().as_deref() == Some(path))
+            .then(predecessor_path)
+            .flatten();
+        Self::open_adopting(path, predecessor.as_deref())
+    }
+
+    /// Opens the history at `path` as [`History::open`] does, starting from a copy of the
+    /// claude-dashboard history at `predecessor` when `path` does not exist yet, and recording
+    /// that as an import from [`PREDECESSOR`].
+    ///
+    /// # Errors
+    ///
+    /// [`HistoryError::NotAHistory`] for an SQLite file that agent-dashboard did not create,
+    /// [`HistoryError::Predecessor`] when the predecessor's history cannot be copied,
+    /// [`HistoryError::WalUnavailable`] where SQLite cannot keep a write-ahead log,
+    /// [`HistoryError::TooNew`] when the history needs a newer agent-dashboard to be read, and
+    /// file or SQLite errors.
+    pub fn open_adopting(path: &Path, predecessor: Option<&Path>) -> Result<Self, HistoryError> {
         if let Some(folder) = path
             .parent()
             .filter(|folder| !folder.as_os_str().is_empty())
@@ -109,6 +137,21 @@ impl History {
                 source,
             })?;
         }
+        let adopted = match predecessor {
+            Some(predecessor) => adopt::adopt(path, predecessor)?,
+            None => None,
+        };
+        let mut history = Self::open_existing(path)?;
+        if let Some(requests) = adopted
+            && history.access == Access::ReadWrite
+        {
+            let now_ms = jiff::Timestamp::now().as_millisecond();
+            history.write(|w| w.record_import(PREDECESSOR, now_ms, requests))?;
+        }
+        Ok(history)
+    }
+
+    fn open_existing(path: &Path) -> Result<Self, HistoryError> {
         let mut conn = Connection::open_with_flags(
             path,
             OpenFlags::SQLITE_OPEN_READ_WRITE
@@ -145,7 +188,7 @@ impl History {
     ///
     /// # Errors
     ///
-    /// [`HistoryError::ReadOnly`] or [`HistoryError::TooNew`] once a newer claude-dashboard has
+    /// [`HistoryError::ReadOnly`] or [`HistoryError::TooNew`] once a newer agent-dashboard has
     /// upgraded the history, the error `record` returns, and SQLite errors.
     pub fn write<T>(
         &mut self,
@@ -165,7 +208,7 @@ impl History {
                 return Ok(value);
             }
             drop(tx);
-            // Another claude-dashboard has changed the schema since this process opened the history.
+            // Another agent-dashboard has changed the schema since this process opened the history.
             self.access = migrations::migrate(&mut self.conn, &self.path, MIGRATIONS)?;
         }
     }

@@ -9,7 +9,7 @@ import type {
   Limits as LimitsAnswer,
   StatusLine,
   WindowView,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 
 import { LineChart } from "../charts/lines";
 import { Meter, ShareBar } from "../charts/small";
@@ -342,7 +342,8 @@ function Sources({ limits }: { limits: LimitsAnswer }) {
             >
               Disconnect
             </button>
-          ) : limits.statusLine.state === "notConnected" ? (
+          ) : limits.statusLine.state === "notConnected" ||
+            limits.statusLine.state === "predecessor" ? (
             <button
               type="button"
               className="button compact raised"
@@ -350,7 +351,7 @@ function Sources({ limits }: { limits: LimitsAnswer }) {
                 setDialog("connect");
               }}
             >
-              Connect…
+              {limits.statusLine.state === "predecessor" ? "Switch…" : "Connect…"}
             </button>
           ) : null}
         </div>
@@ -406,6 +407,7 @@ function Sources({ limits }: { limits: LimitsAnswer }) {
 
 function StatusLinePill({ state }: { state: StatusLine }) {
   if (state.state === "connected") return <Pill tone="accent">Connected</Pill>;
+  if (state.state === "predecessor") return <Pill tone="caution">Previous dashboard</Pill>;
   if (state.state === "notConnected") return <Pill>Not connected</Pill>;
   return <Pill tone="caution">Unknown</Pill>;
 }
@@ -418,7 +420,7 @@ function StatusLineText({ limits }: { limits: LimitsAnswer }) {
   const state = limits.statusLine;
   if (state.state === "unknown") {
     return (
-      <p className="note">claude-dashboard can't tell whether it is connected: {state.reason}.</p>
+      <p className="note">agent-dashboard can't tell whether it is connected: {state.reason}.</p>
     );
   }
   if (state.state === "notConnected") {
@@ -427,6 +429,15 @@ function StatusLineText({ limits }: { limits: LimitsAnswer }) {
         Official. Claude Code passes it your five-hour and weekly windows while it runs in a
         terminal. Connecting changes one setting in Claude Code's settings.json, which you see
         before it is made.
+      </p>
+    );
+  }
+  if (state.state === "predecessor") {
+    return (
+      <p className="note">
+        Official. Claude Code's status line runs Dashboard for Claude Code, which records your
+        five-hour and weekly windows in its own history instead of here. Switching changes one
+        setting in Claude Code's settings.json, which you see before it is made.
       </p>
     );
   }

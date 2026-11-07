@@ -63,7 +63,7 @@ jobs:
       - run: cargo test --workspace --locked
       # Runs each benchmark once, so that they keep working; timings come from a quiet machine.
       - run: cargo test --workspace --benches --locked
-      - run: cargo run --locked -p claude-dashboard -- --version
+      - run: cargo run --locked -p agent-dashboard -- --version
 
   dependencies:
     name: Dependencies
@@ -89,13 +89,13 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       # The server library's unit tests write the TypeScript types; the web UI must use the ones
       # the Rust types generate.
-      - run: cargo test --locked -p claude-dashboard-server --lib
+      - run: cargo test --locked -p agent-dashboard-server --lib
       - run: git diff --exit-code -- web/protocol/src/generated
-      - run: cargo build --locked -p claude-dashboard
+      - run: cargo build --locked -p agent-dashboard
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: server-linux-x64
-          path: target/debug/claude-dashboard
+          path: target/debug/agent-dashboard
           retention-days: 1
 
   web:
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: corepack enable
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
@@ -122,10 +122,10 @@ jobs:
         with:
           name: server-linux-x64
           path: server
-      - run: chmod +x server/claude-dashboard
-      - run: pnpm --filter @claude-dashboard/app exec playwright test
+      - run: chmod +x server/agent-dashboard
+      - run: pnpm --filter @agent-dashboard/app exec playwright test
         env:
-          CLAUDE_DASHBOARD_BIN: ${{ github.workspace }}/server/claude-dashboard
+          AGENT_DASHBOARD_BIN: ${{ github.workspace }}/server/agent-dashboard
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -159,28 +159,28 @@ jobs:
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo build --locked -p claude-dashboard
+      - run: cargo build --locked -p agent-dashboard
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - run: corepack enable
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Integration tests on the oldest VS Code the extension supports
-        run: $WITH_DISPLAY pnpm --filter claude-dashboard test:integration
+        run: $WITH_DISPLAY pnpm --filter agent-dashboard test:integration
         env:
           VSCODE_VERSION: 1.126.0
       - name: Integration tests on the latest VS Code
-        run: $WITH_DISPLAY pnpm --filter claude-dashboard test:integration
+        run: $WITH_DISPLAY pnpm --filter agent-dashboard test:integration
         env:
           VSCODE_VERSION: stable
       - name: Package for this platform
         run: >-
           node apps/vscode/scripts/package.mjs --target ${{ matrix.target }}
-          --program target/debug/claude-dashboard${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
-          --out apps/vscode/claude-dashboard.vsix
+          --program target/debug/agent-dashboard${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
+          --out apps/vscode/agent-dashboard.vsix
       - name: End-to-end tests on the package
-        run: $WITH_DISPLAY node apps/vscode/scripts/e2e.mjs --vsix apps/vscode/claude-dashboard.vsix
+        run: $WITH_DISPLAY node apps/vscode/scripts/e2e.mjs --vsix apps/vscode/agent-dashboard.vsix
         env:
           E2E_STORAGE: ${{ runner.temp }}/e2e
       - if: always()
@@ -239,7 +239,7 @@ jobs:
       # every desktop has and the app's single instance relies on.
       WITH_DISPLAY: ${{ startsWith(matrix.os, 'ubuntu') && 'xvfb-run -a dbus-run-session --' || '' }}
       # The program the tests read their synthetic Claude Code folder with.
-      CLAUDE_DASHBOARD_BIN: ${{ github.workspace }}/target/${{ matrix.target }}/release/claude-dashboard${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
+      AGENT_DASHBOARD_BIN: ${{ github.workspace }}/target/${{ matrix.target }}/release/agent-dashboard${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -256,11 +256,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: desktop-${{ matrix.target }}
-      - run: cargo build --release --locked -p claude-dashboard --target ${{ matrix.target }}
+      - run: cargo build --release --locked -p agent-dashboard --target ${{ matrix.target }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - run: corepack enable
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build the installers
         env:
@@ -268,7 +268,7 @@ jobs:
           BUNDLES: ${{ matrix.bundles }}
         run: >-
           node apps/desktop/scripts/bundle.mjs --target "$TARGET" --bundles "$BUNDLES"
-          --program "target/$TARGET/release/claude-dashboard${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}"
+          --program "target/$TARGET/release/agent-dashboard${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}"
       - name: Install Tauri's WebDriver
         if: matrix.check == 'e2e'
         run: cargo install tauri-driver --locked --version 2.1.0

@@ -9,10 +9,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-use claude_dashboard_server::Fault;
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::export::{self, ExportError};
-use claude_dashboard_server::protocol::{ExportFormat, ExportParams, ExportProgress, Exported};
+use agent_dashboard_server::Fault;
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::export::{self, ExportError};
+use agent_dashboard_server::protocol::{ExportFormat, ExportParams, ExportProgress, Exported};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt as _;
@@ -21,7 +21,7 @@ use crate::bridge::MAIN;
 
 /// The environment variable that names a folder to save exports in without asking, as the
 /// end-to-end tests do, since they cannot drive the system's save dialog.
-const EXPORT_TO_ENV: &str = "CLAUDE_DASHBOARD_EXPORT_TO";
+const EXPORT_TO_ENV: &str = "AGENT_DASHBOARD_EXPORT_TO";
 
 /// How often an export reports its progress.
 const PROGRESS_EVERY: Duration = Duration::from_millis(250);

@@ -20,7 +20,7 @@ import type {
   ExportParams,
   Exported,
   ExportProgress,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 
 import { useHost } from "./context";
 import { grouped } from "./format";

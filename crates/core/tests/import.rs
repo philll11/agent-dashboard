@@ -2,9 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_core::import::{self, CLAUDE_USAGE, ImportError, ImportReport};
-use claude_dashboard_core::ingest;
+use agent_dashboard_core::history::History;
+use agent_dashboard_core::import::{self, CLAUDE_USAGE, ImportError, ImportReport};
+use agent_dashboard_core::ingest;
 use rusqlite::{Connection, OpenFlags, params};
 use serde_json::json;
 

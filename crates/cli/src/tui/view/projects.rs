@@ -1,8 +1,8 @@
 //! Projects: each project's sessions, last activity, requests, tokens, daily cost and cost, for the
 //! chosen days and model, with the selected project's cost per day by model below.
 
-use claude_dashboard_server::fmt::{clock, compact, day_label, grouped, money};
-use claude_dashboard_server::protocol::ProjectRow;
+use agent_dashboard_server::fmt::{clock, compact, day_label, grouped, money};
+use agent_dashboard_server::protocol::ProjectRow;
 use jiff::Timestamp;
 
 use super::chart;

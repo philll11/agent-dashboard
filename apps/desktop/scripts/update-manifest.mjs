@@ -1,9 +1,10 @@
-// Writes latest.json, which the desktop app reads from the latest release to find an update: for
-// each platform and kind of installer, where its update bundle is and the bundle's signature.
+// Writes desktop-update.json, which the desktop app reads from the latest release to find an
+// update: for each platform and kind of installer, where its update bundle is and the bundle's
+// signature.
 // The updater looks for `{os}-{arch}-{installer}` first, then `{os}-{arch}`.
 //
 //   node scripts/update-manifest.mjs --folder <update bundles> --repository <owner/name> --tag v0.2.0
-//     --out latest.json
+//     --out desktop-update.json
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

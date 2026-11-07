@@ -1,6 +1,6 @@
 # The terminal UI reads through the server library
 
-`claude-dashboard` without a command, in a terminal, runs the dashboard's server library, `crates/server`, in its own process, as the desktop app does (ADR 0008).
+`agent-dashboard` without a command, in a terminal, runs the dashboard's server library, `crates/server`, in its own process, as the desktop app does (ADR 0008).
 The interface asks it the dashboard's requests, such as `status`, `overview` and `sessions`, on a thread of its own, and the server's background work reads new transcripts and says when the history or the plan limits change.
 The interface keeps no numbers of its own: it shows the server's answers, and asks again when a notification says they changed.
 

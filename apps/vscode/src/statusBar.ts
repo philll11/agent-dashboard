@@ -7,7 +7,7 @@ import { now } from "./clock";
 import type { ServerState } from "./server";
 import { statusItem, type Summary } from "./shape";
 
-const NAME = "Dashboard for Claude Code";
+const NAME = "Dashboard for Coding Agents";
 
 /** Text for HTML, which the tooltip is written in. */
 function escaped(text: string): string {
@@ -16,14 +16,14 @@ function escaped(text: string): string {
 
 export class StatusBar implements vscode.Disposable {
   readonly #item = vscode.window.createStatusBarItem(
-    "claudeDashboard.status",
+    "agentDashboard.status",
     vscode.StatusBarAlignment.Right,
     100,
   );
 
   constructor() {
     this.#item.name = NAME;
-    this.#item.command = "claudeDashboard.open";
+    this.#item.command = "agentDashboard.open";
     this.#item.text = "$(dashboard)";
     this.#item.tooltip = "Reading your Claude Code history…";
     this.#item.show();
@@ -39,7 +39,7 @@ export class StatusBar implements vscode.Disposable {
         : item.level === "warning"
           ? new vscode.ThemeColor("statusBarItem.warningBackground")
           : undefined;
-    this.#item.command = "claudeDashboard.open";
+    this.#item.command = "agentDashboard.open";
     const rows = item.lines
       .map(
         (line) =>
@@ -48,10 +48,10 @@ export class StatusBar implements vscode.Disposable {
       .join("");
     const tooltip = new vscode.MarkdownString(undefined, true);
     tooltip.supportHtml = true;
-    tooltip.isTrusted = { enabledCommands: ["claudeDashboard.open"] };
+    tooltip.isTrusted = { enabledCommands: ["agentDashboard.open"] };
     tooltip.appendMarkdown(`<table>${rows}</table>\n\n`);
     tooltip.appendMarkdown(`<span>${escaped(item.note)}</span>\n\n`);
-    tooltip.appendMarkdown("[Open dashboard](command:claudeDashboard.open)");
+    tooltip.appendMarkdown("[Open dashboard](command:agentDashboard.open)");
     this.#item.tooltip = tooltip;
   }
 
@@ -69,7 +69,7 @@ export class StatusBar implements vscode.Disposable {
         this.#item.accessibilityInformation = {
           label: `${NAME} cannot show your usage: ${state.reason}`,
         };
-        this.#item.command = "claudeDashboard.showLog";
+        this.#item.command = "agentDashboard.showLog";
     }
   }
 

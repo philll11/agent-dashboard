@@ -1,4 +1,4 @@
-//! Reads Claude Code's local data and keeps the usage history behind claude-dashboard.
+//! Reads Claude Code's local data and keeps the usage history behind agent-dashboard.
 //!
 //! The words used here are defined in `CONTEXT.md` at the repository root.
 

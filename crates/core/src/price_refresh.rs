@@ -1,4 +1,4 @@
-//! A newer price table from claude-dashboard's repository, checked for once a day when the person
+//! A newer price table from agent-dashboard's repository, checked for once a day when the person
 //! switches the refresh on (ADR 0011).
 //!
 //! The table comes from `pricing/prices.json` on the repository's `main` branch. A table is used
@@ -17,7 +17,7 @@ use crate::pricing::{PriceTable, PriceTableError};
 
 /// Where the table comes from.
 pub const URL: &str =
-    "https://raw.githubusercontent.com/philll11/claude-dashboard/main/pricing/prices.json";
+    "https://raw.githubusercontent.com/philll11/agent-dashboard/main/pricing/prices.json";
 
 /// The only host a check reaches, a redirect included, such as after the repository is renamed.
 const HOST: &str = "raw.githubusercontent.com";
@@ -63,7 +63,7 @@ pub enum Outcome {
     UpToDate,
     /// The repository could not be reached, or answered with an error.
     Unreachable,
-    /// The repository's table is in a format that needs a newer claude-dashboard.
+    /// The repository's table is in a format that needs a newer agent-dashboard.
     NewerFormat,
     /// The repository's table cannot be used: it is not valid, is older than this version's, or
     /// changes prices this version has.

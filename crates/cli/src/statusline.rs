@@ -1,4 +1,4 @@
-//! `claude-dashboard statusline`: records the plan limits that Claude Code passes to a status
+//! `agent-dashboard statusline`: records the plan limits that Claude Code passes to a status
 //! line command, and prints a compact line, or the person's own status line when it wraps one; and
 //! `statusline connect` and `disconnect`, which show the change to Claude Code's settings first.
 
@@ -8,14 +8,15 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
-use claude_dashboard_core::ingest;
-use claude_dashboard_core::limits::{FIVE_HOUR, Level, SEVEN_DAY, StatusLineInput};
-use claude_dashboard_core::report::{self, Range};
-use claude_dashboard_core::transcript;
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::fmt::money;
-use claude_dashboard_server::names::model_name;
-use claude_dashboard_server::statusline::{
+use agent_dashboard_core::history;
+use agent_dashboard_core::ingest;
+use agent_dashboard_core::limits::{FIVE_HOUR, Level, SEVEN_DAY, StatusLineInput};
+use agent_dashboard_core::report::{self, Range};
+use agent_dashboard_core::transcript;
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::fmt::money;
+use agent_dashboard_server::names::model_name;
+use agent_dashboard_server::statusline::{
     Plan, members, plan_connect, plan_disconnect, read_settings, settings_path, wrapped_command,
 };
 use serde_json::{Map, Value};
@@ -68,7 +69,7 @@ fn record(app: &App, input: &StatusLineInput) -> Option<f64> {
     Some(models.iter().map(|model| model.totals.cost.total()).sum())
 }
 
-/// claude-dashboard's own status line:
+/// agent-dashboard's own status line:
 /// `Fix the importer · Opus 5.5 · 5h 42% · week 71% ▲ · $5.05 today`.
 fn our_line(app: &App, input: &StatusLineInput, today_usd: Option<f64>) -> String {
     let paint = Paint::for_claude_code();
@@ -215,7 +216,7 @@ fn describe_change(
 }
 
 /// Prints a plan's change and asks before making it; `undo` names how to take it back.
-fn confirm_and_make(plan: Plan, yes: bool, undo: Option<&str>, done: &str) -> ExitCode {
+fn confirm_and_make(app: &App, plan: Plan, yes: bool, undo: Option<&str>, done: &str) -> ExitCode {
     let change = match plan {
         Plan::Change(change) => change,
         Plan::Nothing(reason) => {
@@ -256,6 +257,9 @@ fn confirm_and_make(plan: Plan, yes: bool, undo: Option<&str>, done: &str) -> Ex
     }
     match change.make() {
         Ok(()) => {
+            if change.replaces_predecessor {
+                bring_in_predecessor_limits(app);
+            }
             println!("{done}");
             ExitCode::SUCCESS
         }
@@ -266,15 +270,26 @@ fn confirm_and_make(plan: Plan, yes: bool, undo: Option<&str>, done: &str) -> Ex
     }
 }
 
+/// Brings in the plan limits claude-dashboard's status line recorded since the history was
+/// adopted from it. The status line already runs agent-dashboard by then, so a failure leaves a
+/// gap in the readings rather than undoing the change.
+fn bring_in_predecessor_limits(app: &App) {
+    if let (Some(predecessor), Ok(mut history)) = (history::predecessor_path(), app.open_history())
+    {
+        let _ = history.bring_in_limits(&predecessor);
+    }
+}
+
 pub fn connect(app: &App, yes: bool) -> ExitCode {
     confirm_and_make(
+        app,
         plan_connect(app),
         yes,
-        Some("claude-dashboard statusline disconnect"),
+        Some("agent-dashboard statusline disconnect"),
         "Connected. Claude Code runs it after its next response.",
     )
 }
 
 pub fn disconnect(app: &App, yes: bool) -> ExitCode {
-    confirm_and_make(plan_disconnect(app), yes, None, "Disconnected.")
+    confirm_and_make(app, plan_disconnect(app), yes, None, "Disconnected.")
 }

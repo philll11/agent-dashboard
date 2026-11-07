@@ -1,13 +1,13 @@
-//! `claude-dashboard prices`: the price table in use, and the check for a newer one in
-//! claude-dashboard's repository.
+//! `agent-dashboard prices`: the price table in use, and the check for a newer one in
+//! agent-dashboard's repository.
 
 use std::process::ExitCode;
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_core::price_refresh::{self, Check, Outcome, State, When};
-use claude_dashboard_core::pricing::PriceTable;
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::fmt::{ago, short_date};
+use agent_dashboard_core::history::History;
+use agent_dashboard_core::price_refresh::{self, Check, Outcome, State, When};
+use agent_dashboard_core::pricing::PriceTable;
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::fmt::{ago, short_date};
 use jiff::Timestamp;
 
 use crate::style::Paint;
@@ -19,7 +19,7 @@ fn open(app: &App) -> Result<History, ExitCode> {
     })
 }
 
-/// `claude-dashboard prices`: the table in use and the daily check.
+/// `agent-dashboard prices`: the table in use and the daily check.
 pub fn status(app: &App) -> ExitCode {
     let history = match open(app) {
         Ok(history) => history,
@@ -39,8 +39,8 @@ pub fn status(app: &App) -> ExitCode {
     } else {
         println!(
             "Daily check: off. {} switches it on, and {} checks once now.",
-            paint.strong("claude-dashboard prices refresh on"),
-            paint.strong("claude-dashboard prices update")
+            paint.strong("agent-dashboard prices refresh on"),
+            paint.strong("agent-dashboard prices update")
         );
         if let Some(checked) = last_check(app, &state) {
             println!("{}", sentence(&checked));
@@ -49,7 +49,7 @@ pub fn status(app: &App) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// `claude-dashboard prices refresh on|off`.
+/// `agent-dashboard prices refresh on|off`.
 pub fn switch(app: &App, on: bool) -> ExitCode {
     let mut history = match open(app) {
         Ok(history) => history,
@@ -61,7 +61,7 @@ pub fn switch(app: &App, on: bool) -> ExitCode {
     }
     if on {
         println!(
-            "The daily check for a newer price table is on. A running dashboard checks claude-dashboard's repository on GitHub once a day."
+            "The daily check for a newer price table is on. A running dashboard checks agent-dashboard's repository on GitHub once a day."
         );
     } else {
         println!(
@@ -71,7 +71,7 @@ pub fn switch(app: &App, on: bool) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// `claude-dashboard prices update`: checks for a newer table now.
+/// `agent-dashboard prices update`: checks for a newer table now.
 pub fn update(app: &App) -> ExitCode {
     let mut history = match open(app) {
         Ok(history) => history,
@@ -90,7 +90,7 @@ pub fn update(app: &App) -> ExitCode {
     let checked = short_date(price_refresh::in_use(&settings).checked());
     match outcome {
         Outcome::Updated => {
-            println!("Updated to the prices of {checked} from claude-dashboard's repository.");
+            println!("Updated to the prices of {checked} from agent-dashboard's repository.");
             ExitCode::SUCCESS
         }
         Outcome::UpToDate => {
@@ -115,11 +115,11 @@ pub fn table_words(app: &App, state: &State) -> String {
         .filter(|_| !PriceTable::is_bundled(&app.prices))
     {
         Some(downloaded_ms) => format!(
-            "Prices of {checked}, from Anthropic's pricing page, downloaded {} from claude-dashboard's repository.",
+            "Prices of {checked}, from Anthropic's pricing page, downloaded {} from agent-dashboard's repository.",
             moment(app, downloaded_ms)
         ),
         None => format!(
-            "Prices of {checked}, from Anthropic's pricing page, as this version of claude-dashboard has them."
+            "Prices of {checked}, from Anthropic's pricing page, as this version of agent-dashboard has them."
         ),
     }
 }
@@ -141,10 +141,10 @@ pub fn outcome_words(outcome: Outcome, detail: Option<&str>) -> String {
         Outcome::Updated => "a newer price table arrived".to_owned(),
         Outcome::UpToDate => "up to date".to_owned(),
         Outcome::Unreachable => format!(
-            "cannot reach claude-dashboard's repository: {}",
+            "cannot reach agent-dashboard's repository: {}",
             detail.unwrap_or("no answer")
         ),
-        Outcome::NewerFormat => "the newest price table needs a newer claude-dashboard".to_owned(),
+        Outcome::NewerFormat => "the newest price table needs a newer agent-dashboard".to_owned(),
         Outcome::Refused => format!(
             "the newest price table cannot be used: {}",
             detail.unwrap_or("it is not valid")

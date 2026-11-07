@@ -3,7 +3,7 @@
 
 import { createContext, useContext } from "react";
 
-import type { Days, Show, Status } from "@claude-dashboard/protocol";
+import type { Days, Show, Status } from "@agent-dashboard/protocol";
 
 import { addDays } from "./format";
 

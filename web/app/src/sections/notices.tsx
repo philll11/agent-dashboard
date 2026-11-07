@@ -3,7 +3,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 
-import type { Health, Prices, Status } from "@claude-dashboard/protocol";
+import type { Health, Prices, Status } from "@agent-dashboard/protocol";
 
 import { useHost, useStatus } from "../context";
 import { useReadingProgress, useRequest, useStore } from "../data";
@@ -12,6 +12,7 @@ import { RELEASES, type Updates } from "../host";
 import { Download, EmptyFolder, ErrorCircle, Lock, Warning } from "../ui/icons";
 import { Notice } from "../ui/panels";
 import { useView } from "../view";
+import { StatusLineDialog } from "./dialogs";
 
 export function Notices() {
   const status = useStatus();
@@ -23,6 +24,7 @@ export function Notices() {
       {health && <NoHistory status={status} health={health} />}
       {status.access === "readOnly" && <ReadOnly />}
       {status.access === "readWrite" && <ImportOffer />}
+      {status.access === "readWrite" && <Predecessor />}
       {health && <Unreadable health={health} />}
       {prices && <PriceDrift prices={prices} />}
     </>
@@ -162,6 +164,44 @@ function ImportOffer() {
   );
 }
 
+/** Claude Code's status line still runs Dashboard for Claude Code, which records the plan limits
+ * in its own history. */
+function Predecessor() {
+  const limits = useRequest("limits", null).data;
+  const [switching, setSwitching] = useState(false);
+  if (limits?.statusLine.state !== "predecessor") return null;
+  return (
+    <Notice
+      tone="caution"
+      icon={<Warning size={18} stroke={1.75} />}
+      title="Claude Code's status line runs Dashboard for Claude Code"
+      actions={
+        <button
+          type="button"
+          className="button primary"
+          onClick={() => {
+            setSwitching(true);
+          }}
+        >
+          Switch…
+        </button>
+      }
+    >
+      Until it runs this dashboard, your plan limits are recorded in Dashboard for Claude Code's
+      history instead of here. Switching changes one setting in Claude Code's settings.json, which
+      you see before it is made.
+      {switching && (
+        <StatusLineDialog
+          connect
+          onClose={() => {
+            setSwitching(false);
+          }}
+        />
+      )}
+    </Notice>
+  );
+}
+
 /** A day as `31 July`. */
 function dayMonth(day: string): string {
   return fullDate(day).replace(/ \d{4}$/, "");
@@ -176,8 +216,8 @@ function ReadOnly() {
       title="Read-only until you update"
       actions={host.updates && <UpdateAction updates={host.updates} />}
     >
-      A newer version of claude-dashboard has upgraded your history. This version can show it but
-      not add to it.
+      A newer version of agent-dashboard has upgraded your history. This version can show it but not
+      add to it.
       {!host.updates && (
         <>
           {" "}

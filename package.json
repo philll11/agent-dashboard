@@ -1,5 +1,5 @@
 {
-  "name": "claude-dashboard-workspace",
+  "name": "agent-dashboard-workspace",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.5.1",

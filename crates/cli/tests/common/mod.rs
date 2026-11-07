@@ -35,7 +35,7 @@ impl Fixture {
 
     /// The command, kept to this fixture's data root and history, in UTC and without colour.
     pub fn cli(&self, args: &[&str]) -> Command {
-        self.cli_at(Path::new(env!("CARGO_BIN_EXE_claude-dashboard")), args)
+        self.cli_at(Path::new(env!("CARGO_BIN_EXE_agent-dashboard")), args)
     }
 
     /// The command as `cli` gives it, run from `program`.
@@ -44,8 +44,8 @@ impl Fixture {
         command
             .args(args)
             .env("CLAUDE_CONFIG_DIR", self.root())
-            .env("CLAUDE_DASHBOARD_HISTORY", self.history())
-            .env("CLAUDE_DASHBOARD_NOW", NOW)
+            .env("AGENT_DASHBOARD_HISTORY", self.history())
+            .env("AGENT_DASHBOARD_NOW", NOW)
             .env("TZ", "UTC")
             .env("NO_COLOR", "1")
             .env_remove("COLORTERM")
@@ -65,7 +65,7 @@ impl Fixture {
         fs::write(path, lines.join("\n") + "\n").unwrap();
     }
 
-    /// The command with nothing on the `PATH`, so that `connect` names claude-dashboard by its
+    /// The command with nothing on the `PATH`, so that `connect` names agent-dashboard by its
     /// full path on every platform.
     pub fn cli_without_path(&self, args: &[&str]) -> Command {
         let mut command = self.cli(args);

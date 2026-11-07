@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use claude_dashboard_core::roots::{RootStatus, inspect};
+use agent_dashboard_core::roots::{RootStatus, inspect};
 
 fn write(path: &Path, contents: &str) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();

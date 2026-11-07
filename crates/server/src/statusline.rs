@@ -1,4 +1,4 @@
-//! Claude Code's status line setting: whether claude-dashboard's status line is connected, what
+//! Claude Code's status line setting: whether agent-dashboard's status line is connected, what
 //! connecting or disconnecting it would change, and making that change.
 
 use std::fs;
@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 use crate::app::App;
 use crate::program;
 
-/// What follows claude-dashboard's own status line command when it wraps the person's.
+/// What follows agent-dashboard's own status line command when it wraps the person's.
 const THEN: &str = " --then ";
 
 /// Characters that would split a wrapped command into several, or redirect it, in the shell
@@ -17,10 +17,14 @@ const THEN: &str = " --then ";
 const STRUCTURAL: [char; 10] = ['|', ';', '&', '<', '>', '(', ')', '`', '\n', '\r'];
 
 /// The backup kept next to `settings.json` before a change.
-const BACKUP: &str = "settings.claude-dashboard-backup.json";
+const BACKUP: &str = "settings.agent-dashboard-backup.json";
+
+/// The names claude-dashboard, as agent-dashboard was called before version 2, runs its status line
+/// under: its program and its short name.
+const PREDECESSOR_NAMES: [&str; 2] = ["claude-dashboard", "cld"];
 
 /// Whether a command uses shell operators outside quotes, so that it would not stay one command
-/// once claude-dashboard's command is written in front of it.
+/// once agent-dashboard's command is written in front of it.
 fn has_shell_operators(command: &str) -> bool {
     let mut chars = command.chars();
     let mut quote = None;
@@ -38,11 +42,14 @@ fn has_shell_operators(command: &str) -> bool {
     false
 }
 
-/// Whether claude-dashboard is Claude Code's status line.
+/// Whether agent-dashboard is Claude Code's status line.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Connection {
     /// It is; `wrapping` is the person's own status line, run after it.
     Connected { wrapping: Option<String> },
+    /// claude-dashboard is, which records the plan limits into its own history until connecting
+    /// agent-dashboard replaces it; `wrapping` is the person's own status line, run after it.
+    Predecessor { wrapping: Option<String> },
     /// It is not; `current` is the status line command Claude Code runs instead.
     NotConnected { current: Option<String> },
     /// The settings cannot tell.
@@ -101,9 +108,20 @@ pub fn cleanup_period_days(app: &App) -> u32 {
         .unwrap_or(30)
 }
 
-/// Whether a status line command is claude-dashboard's: its program is `claude-dashboard` or its
-/// short name, however it is reached, and its first argument is `statusline`.
-fn is_ours(command: &str) -> bool {
+/// Whose status line command a command is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Owner {
+    /// agent-dashboard's.
+    Ours,
+    /// claude-dashboard's.
+    Predecessor,
+}
+
+/// Whose status line command `command` is: agent-dashboard's when its program is
+/// `agent-dashboard` or its short name, claude-dashboard's when it is one of
+/// [`PREDECESSOR_NAMES`], however the program is reached, and in either case only when its first
+/// argument is `statusline`.
+fn owner(command: &str) -> Option<Owner> {
     let command = command.trim_start();
     let (program, rest) = match command.chars().next() {
         Some(quote @ ('"' | '\'')) => command[1..]
@@ -113,28 +131,40 @@ fn is_ours(command: &str) -> bool {
             .split_once(char::is_whitespace)
             .unwrap_or((command, "")),
     };
+    if rest.split_whitespace().next() != Some("statusline") {
+        return None;
+    }
     let name = program
         .rsplit(['/', '\\'])
         .next()
         .unwrap_or_default()
         .trim_end_matches(".exe");
-    (name == "claude-dashboard" || name == program::ALIAS)
-        && rest.split_whitespace().next() == Some("statusline")
+    if name == "agent-dashboard" || name == program::ALIAS {
+        Some(Owner::Ours)
+    } else if PREDECESSOR_NAMES.contains(&name) {
+        Some(Owner::Predecessor)
+    } else {
+        None
+    }
 }
 
-/// The person's own status line command that claude-dashboard's wraps, exactly as it stands in
-/// the settings.
+/// The person's own status line command that agent-dashboard's, or claude-dashboard's, wraps,
+/// exactly as it stands in the settings.
 #[must_use]
 pub fn wrapped_command(settings: &Map<String, Value>) -> Option<String> {
     let command = status_line_command(settings).ok()??;
-    if !is_ours(command) {
-        return None;
-    }
+    owner(command)?;
+    wrapped(command)
+}
+
+/// What follows `--then` in a status line command of ours or claude-dashboard's.
+fn wrapped(command: &str) -> Option<String> {
     command
         .split_once(THEN)
         .map(|(_, wrapped)| wrapped.to_owned())
 }
 
+#[must_use]
 pub fn connection(app: &App) -> Connection {
     let Some(path) = settings_path(app) else {
         return Connection::Unknown("there is no data folder".to_owned());
@@ -144,14 +174,18 @@ pub fn connection(app: &App) -> Connection {
         Err(reason) => return Connection::Unknown(reason),
     };
     match status_line_command(&settings) {
-        Ok(Some(command)) if is_ours(command) => Connection::Connected {
-            wrapping: command
-                .split_once(THEN)
-                .map(|(_, wrapped)| wrapped.to_owned()),
+        Ok(Some(command)) => match owner(command) {
+            Some(Owner::Ours) => Connection::Connected {
+                wrapping: wrapped(command),
+            },
+            Some(Owner::Predecessor) => Connection::Predecessor {
+                wrapping: wrapped(command),
+            },
+            None => Connection::NotConnected {
+                current: Some(command.to_owned()),
+            },
         },
-        Ok(current) => Connection::NotConnected {
-            current: current.map(str::to_owned),
-        },
+        Ok(None) => Connection::NotConnected { current: None },
         Err(reason) => Connection::Unknown(reason),
     }
 }
@@ -162,9 +196,8 @@ fn status_line_program(app: &App) -> Result<(PathBuf, Option<(PathBuf, PathBuf)>
     let Some(program) = &app.status_line_copy else {
         return Ok((program::this()?, None));
     };
-    let copy = program::copy_path(app).ok_or(
-        "there is no folder for local app data on this system to keep claude-dashboard in",
-    )?;
+    let copy = program::copy_path(app)
+        .ok_or("there is no folder for local app data on this system to keep agent-dashboard in")?;
     Ok((copy.clone(), Some((program.clone(), copy))))
 }
 
@@ -204,6 +237,9 @@ pub struct Change {
     settings: Map<String, Value>,
     /// The program to copy, and where the copy goes, for the new status line to run.
     copy: Option<(PathBuf, PathBuf)>,
+    /// Whether the change replaces claude-dashboard's status line, whose readings since the history
+    /// was adopted are then brought in (see `History::bring_in_limits`).
+    pub replaces_predecessor: bool,
 }
 
 impl Change {
@@ -246,7 +282,7 @@ pub enum Plan {
     Refused(String),
 }
 
-/// What connecting claude-dashboard's status line would change.
+/// What connecting agent-dashboard's status line would change.
 pub fn plan_connect(app: &App) -> Plan {
     let (path, mut settings) = match load(app, "connect") {
         Ok(loaded) => loaded,
@@ -262,21 +298,27 @@ pub fn plan_connect(app: &App) -> Plan {
         Ok(named) => named,
         Err(reason) => return Plan::Refused(format!("Cannot connect: {reason}.")),
     };
-    let new_command = match &current {
-        Some(command) if is_ours(command) => {
+    let current_owner = current.as_deref().and_then(owner);
+    let new_command = match (&current, current_owner) {
+        (Some(_), Some(Owner::Ours)) => {
             return Plan::Nothing(format!(
-                "claude-dashboard's status line is already connected in {}.",
+                "agent-dashboard's status line is already connected in {}.",
                 path.display()
             ));
         }
-        Some(command) if has_shell_operators(command) => {
+        (Some(command), Some(Owner::Predecessor)) => match wrapped(command) {
+            Some(wrapped) => format!("{program} statusline{THEN}{wrapped}"),
+            None => format!("{program} statusline"),
+        },
+        (Some(command), None) if has_shell_operators(command) => {
             return Plan::Refused(format!(
-                "Your status line command uses shell operators such as pipes, which claude-dashboard cannot wrap safely:\n  {command}\nPut it in a script, point statusLine at the script, and connect again."
+                "Your status line command uses shell operators such as pipes, which agent-dashboard cannot wrap safely:\n  {command}\nPut it in a script, point statusLine at the script, and connect again."
             ));
         }
-        Some(command) => format!("{program} statusline{THEN}{command}"),
-        None => format!("{program} statusline"),
+        (Some(command), None) => format!("{program} statusline{THEN}{command}"),
+        (None, _) => format!("{program} statusline"),
     };
+    let replaces_predecessor = current_owner == Some(Owner::Predecessor);
     let old = settings
         .get("statusLine")
         .and_then(Value::as_object)
@@ -285,10 +327,12 @@ pub fn plan_connect(app: &App) -> Plan {
     status_line.insert("type".to_owned(), Value::String("command".to_owned()));
     status_line.insert("command".to_owned(), Value::String(new_command));
     settings.insert("statusLine".to_owned(), Value::Object(status_line.clone()));
-    let effect = if old.is_some() {
-        "Your status line keeps showing; claude-dashboard records the plan limits Claude Code passes to it."
+    let effect = if replaces_predecessor {
+        "Claude Code's status line runs agent-dashboard instead of claude-dashboard, and agent-dashboard records the plan limits Claude Code passes to it, starting with those claude-dashboard recorded since agent-dashboard took over its history."
+    } else if old.is_some() {
+        "Your status line keeps showing; agent-dashboard records the plan limits Claude Code passes to it."
     } else {
-        "Claude Code shows claude-dashboard's status line, with the model, the plan limits and today's API-equivalent cost, and claude-dashboard records the plan limits Claude Code passes to it."
+        "Claude Code shows agent-dashboard's status line, with the model, the plan limits and today's API-equivalent cost, and agent-dashboard records the plan limits Claude Code passes to it."
     };
     Plan::Change(Box::new(Change {
         path,
@@ -297,10 +341,11 @@ pub fn plan_connect(app: &App) -> Plan {
         effect,
         settings,
         copy,
+        replaces_predecessor,
     }))
 }
 
-/// What disconnecting claude-dashboard's status line would change: the person's own status line
+/// What disconnecting agent-dashboard's status line would change: the person's own status line
 /// comes back, or none.
 pub fn plan_disconnect(app: &App) -> Plan {
     let (path, mut settings) = match load(app, "disconnect") {
@@ -310,11 +355,11 @@ pub fn plan_disconnect(app: &App) -> Plan {
     let Some(command) = status_line_command(&settings)
         .ok()
         .flatten()
-        .filter(|command| is_ours(command))
+        .filter(|command| owner(command).is_some())
         .map(str::to_owned)
     else {
         return Plan::Nothing(format!(
-            "claude-dashboard's status line is not connected in {}.",
+            "agent-dashboard's status line is not connected in {}.",
             path.display()
         ));
     };
@@ -330,10 +375,10 @@ pub fn plan_disconnect(app: &App) -> Plan {
     });
     let effect = if let Some(status_line) = &restored {
         settings.insert("statusLine".to_owned(), Value::Object(status_line.clone()));
-        "Claude Code shows your own status line again, and claude-dashboard stops recording plan limits from it."
+        "Claude Code shows your own status line again, and agent-dashboard stops recording plan limits from it."
     } else {
         settings.remove("statusLine");
-        "Claude Code shows no status line, and claude-dashboard stops recording plan limits from it."
+        "Claude Code shows no status line, and agent-dashboard stops recording plan limits from it."
     };
     Plan::Change(Box::new(Change {
         path,
@@ -342,6 +387,7 @@ pub fn plan_disconnect(app: &App) -> Plan {
         effect,
         settings,
         copy: None,
+        replaces_predecessor: false,
     }))
 }
 
@@ -354,12 +400,12 @@ fn save(path: &Path, settings: &Map<String, Value>) -> Result<(), String> {
     }
     let mut text = serde_json::to_string_pretty(settings).map_err(|error| error.to_string())?;
     text.push('\n');
-    let temporary = folder.join("settings.json.claude-dashboard-saving");
+    let temporary = folder.join("settings.json.agent-dashboard-saving");
     fs::write(&temporary, text).map_err(|error| error.to_string())?;
     fs::rename(&temporary, path).map_err(|error| error.to_string())
 }
 
-/// Brings the status line's copy of claude-dashboard up to date with the program it is copied from,
+/// Brings the status line's copy of agent-dashboard up to date with the program it is copied from,
 /// when a status line runs such a copy: the program a surface brings may be newer, after an
 /// update.
 ///
@@ -384,23 +430,42 @@ mod tests {
     #[test]
     fn recognises_its_own_status_line_however_it_is_reached() {
         for command in [
-            "claude-dashboard statusline",
-            "claude-dashboard statusline --then ~/.claude/my-statusline.sh",
-            "C:/Users/ada/.cargo/bin/claude-dashboard.exe statusline",
-            "\"/opt/claude dashboard/claude-dashboard\" statusline",
-            "cld statusline",
-            "C:/Users/ada/.cargo/bin/cld.exe statusline --then ~/.claude/my-statusline.sh",
+            "agent-dashboard statusline",
+            "agent-dashboard statusline --then ~/.claude/my-statusline.sh",
+            "C:/Users/ada/.cargo/bin/agent-dashboard.exe statusline",
+            "\"/opt/agent dashboard/agent-dashboard\" statusline",
+            "agd statusline",
+            "C:/Users/ada/.cargo/bin/agd.exe statusline --then ~/.claude/my-statusline.sh",
         ] {
-            assert!(is_ours(command), "{command}");
+            assert_eq!(owner(command), Some(Owner::Ours), "{command}");
         }
         for command in [
             "~/.claude/statusline.sh",
+            "agent-dashboard today",
+            "my-agent-dashboard statusline",
+            "agd today",
+            "my-agd statusline",
+        ] {
+            assert_eq!(owner(command), None, "{command}");
+        }
+    }
+
+    #[test]
+    fn recognises_claude_dashboards_status_line_as_its_predecessors() {
+        for command in [
+            "claude-dashboard statusline",
+            r"C:\Users\ada\AppData\Local\claude-dashboard\bin\claude-dashboard.exe statusline --then ~/.claude/my-statusline.sh",
+            "\"/opt/claude dashboard/claude-dashboard\" statusline",
+            "cld statusline",
+        ] {
+            assert_eq!(owner(command), Some(Owner::Predecessor), "{command}");
+        }
+        for command in [
             "claude-dashboard today",
             "my-claude-dashboard statusline",
             "cld today",
-            "my-cld statusline",
         ] {
-            assert!(!is_ours(command), "{command}");
+            assert_eq!(owner(command), None, "{command}");
         }
     }
 
@@ -422,14 +487,17 @@ mod tests {
 
     #[test]
     fn the_wrapped_command_is_read_back_exactly() {
-        let settings: Map<String, Value> = serde_json::from_str(
-            r#"{"statusLine": {"type": "command", "command": "claude-dashboard statusline --then jq -r '\"[\\(.model.display_name)]\"'", "padding": 2}}"#,
-        )
-        .unwrap();
-        assert_eq!(
-            wrapped_command(&settings).as_deref(),
-            Some(r#"jq -r '"[\(.model.display_name)]"'"#)
-        );
+        for program in ["agent-dashboard", "claude-dashboard"] {
+            let settings: Map<String, Value> = serde_json::from_str(&format!(
+                r#"{{"statusLine": {{"type": "command", "command": "{program} statusline --then jq -r '\"[\\(.model.display_name)]\"'", "padding": 2}}}}"#,
+            ))
+            .unwrap();
+            assert_eq!(
+                wrapped_command(&settings).as_deref(),
+                Some(r#"jq -r '"[\(.model.display_name)]"'"#),
+                "{program}"
+            );
+        }
     }
 
     #[test]

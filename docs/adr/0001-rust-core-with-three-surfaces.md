@@ -1,7 +1,7 @@
 # A Rust core shared by the terminal, the desktop app and VS Code
 
 The product runs on Windows, macOS and Linux in three surfaces, inside VS Code, as a desktop app and in a terminal, with nothing extra to install.
-One Rust core does all the work; the terminal UI (ratatui) lives in the `claude-dashboard` binary, the desktop app is a Tauri 2 app, and the VS Code extension bundles the same binary for each platform.
+One Rust core does all the work; the terminal UI (ratatui) lives in the `agent-dashboard` binary, the desktop app is a Tauri 2 app, and the VS Code extension bundles the same binary for each platform.
 The desktop app and the VS Code dashboard share one web UI.
 
 ## Considered options

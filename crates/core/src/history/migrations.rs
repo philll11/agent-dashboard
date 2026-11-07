@@ -9,7 +9,8 @@ use rusqlite::{Connection, OpenFlags, TransactionBehavior};
 
 use super::{Access, BUSY_TIMEOUT, HistoryError};
 
-/// Marks an SQLite file as a claude-dashboard history.
+/// Marks an SQLite file as an agent-dashboard history. It keeps the value claude-dashboard gave
+/// it, so the history agent-dashboard adopts from claude-dashboard opens as its own.
 const APPLICATION_ID: i32 = i32::from_be_bytes(*b"CDHI");
 
 /// One step from a schema version to the next.
@@ -95,7 +96,7 @@ impl Schema {
     }
 }
 
-/// Refuses an SQLite file that claude-dashboard did not create.
+/// Refuses an SQLite file that agent-dashboard did not create.
 pub(super) fn check_owner(conn: &Connection, path: &Path) -> Result<(), HistoryError> {
     // One statement, so both values come from the same moment while another process creates the
     // history.

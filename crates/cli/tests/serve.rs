@@ -1,4 +1,4 @@
-//! `claude-dashboard serve --stdio`, spoken to as the VS Code extension speaks to it: JSON-RPC
+//! `agent-dashboard serve --stdio`, spoken to as the VS Code extension speaks to it: JSON-RPC
 //! with `Content-Length` framing over its standard input and output.
 
 use std::collections::HashMap;
@@ -50,12 +50,12 @@ impl Server {
     }
 
     fn launch(dir: tempfile::TempDir, root: PathBuf, history: PathBuf, options: &[&str]) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_claude-dashboard"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_agent-dashboard"))
             .args(["serve", "--stdio"])
             .args(options)
             .env("CLAUDE_CONFIG_DIR", &root)
-            .env("CLAUDE_DASHBOARD_HISTORY", &history)
-            .env("CLAUDE_DASHBOARD_NOW", NOW)
+            .env("AGENT_DASHBOARD_HISTORY", &history)
+            .env("AGENT_DASHBOARD_NOW", NOW)
             .env("TZ", "UTC")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -319,11 +319,11 @@ fn shows_the_plan_limits_a_status_line_records() {
     let mut server = Server::start();
     server.changed();
     let resets_at = NOW.parse::<jiff::Timestamp>().unwrap().as_second() + 3_600;
-    let mut statusline = Command::new(env!("CARGO_BIN_EXE_claude-dashboard"))
+    let mut statusline = Command::new(env!("CARGO_BIN_EXE_agent-dashboard"))
         .arg("statusline")
         .env("CLAUDE_CONFIG_DIR", &server.root)
-        .env("CLAUDE_DASHBOARD_HISTORY", &server.history)
-        .env("CLAUDE_DASHBOARD_NOW", NOW)
+        .env("AGENT_DASHBOARD_HISTORY", &server.history)
+        .env("AGENT_DASHBOARD_NOW", NOW)
         .env("NO_COLOR", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
@@ -456,7 +456,7 @@ fn changes_claude_codes_settings_only_as_shown() {
     assert!(
         server
             .root
-            .join("settings.claude-dashboard-backup.json")
+            .join("settings.agent-dashboard-backup.json")
             .is_file()
     );
 }
@@ -464,9 +464,9 @@ fn changes_claude_codes_settings_only_as_shown() {
 /// Where `serve --status-line-copy` keeps its copy, for a history in `dir`.
 fn copy_in(dir: &Path) -> PathBuf {
     dir.join("bin").join(if cfg!(windows) {
-        "claude-dashboard.exe"
+        "agent-dashboard.exe"
     } else {
-        "claude-dashboard"
+        "agent-dashboard"
     })
 }
 
@@ -504,7 +504,7 @@ fn connects_the_status_line_to_a_copy_that_updates_cannot_move() {
     );
     assert_eq!(
         version_of(&copy).as_deref(),
-        Some(concat!("claude-dashboard ", env!("CARGO_PKG_VERSION")))
+        Some(concat!("agent-dashboard ", env!("CARGO_PKG_VERSION")))
     );
 }
 
@@ -525,7 +525,7 @@ fn brings_the_status_line_copy_up_to_date_when_it_starts() {
     }
     assert_eq!(
         version_of(&copy).as_deref(),
-        Some(concat!("claude-dashboard ", env!("CARGO_PKG_VERSION")))
+        Some(concat!("agent-dashboard ", env!("CARGO_PKG_VERSION")))
     );
 }
 
@@ -776,7 +776,7 @@ fn an_export_is_saved_where_the_extension_says_and_named_as_the_dashboard_sugges
     let name = server.result("export/name", &export);
     assert_eq!(
         name["name"],
-        "claude-dashboard-history-2026-10-10-to-2026-10-10.csv"
+        "agent-dashboard-history-2026-10-10-to-2026-10-10.csv"
     );
     let path = server.dir.path().join("saved.csv");
     let saved = server.result(
@@ -852,15 +852,15 @@ fn a_history_too_new_to_read_answers_with_a_code_of_its_own() {
     let root = dir.path().join(".claude");
     let history = dir.path().join("history.sqlite");
     fs::create_dir_all(&root).unwrap();
-    let made = Command::new(env!("CARGO_BIN_EXE_claude-dashboard"))
+    let made = Command::new(env!("CARGO_BIN_EXE_agent-dashboard"))
         .arg("today")
         .env("CLAUDE_CONFIG_DIR", &root)
-        .env("CLAUDE_DASHBOARD_HISTORY", &history)
-        .env("CLAUDE_DASHBOARD_NOW", NOW)
+        .env("AGENT_DASHBOARD_HISTORY", &history)
+        .env("AGENT_DASHBOARD_NOW", NOW)
         .output()
         .unwrap();
     assert!(made.status.success());
-    // The history as a newer claude-dashboard leaves it when its change breaks older readers.
+    // The history as a newer agent-dashboard leaves it when its change breaks older readers.
     let conn = rusqlite::Connection::open(&history).unwrap();
     conn.execute("UPDATE compatibility SET readable_from = 999", [])
         .unwrap();
@@ -873,7 +873,7 @@ fn a_history_too_new_to_read_answers_with_a_code_of_its_own() {
     assert!(
         answer["error"]["message"]
             .as_str()
-            .is_some_and(|message| message.contains("update claude-dashboard to read it")),
+            .is_some_and(|message| message.contains("update agent-dashboard to read it")),
         "{answer}"
     );
 }

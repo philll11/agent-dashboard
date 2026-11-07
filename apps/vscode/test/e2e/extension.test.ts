@@ -25,8 +25,8 @@ import {
 const SETTINGS = process.env.E2E_SETTINGS ?? "";
 const SCREENSHOTS = process.env.E2E_SCREENSHOTS ?? "";
 const PROGRAM = process.env.E2E_PROGRAM ?? "";
-const EXPORTS = process.env.CLAUDE_DASHBOARD_EXPORT_TO ?? "";
-const NAME = "Dashboard for Claude Code";
+const EXPORTS = process.env.AGENT_DASHBOARD_EXPORT_TO ?? "";
+const NAME = "Dashboard for Coding Agents";
 /** The dashboard tab's title. */
 const DASHBOARD = "Usage dashboard";
 const THEMES = ["Default Dark Modern", "Default Light Modern", "Default High Contrast"];
@@ -117,7 +117,7 @@ describe(`${NAME}, installed from its package`, function () {
 
   it("shows the five-hour window in the status bar", async () => {
     const item = await driver.wait(
-      until.elementLocated(By.css('[id$="claudeDashboard.status"]')),
+      until.elementLocated(By.css('[id$="agentDashboard.status"]')),
       30_000,
     );
     await driver.wait(async () => (await item.getText()).includes("5h"), 30_000);
@@ -262,7 +262,7 @@ describe(`${NAME}, installed from its package`, function () {
       );
       const path = await driver.findElement(By.css('[role="status"] .toast-path')).getText();
       const range =
-        /^claude-dashboard-sessions-(\d{4}-\d{2}-\d{2})-to-(\d{4}-\d{2}-\d{2})\.json$/.exec(
+        /^agent-dashboard-sessions-(\d{4}-\d{2}-\d{2})-to-(\d{4}-\d{2}-\d{2})\.json$/.exec(
           basename(path),
         );
       assert.ok(range, `the file has the suggested name: ${path}`);

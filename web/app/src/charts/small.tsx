@@ -1,6 +1,6 @@
 // Small marks that sit beside a number: sparklines, plan window meters and share bars.
 
-import type { Level } from "@claude-dashboard/protocol";
+import type { Level } from "@agent-dashboard/protocol";
 
 /** A line of recent values ending in a dot, `width` by `height` pixels, which tells a screen reader
  * its lowest, highest and last value. */

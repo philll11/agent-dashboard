@@ -34,9 +34,9 @@
           - columnheader "API-equivalent cost"
           - columnheader "Claude Code's own figure"
       - rowgroup:
-        - row /Review the runbook Running claude-dashboard Today \d+:\d+ \d+ min Opus 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Not ended yet/:
-          - rowheader "Review the runbook Running claude-dashboard":
-            - link "Review the runbook Running claude-dashboard":
+        - row /Review the runbook Running agent-dashboard Today \d+:\d+ \d+ min Opus 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Not ended yet/:
+          - rowheader "Review the runbook Running agent-dashboard":
+            - link "Review the runbook Running agent-dashboard":
               - /url: "#session-06469a20-0c28-4129-8023-40cc894f31b4"
           - cell /Today \d+:\d+/
           - cell /\d+ min/
@@ -60,9 +60,9 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell /\$\d+\.\d+/
           - cell "Within 0.3%"
-        - row /Design the ingest lock claude-dashboard Today \d+:\d+ 1 h \d+ min Opus 5\.5 \d+ 1 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.1%/:
-          - rowheader "Design the ingest lock claude-dashboard":
-            - link "Design the ingest lock claude-dashboard":
+        - row /Design the ingest lock agent-dashboard Today \d+:\d+ 1 h \d+ min Opus 5\.5 \d+ 1 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.1%/:
+          - rowheader "Design the ingest lock agent-dashboard":
+            - link "Design the ingest lock agent-dashboard":
               - /url: "#session-ed0a7cb6-186f-4770-861f-a474c44a47ce"
           - cell /Today \d+:\d+/
           - cell /1 h \d+ min/
@@ -86,9 +86,9 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell /\$\d+\.\d+/
           - cell "Within 0.6%"
-        - row /Price table for Claude 5 models claude-dashboard Today \d+:\d+ 2 h \d+ min Fable 5\.1, Haiku 5\.5 \d+ 2 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.1%/:
-          - rowheader "Price table for Claude 5 models claude-dashboard":
-            - link "Price table for Claude 5 models claude-dashboard":
+        - row /Price table for Claude 5 models agent-dashboard Today \d+:\d+ 2 h \d+ min Fable 5\.1, Haiku 5\.5 \d+ 2 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.1%/:
+          - rowheader "Price table for Claude 5 models agent-dashboard":
+            - link "Price table for Claude 5 models agent-dashboard":
               - /url: "#session-18583610-e6bb-4b40-8f2b-d5e73d7b8083"
           - cell /Today \d+:\d+/
           - cell /2 h \d+ min/
@@ -125,9 +125,9 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell /\$\d+\.\d+/
           - cell "6% lower, prices may be out of date"
-        - row /Upgrade the test runner claude-dashboard Fri 9 Oct \d+:\d+ \d+ min Haiku 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.3%/:
-          - rowheader "Upgrade the test runner claude-dashboard":
-            - link "Upgrade the test runner claude-dashboard":
+        - row /Upgrade the test runner agent-dashboard Fri 9 Oct \d+:\d+ \d+ min Haiku 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.3%/:
+          - rowheader "Upgrade the test runner agent-dashboard":
+            - link "Upgrade the test runner agent-dashboard":
               - /url: "#session-fec885e6-09d1-4e20-8be4-5643f8199fab"
           - cell /Fri 9 Oct \d+:\d+/
           - cell /\d+ min/

@@ -1,4 +1,4 @@
-//! The program's short name, `cld`, as the installers leave it beside `claude-dashboard`: a
+//! The program's short name, `agd`, as the installers leave it beside `agent-dashboard`: a
 //! hardlink on Windows and a symlink elsewhere.
 
 mod common;
@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use common::Fixture;
 
-/// `claude-dashboard` and `cld` side by side in a folder of their own. It sits beside the built
+/// `agent-dashboard` and `agd` side by side in a folder of their own. It sits beside the built
 /// program, because a hardlink cannot reach another drive, and Windows runners keep Temp on one.
 struct Installed {
     folder: tempfile::TempDir,
@@ -19,16 +19,16 @@ struct Installed {
 
 impl Installed {
     fn new() -> Self {
-        let built = PathBuf::from(env!("CARGO_BIN_EXE_claude-dashboard"));
+        let built = PathBuf::from(env!("CARGO_BIN_EXE_agent-dashboard"));
         let folder = tempfile::Builder::new()
             .prefix("installed-")
             .tempdir_in(built.parent().unwrap())
             .unwrap();
         let installed = Self { folder };
-        link(&built, &installed.program("claude-dashboard"));
+        link(&built, &installed.program("agent-dashboard"));
         link(
-            &installed.program("claude-dashboard"),
-            &installed.program("cld"),
+            &installed.program("agent-dashboard"),
+            &installed.program("agd"),
         );
         installed
     }
@@ -62,21 +62,21 @@ fn status_line(fixture: &Fixture) -> String {
 fn the_short_name_runs_the_same_program() {
     let installed = Installed::new();
     let fixture = Fixture::new();
-    let cld = installed.program("cld");
+    let agd = installed.program("agd");
 
     fixture
-        .cli_at(&cld, &["--version"])
+        .cli_at(&agd, &["--version"])
         .assert()
         .success()
-        .stdout(format!("claude-dashboard {}\n", env!("CARGO_PKG_VERSION")));
+        .stdout(format!("agent-dashboard {}\n", env!("CARGO_PKG_VERSION")));
     fixture
-        .cli_at(&cld, &["--help"])
+        .cli_at(&agd, &["--help"])
         .assert()
         .success()
-        .stdout(contains("Usage: cld"));
+        .stdout(contains("Usage: agd"));
     fs::create_dir_all(fixture.root().join("projects")).unwrap();
     fixture
-        .cli_at(&cld, &["today"])
+        .cli_at(&agd, &["today"])
         .assert()
         .success()
         .stdout(contains("No requests today."));
@@ -87,9 +87,9 @@ fn connecting_through_the_short_name_writes_the_full_one() {
     let installed = Installed::new();
     let fixture = Fixture::new();
     fs::create_dir_all(fixture.root()).unwrap();
-    let cld = installed.program("cld");
+    let agd = installed.program("agd");
     let connect = || {
-        let mut command = fixture.cli_at(&cld, &["statusline", "connect", "--yes"]);
+        let mut command = fixture.cli_at(&agd, &["statusline", "connect", "--yes"]);
         command.env("PATH", fixture.dir.path().join("empty"));
         command
     };
@@ -100,10 +100,7 @@ fn connecting_through_the_short_name_writes_the_full_one() {
         .strip_suffix(" statusline")
         .unwrap_or_else(|| panic!("the status line runs {command}"));
     assert!(
-        program.ends_with(&format!(
-            "/claude-dashboard{}",
-            std::env::consts::EXE_SUFFIX
-        )),
+        program.ends_with(&format!("/agent-dashboard{}", std::env::consts::EXE_SUFFIX)),
         "the status line names {program}"
     );
 
@@ -115,19 +112,19 @@ fn connecting_through_the_short_name_writes_the_full_one() {
 }
 
 #[test]
-fn on_the_path_the_short_name_connects_as_claude_dashboard() {
+fn on_the_path_the_short_name_connects_as_agent_dashboard() {
     let installed = Installed::new();
     let fixture = Fixture::new();
     fs::create_dir_all(fixture.root()).unwrap();
-    let cld = installed.program("cld");
+    let agd = installed.program("agd");
     let connect = || {
-        let mut command = fixture.cli_at(&cld, &["statusline", "connect", "--yes"]);
+        let mut command = fixture.cli_at(&agd, &["statusline", "connect", "--yes"]);
         command.env("PATH", installed.folder.path());
         command
     };
 
     connect().assert().success().stdout(contains("Connected."));
-    assert_eq!(status_line(&fixture), "claude-dashboard statusline");
+    assert_eq!(status_line(&fixture), "agent-dashboard statusline");
     connect()
         .assert()
         .success()

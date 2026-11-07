@@ -1,4 +1,4 @@
-//! The dashboard in the terminal, run as a person runs it: `claude-dashboard` without a command,
+//! The dashboard in the terminal, run as a person runs it: `agent-dashboard` without a command,
 //! in a pseudo-terminal (Windows' pseudo console on Windows), with the screen read as a terminal
 //! shows it.
 
@@ -45,17 +45,17 @@ impl Terminal {
                 pixel_height: 0,
             })
             .expect("a pseudo-terminal opens");
-        let mut command = CommandBuilder::new(env!("CARGO_BIN_EXE_claude-dashboard"));
+        let mut command = CommandBuilder::new(env!("CARGO_BIN_EXE_agent-dashboard"));
         command.cwd(fixture.dir.path());
         for (name, value) in [
             ("CLAUDE_CONFIG_DIR", fixture.root().into_os_string()),
             (
-                "CLAUDE_DASHBOARD_HISTORY",
+                "AGENT_DASHBOARD_HISTORY",
                 fixture.history().into_os_string(),
             ),
-            ("CLAUDE_DASHBOARD_NOW", NOW.into()),
+            ("AGENT_DASHBOARD_NOW", NOW.into()),
             // The background is named, so the terminal is never asked about it.
-            ("CLAUDE_DASHBOARD_THEME", "dark".into()),
+            ("AGENT_DASHBOARD_THEME", "dark".into()),
             ("TZ", "UTC".into()),
             ("TERM", "xterm-256color".into()),
             ("COLORTERM", "truecolor".into()),

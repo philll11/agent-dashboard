@@ -24,6 +24,6 @@ The history keeps the table, its entity tag and when it was last checked in the 
 ## Consequences
 
 - `main` is how new prices reach installed versions, so a change to `pricing/prices.json` keeps every period a release has, as CONTRIBUTING says.
-- A table in a newer format says it needs a newer claude-dashboard, rather than failing as a broken file.
-- Only the server's background work and `claude-dashboard prices update` reach the network for prices; reports, exports and the status line read the stored table.
+- A table in a newer format says it needs a newer agent-dashboard, rather than failing as a broken file.
+- Only the server's background work and `agent-dashboard prices update` reach the network for prices; reports, exports and the status line read the stored table.
 - The refresh is off until switched on, as the product brief asks of every use of the network.

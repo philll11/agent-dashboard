@@ -1,7 +1,7 @@
 name: Desktop release
 
-# Builds the desktop app for each platform around the claude-dashboard program of the release being
-# made, and attaches its installers, its signed update bundles and latest.json, which the app's
+# Builds the desktop app for each platform around the agent-dashboard program of the release being
+# made, and attaches its installers, its signed update bundles and desktop-update.json, which the app's
 # updater reads, to the release's draft. The release workflow calls this as one of dist's
 # global-artifacts-jobs, once the program is built, and dist's host job publishes the release only
 # if this succeeds (docs/adr/0012-releases-go-public-complete.md). On a pull request it builds
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - run: corepack enable
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm install --frozen-lockfile
       # The program as this run built it for the release. dist attests it as it publishes the
       # release, and the release check verifies that (.github/workflows/release-check.yml).
@@ -103,13 +103,13 @@ jobs:
         run: |
           set -euo pipefail
           cd release
-          sha256sum --check "claude-dashboard-$PROGRAM".*.sha256
-          if [ -f "claude-dashboard-$PROGRAM.zip" ]; then
-            unzip -o -q "claude-dashboard-$PROGRAM.zip" claude-dashboard.exe
-            echo "PROGRAM_PATH=$PWD/claude-dashboard.exe" >> "$GITHUB_ENV"
+          sha256sum --check "agent-dashboard-$PROGRAM".*.sha256
+          if [ -f "agent-dashboard-$PROGRAM.zip" ]; then
+            unzip -o -q "agent-dashboard-$PROGRAM.zip" agent-dashboard.exe
+            echo "PROGRAM_PATH=$PWD/agent-dashboard.exe" >> "$GITHUB_ENV"
           else
-            tar -xJf "claude-dashboard-$PROGRAM.tar.xz" --strip-components 1 "claude-dashboard-$PROGRAM/claude-dashboard"
-            echo "PROGRAM_PATH=$PWD/claude-dashboard" >> "$GITHUB_ENV"
+            tar -xJf "agent-dashboard-$PROGRAM.tar.xz" --strip-components 1 "agent-dashboard-$PROGRAM/agent-dashboard"
+            echo "PROGRAM_PATH=$PWD/agent-dashboard" >> "$GITHUB_ENV"
           fi
       - name: Build the installers and the signed update bundles
         env:
@@ -157,15 +157,15 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - run: node apps/desktop/scripts/update-manifest.mjs --folder bundles --repository "$GITHUB_REPOSITORY" --tag "$TAG" --out latest.json
+      - run: node apps/desktop/scripts/update-manifest.mjs --folder bundles --repository "$GITHUB_REPOSITORY" --tag "$TAG" --out desktop-update.json
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: latest.json
-      # The update bundles' signatures are in latest.json, not beside the bundles.
-      - name: Attach the installers, the update bundles and latest.json to the draft
+          subject-path: desktop-update.json
+      # The update bundles' signatures are in desktop-update.json, not beside the bundles.
+      - name: Attach the installers, the update bundles and desktop-update.json to the draft
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           find bundles -type f ! -name '*.sig' -print0 | xargs -0 gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber
-          gh release upload "$TAG" latest.json --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" desktop-update.json --repo "$GITHUB_REPOSITORY" --clobber

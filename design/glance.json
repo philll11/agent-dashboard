@@ -48,7 +48,7 @@
         ],
         "source": "Official, status line, 2 min ago",
         "statusText": "5h 42% · 14:20",
-        "tooltip": "Dashboard for Claude Code - 5h 42% · resets 14:20",
+        "tooltip": "Dashboard for Coding Agents - 5h 42% · resets 14:20",
         "title": "42%",
         "icon": 42
       }
@@ -77,7 +77,7 @@
         ],
         "source": "Experimental, usage endpoint, 4 min ago",
         "statusText": "5h 93% · 14:20",
-        "tooltip": "Dashboard for Claude Code - 5h 93% ▲ · resets 14:20",
+        "tooltip": "Dashboard for Coding Agents - 5h 93% ▲ · resets 14:20",
         "title": "93% ▲",
         "icon": 93.4
       }
@@ -106,7 +106,7 @@
         ],
         "source": "Official, status line, 2 min ago",
         "statusText": "5h 104% · 14:20",
-        "tooltip": "Dashboard for Claude Code - 5h 104% ▲ · resets 14:20",
+        "tooltip": "Dashboard for Coding Agents - 5h 104% ▲ · resets 14:20",
         "title": "104% ▲",
         "icon": 104
       }
@@ -146,7 +146,7 @@
         ],
         "source": "Official, status line, 1 h ago",
         "statusText": "$5.05 today",
-        "tooltip": "Dashboard for Claude Code - $5.05 today",
+        "tooltip": "Dashboard for Coding Agents - $5.05 today",
         "title": "$5.05",
         "icon": null
       }
@@ -161,7 +161,7 @@
         "lines": [["Today", "$0.00"]],
         "source": null,
         "statusText": "$0.00 today",
-        "tooltip": "Dashboard for Claude Code - $0.00 today",
+        "tooltip": "Dashboard for Coding Agents - $0.00 today",
         "title": "$0.00",
         "icon": null
       }

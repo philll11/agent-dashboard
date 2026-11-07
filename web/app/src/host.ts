@@ -1,16 +1,10 @@
 // What the dashboard needs from the surface it runs in: VS Code, the desktop app, or a page that
-// provides `window.claudeDashboardHost`, as the browser tests do.
+// provides `window.agentDashboardHost`, as the browser tests do.
 
-import type {
-  Backend,
-  ExportParams,
-  Exported,
-  OpenFolders,
-  Show,
-} from "@claude-dashboard/protocol";
+import type { Backend, ExportParams, Exported, OpenFolders, Show } from "@agent-dashboard/protocol";
 
-/** Where every version of claude-dashboard is published, with its installers and packages. */
-export const RELEASES = "https://github.com/philll11/claude-dashboard/releases";
+/** Where every version of agent-dashboard is published, with its installers and packages. */
+export const RELEASES = "https://github.com/philll11/agent-dashboard/releases";
 
 /** What the dashboard remembers between visits, such as the section and the filters. */
 export interface Memory {
@@ -64,7 +58,7 @@ export interface Desktop {
 /** The JSON-RPC error code of an export that was cancelled. */
 export const EXPORT_CANCELLED = -32800;
 
-/** The JSON-RPC error code of a history that a newer claude-dashboard upgraded beyond what this
+/** The JSON-RPC error code of a history that a newer agent-dashboard upgraded beyond what this
  * one reads (the server's `Fault::HISTORY_TOO_NEW`). */
 export const HISTORY_TOO_NEW = -32001;
 
@@ -127,7 +121,7 @@ export class RequestError extends Error {
 
 declare global {
   interface Window {
-    claudeDashboardHost?: Host;
+    agentDashboardHost?: Host;
   }
 }
 

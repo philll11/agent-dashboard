@@ -201,7 +201,7 @@ history?: HistoryFacts | null,
  */
 cleanupDays: number, access: Access, 
 /**
- * The schema of the newer claude-dashboard that upgraded the history: this one can only read
+ * The schema of the newer agent-dashboard that upgraded the history: this one can only read
  * it, or, without `history`, cannot read it at all.
  */
 newerSchema?: number | null, 
@@ -338,7 +338,7 @@ export type PriceDrift = { model: Model,
 drift: number, sessions: number, };
 
 /**
- * The daily check for a newer price table in claude-dashboard's repository.
+ * The daily check for a newer price table in agent-dashboard's repository.
  */
 export type PriceRefresh = { 
 /**
@@ -390,7 +390,7 @@ drift?: number | null, sessionsCompared: number,
  */
 outOfLine: Array<PriceDrift>, 
 /**
- * When the table in use was downloaded from claude-dashboard's repository; `None` for the
+ * When the table in use was downloaded from agent-dashboard's repository; `None` for the
  * table this version ships with.
  */
 downloadedMs?: number | null, 
@@ -595,6 +595,10 @@ weekStart: string, };
  */
 export type StatusLine = { "state": "connected", 
 /**
+ * The person's own status line command, which agent-dashboard's runs.
+ */
+wrapping?: string | null, } | { "state": "predecessor", 
+/**
  * The person's own status line command, which claude-dashboard's runs.
  */
 wrapping?: string | null, } | { "state": "notConnected" } | { "state": "unknown", reason: string, };
@@ -606,7 +610,7 @@ wrapping?: string | null, } | { "state": "notConnected" } | { "state": "unknown"
 export type StatusLineApply = { connect: boolean, before: string | null, after: string | null, };
 
 /**
- * `statusLine/plan` parameters: connecting claude-dashboard's status line, or disconnecting it.
+ * `statusLine/plan` parameters: connecting agent-dashboard's status line, or disconnecting it.
  */
 export type StatusLineParams = { connect: boolean, };
 

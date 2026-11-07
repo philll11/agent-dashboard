@@ -71,9 +71,7 @@ test("a history a newer version upgraded is read-only", async ({ dashboard, page
 
 test("a history too new to read says to update", async ({ dashboard, page }) => {
   await dashboard.open({ scenario: "too-new-schema" });
-  await expect(page.getByRole("alert")).toContainText(
-    "Your history needs a newer claude-dashboard",
-  );
+  await expect(page.getByRole("alert")).toContainText("Your history needs a newer agent-dashboard");
   await dashboard.check("state-too-new-schema");
 });
 

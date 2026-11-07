@@ -3,7 +3,7 @@
 
 import { type MouseEvent, useState } from "react";
 
-import type { Credit, SessionDetail as Detail, Totals, WhoRow } from "@claude-dashboard/protocol";
+import type { Credit, SessionDetail as Detail, Totals, WhoRow } from "@agent-dashboard/protocol";
 
 import { LineChart } from "../charts/lines";
 import { moneyTick, niceScale } from "../charts/scale";

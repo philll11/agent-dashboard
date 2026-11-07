@@ -7,9 +7,9 @@ use std::fmt::{Debug, Write as _};
 use std::fs;
 use std::path::Path;
 
-use claude_dashboard_core::history::{Access, History};
-use claude_dashboard_core::pricing::PriceTable;
-use claude_dashboard_core::report::{self, Range};
+use agent_dashboard_core::history::{Access, History};
+use agent_dashboard_core::pricing::PriceTable;
+use agent_dashboard_core::report::{self, Range};
 use jiff::tz::TimeZone;
 use rusqlite::Connection;
 

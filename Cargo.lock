@@ -9,6 +9,94 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "agent-dashboard"
+version = "1.1.0"
+dependencies = [
+ "agent-dashboard-core",
+ "agent-dashboard-server",
+ "anstream",
+ "anstyle",
+ "anstyle-query",
+ "assert_cmd",
+ "clap",
+ "crossbeam-channel",
+ "crossterm",
+ "dirs 7.0.0",
+ "insta",
+ "jiff",
+ "lsp-server",
+ "portable-pty",
+ "predicates",
+ "ratatui",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "signal-hook",
+ "tempfile",
+ "terminal-colorsaurus",
+ "unicode-width",
+ "vt100",
+]
+
+[[package]]
+name = "agent-dashboard-core"
+version = "1.1.0"
+dependencies = [
+ "criterion",
+ "dirs 7.0.0",
+ "jiff",
+ "proptest",
+ "ring",
+ "rusqlite",
+ "rustls",
+ "security-framework",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "ureq",
+ "walkdir",
+]
+
+[[package]]
+name = "agent-dashboard-desktop"
+version = "1.1.0"
+dependencies = [
+ "agent-dashboard-core",
+ "agent-dashboard-server",
+ "auto-launch",
+ "insta",
+ "jiff",
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-process",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tauri-plugin-window-state",
+ "tempfile",
+]
+
+[[package]]
+name = "agent-dashboard-server"
+version = "1.1.0"
+dependencies = [
+ "agent-dashboard-core",
+ "crossbeam-channel",
+ "jiff",
+ "semver",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "ts-rs",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -200,9 +288,9 @@ dependencies = [
 
 [[package]]
 name = "async-executor"
-version = "1.14.0"
+version = "1.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c96bf972d85afc50bf5ab8fe2d54d1586b4e0b46c97c50a0c9e71e2f7bcd812a"
+checksum = "f426a31126c735126297bc5ea7a521263c9faff4f63ca415267ee625651c4f37"
 dependencies = [
  "async-task",
  "concurrent-queue",
@@ -734,94 +822,6 @@ name = "clap_lex"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
-
-[[package]]
-name = "claude-dashboard"
-version = "1.1.0"
-dependencies = [
- "anstream",
- "anstyle",
- "anstyle-query",
- "assert_cmd",
- "clap",
- "claude-dashboard-core",
- "claude-dashboard-server",
- "crossbeam-channel",
- "crossterm",
- "dirs 7.0.0",
- "insta",
- "jiff",
- "lsp-server",
- "portable-pty",
- "predicates",
- "ratatui",
- "rusqlite",
- "serde",
- "serde_json",
- "signal-hook",
- "tempfile",
- "terminal-colorsaurus",
- "unicode-width",
- "vt100",
-]
-
-[[package]]
-name = "claude-dashboard-core"
-version = "1.1.0"
-dependencies = [
- "criterion",
- "dirs 7.0.0",
- "jiff",
- "proptest",
- "ring",
- "rusqlite",
- "rustls",
- "security-framework",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "ureq",
- "walkdir",
-]
-
-[[package]]
-name = "claude-dashboard-desktop"
-version = "1.1.0"
-dependencies = [
- "auto-launch",
- "claude-dashboard-core",
- "claude-dashboard-server",
- "insta",
- "jiff",
- "log",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-process",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tauri-plugin-window-state",
- "tempfile",
-]
-
-[[package]]
-name = "claude-dashboard-server"
-version = "1.1.0"
-dependencies = [
- "claude-dashboard-core",
- "crossbeam-channel",
- "jiff",
- "semver",
- "serde",
- "serde_json",
- "tempfile",
- "ts-rs",
-]
 
 [[package]]
 name = "colorchoice"
@@ -4100,9 +4100,9 @@ checksum = "eec689c0bc40ff2458a5977b6619cb718087084a18e02a131c599b62d05e1a5f"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.15"
+version = "0.103.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
+checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
 dependencies = [
  "ring",
  "rustls-pki-types",

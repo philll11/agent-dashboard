@@ -13,7 +13,7 @@ use ratatui::prelude::CrosstermBackend;
 use ratatui::{Terminal, TerminalOptions, Viewport};
 use serde_json::json;
 
-use claude_dashboard_server::protocol::{Dataset, ExportFormat, Exported};
+use agent_dashboard_server::protocol::{Dataset, ExportFormat, Exported};
 
 use self::fixture::{Fixture, Variant};
 use super::state::{Event, ExportNotice, Flow, Overlay, Range, Section, State};
@@ -257,7 +257,7 @@ fn the_keys_and_the_pickers() {
 
 /// Where the boards save an export.
 const SAVED_TO: &str =
-    r"C:\Users\you\Downloads\claude-dashboard-sessions-2026-09-11-to-2026-10-10.csv";
+    r"C:\Users\you\Downloads\agent-dashboard-sessions-2026-09-11-to-2026-10-10.csv";
 
 #[test]
 fn the_export_box_and_what_it_saved() {
@@ -299,7 +299,7 @@ fn e_exports_the_section_shown_and_says_where_it_went() {
     assert!(
         export
             .path
-            .ends_with("claude-dashboard-sessions-2026-09-11-to-2026-10-10.csv"),
+            .ends_with("agent-dashboard-sessions-2026-09-11-to-2026-10-10.csv"),
         "{}",
         export.path
     );
@@ -315,7 +315,7 @@ fn e_exports_the_section_shown_and_says_where_it_went() {
     assert_eq!(state.overlay, None);
     let (params, path) = state.take_export().expect("Enter starts the export");
     assert_eq!(params.format, ExportFormat::Json);
-    assert!(path.ends_with("claude-dashboard-sessions-2026-09-11-to-2026-10-10.json"));
+    assert!(path.ends_with("agent-dashboard-sessions-2026-09-11-to-2026-10-10.json"));
     assert!(matches!(state.export, Some(ExportNotice::Running(_))));
     assert_eq!(state.take_export(), None);
 

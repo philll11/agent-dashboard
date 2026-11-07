@@ -1,6 +1,6 @@
 //! The dashboard's server: the answers to its requests, and the background work that reads new
 //! transcript content and tells the dashboard when the history or the plan limits change. Every
-//! graphical surface runs it: `claude-dashboard serve --stdio` for VS Code (ADR 0006), and the
+//! graphical surface runs it: `agent-dashboard serve --stdio` for VS Code (ADR 0006), and the
 //! desktop app in its own process (ADR 0008). It knows no transport; each surface carries the
 //! requests, answers and notifications its own way.
 

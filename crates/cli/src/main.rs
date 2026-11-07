@@ -1,4 +1,4 @@
-//! The `claude-dashboard` command.
+//! The `agent-dashboard` command.
 
 mod breakdown;
 mod desktop;
@@ -19,11 +19,11 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use agent_dashboard_core::report::Bucket;
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::program;
+use agent_dashboard_server::protocol::ExportFormat;
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use claude_dashboard_core::report::Bucket;
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::program;
-use claude_dashboard_server::protocol::ExportFormat;
 use jiff::civil::Date;
 
 use crate::report::Output;
@@ -32,7 +32,7 @@ use crate::report::Output;
 ///
 /// Without a command, in a terminal, it opens the dashboard there.
 #[derive(Debug, Parser)]
-#[command(name = "claude-dashboard", version, about)]
+#[command(name = "agent-dashboard", version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -118,7 +118,7 @@ enum Command {
         #[command(subcommand)]
         action: Option<PricesAction>,
     },
-    /// Check what claude-dashboard can find and read.
+    /// Check what agent-dashboard can find and read.
     Doctor,
     /// Record the plan limits that Claude Code passes to its status line, and print a compact
     /// line.
@@ -126,7 +126,7 @@ enum Command {
     Statusline {
         #[command(subcommand)]
         action: Option<StatuslineAction>,
-        /// Your own status line command, which claude-dashboard runs after recording the plan
+        /// Your own status line command, which agent-dashboard runs after recording the plan
         /// limits and shows instead of its own line.
         #[arg(long, num_args = 1.., allow_hyphen_values = true, value_name = "COMMAND")]
         then: Vec<OsString>,
@@ -208,19 +208,19 @@ enum Switch {
 
 #[derive(Debug, Subcommand)]
 enum PricesAction {
-    /// Turn the daily check for a newer price table in claude-dashboard's repository on GitHub on
+    /// Turn the daily check for a newer price table in agent-dashboard's repository on GitHub on
     /// or off. A running dashboard checks once a day.
     Refresh {
         #[arg(value_enum)]
         switch: Switch,
     },
-    /// Check claude-dashboard's repository for a newer price table now.
+    /// Check agent-dashboard's repository for a newer price table now.
     Update,
 }
 
 #[derive(Debug, Subcommand)]
 enum StatuslineAction {
-    /// Make Claude Code run claude-dashboard's status line, keeping yours if you have one.
+    /// Make Claude Code run agent-dashboard's status line, keeping yours if you have one.
     Connect {
         /// Make the change without asking.
         #[arg(long)]

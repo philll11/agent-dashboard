@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 
-import type { Status } from "@claude-dashboard/protocol";
+import type { Status } from "@agent-dashboard/protocol";
 
 import type { Host } from "./host";
 
