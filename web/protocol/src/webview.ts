@@ -15,6 +15,8 @@ export type Range = "today" | "7-days" | "30-days" | "this-month" | "all-time";
 export interface Show {
   section: Section;
   range?: Range;
+  /** An agent's id, or `null` for every agent. */
+  agent?: string | null;
   /** A project's id, or `null` for every project. */
   project?: string | null;
   /** A model's id, or `null` for every model. */

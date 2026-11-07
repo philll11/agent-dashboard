@@ -306,7 +306,7 @@ export function KeepRunningNotice({ desktop }: { desktop: Desktop }) {
       <div id={textId} className="notice-text">
         <p>
           Closing the window leaves the dashboard in the notification area, beside the clock, where
-          it shows how much of your five-hour window you have used.
+          it shows how much of your plan limits you have used.
         </p>
         <p>Windows may keep its icon in the overflow (^) until you drag it onto the taskbar.</p>
       </div>

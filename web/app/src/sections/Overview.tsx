@@ -4,19 +4,23 @@
 import { useState } from "react";
 
 import type {
+  CostProvenance,
   Limits,
   ModelRow,
   Overview as OverviewAnswer,
   ProjectRow,
-  Status,
+  Totals,
+  WindowReading,
 } from "@agent-dashboard/protocol";
 
+import { agentName } from "../agents";
 import { StackedColumns } from "../charts/columns";
 import { Meter, ShareBar, Sparkline } from "../charts/small";
 import { useHost, useStatus } from "../context";
 import { useReadingProgress, useRequest } from "../data";
 import {
   addDays,
+  ago,
   compact,
   fullDate,
   grouped,
@@ -31,17 +35,23 @@ import { Panel, Pause, Tile, TableScroll } from "../ui/panels";
 import { useNow } from "../ui/time";
 import { useView } from "../view";
 import {
+  AgentMenu,
   cacheShare,
+  costName,
+  costSource,
   costText,
   ModelMenu,
   ProjectMenu,
   RangeButtons,
   SectionHead,
   signedPercent,
+  PROVENANCE_BADGE,
   tokensOf,
+  useAgents,
   useDays,
   useFilters,
   useDaysScope,
+  useProvenance,
   useRangeText,
   useSeries,
 } from "./common";
@@ -49,7 +59,7 @@ import { ExportMenu } from "../exports";
 import { StatusLineDialog } from "./dialogs";
 import { Notices } from "./notices";
 import { costColumns, costSeries, dailyCost } from "./series";
-import { inOrder, LEVEL_TEXT, meterName, windowName } from "../windows";
+import { byAgent, creditsText, groupedName, LEVEL_TEXT, meterName, windowName } from "../windows";
 import { LevelIcon, Provenance } from "./provenance";
 
 export function Overview() {
@@ -66,6 +76,7 @@ export function Overview() {
     <div className="section">
       <SectionHead title="Overview">
         <RangeButtons />
+        <AgentMenu />
         <ProjectMenu />
         <ModelMenu />
         <ExportMenu
@@ -82,7 +93,7 @@ export function Overview() {
           <Tiles />
           <div className="row">
             <DailyCost overview={overview.data} />
-            <TopProjects projects={overview.data?.projects} />
+            <TopProjects projects={overview.data?.projects} totals={overview.data?.totals} />
           </div>
           <ModelsPanel models={overview.data?.models} totals={overview.data?.totals} />
         </>
@@ -95,16 +106,79 @@ function PlanLimits() {
   const status = useStatus();
   const now = useNow(30_000);
   const limits = useRequest("limits", null).data;
-  const readings = inOrder(status.limits);
-  if (readings.length === 0) return <NoLimits limits={limits} />;
-  const stale = readings.every((reading) => reading.stale || reading.expired);
+  const agents = useRequest("choices", null).data?.agents.map((agent) => agent.id);
+  const groups = byAgent(status.limits);
+  if (groups.length === 0) {
+    if (agents?.length === 1 && agents[0] === "copilot-cli") return <NoAllowance />;
+    return <NoLimits limits={limits} />;
+  }
+  // Claude Code's windows need its status line: while the history holds Claude Code's requests
+  // but no reading, its group says how to get one.
+  const claudeWaits =
+    agents?.includes("claude-code") === true &&
+    !groups.some((group) => group.agent === "claude-code");
+  const shown = claudeWaits ? [{ agent: "claude-code", readings: [] }, ...groups] : groups;
+  const [only] = shown;
+  if (shown.length === 1 && only) {
+    return (
+      <Panel title="Plan limits" actions={<Provenance readings={only.readings} nowMs={now} />}>
+        <Meters readings={only.readings} nowMs={now} name={windowName} />
+        <GroupNote agent={only.agent} readings={only.readings} limits={limits} nowMs={now} />
+      </Panel>
+    );
+  }
   return (
-    <Panel title="Plan limits" actions={<Provenance readings={readings} nowMs={now} />}>
-      <div className="meters">
-        {readings.map((reading) => (
-          <div key={reading.window} className="meter-block">
+    <Panel title="Plan limits">
+      <div className="limit-groups">
+        {shown.map((group) => (
+          <section
+            key={group.agent}
+            className="limit-group"
+            aria-label={`${agentName(group.agent)}'s plan limits`}
+          >
+            <div className="limit-group-head">
+              <h3>{agentName(group.agent)}</h3>
+              <Provenance readings={group.readings} nowMs={now} />
+            </div>
+            {group.readings.length > 0 ? (
+              <>
+                <Meters readings={group.readings} nowMs={now} name={groupedName} />
+                <GroupNote
+                  agent={group.agent}
+                  readings={group.readings}
+                  limits={limits}
+                  nowMs={now}
+                />
+              </>
+            ) : (
+              <ConnectStatusLine limits={limits} />
+            )}
+          </section>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+/** A meter for each window: its use, its level and when it resets. */
+function Meters({
+  readings,
+  nowMs,
+  name,
+}: {
+  readings: readonly WindowReading[];
+  nowMs: number;
+  name: (reading: WindowReading) => string;
+}) {
+  const status = useStatus();
+  return (
+    <div className="meters">
+      {readings.map((reading) => {
+        const credits = reading.expired ? undefined : creditsText(reading);
+        return (
+          <div key={`${reading.agent}:${reading.window}`} className="meter-block">
             <div className="meter-head">
-              <span className="meter-name">{windowName(reading)}</span>
+              <span className="meter-name">{name(reading)}</span>
               <span
                 className={reading.stale || reading.expired ? "meter-figure stale" : "meter-figure"}
               >
@@ -127,25 +201,65 @@ function PlanLimits() {
                   <span aria-hidden="true">·</span>
                 </>
               )}
+              {credits && (
+                <>
+                  <span>{credits}</span>
+                  <span aria-hidden="true">·</span>
+                </>
+              )}
               <span>
                 {reading.expired
                   ? "No reading since it reset"
                   : reading.resetsAtMs
-                    ? resets(reading.resetsAtMs, now, status.timeZone)
+                    ? resets(reading.resetsAtMs, nowMs, status.timeZone)
                     : "No reset time"}
               </span>
             </div>
           </div>
-        ))}
-      </div>
-      {stale && <StaleNote limits={limits} status={status} />}
-    </Panel>
+        );
+      })}
+    </div>
   );
 }
 
-/** Why the readings are old, and what brings newer ones. */
-function StaleNote({ limits, status }: { limits: Limits | undefined; status: Status }) {
-  const newest = Math.max(...status.limits.map((reading) => reading.observedMs));
+/** What an agent's readings need said: why they are old, or what Copilot's allowance counts. */
+function GroupNote({
+  agent,
+  readings,
+  limits,
+  nowMs,
+}: {
+  agent: string;
+  readings: readonly WindowReading[];
+  limits: Limits | undefined;
+  nowMs: number;
+}) {
+  const stale = readings.every((reading) => reading.stale || reading.expired);
+  if (agent === "copilot-cli") {
+    const newest = Math.max(...readings.map((reading) => reading.observedMs));
+    return (
+      <p className="note">
+        {stale
+          ? `Copilot CLI last noted the allowance ${ago(newest, nowMs)}; it updates the next time Copilot CLI runs. `
+          : ""}
+        The allowance counts Copilot wherever you use it, not just the CLI
+        {stale ? "." : ", and updates while Copilot CLI runs."}
+      </p>
+    );
+  }
+  return stale ? <StaleNote limits={limits} readings={readings} /> : null;
+}
+
+/** Why Claude Code's readings are old, and what brings newer ones. */
+function StaleNote({
+  limits,
+  readings,
+}: {
+  limits: Limits | undefined;
+  readings: readonly WindowReading[];
+}) {
+  const status = useStatus();
+  const newest = Math.max(...readings.map((reading) => reading.observedMs));
   const at = new Intl.DateTimeFormat("en-GB", {
     timeZone: status.timeZone,
     hour: "2-digit",
@@ -172,21 +286,41 @@ function StaleNote({ limits, status }: { limits: Limits | undefined; status: Sta
 }
 
 function NoLimits({ limits }: { limits: Limits | undefined }) {
+  if (!limits) return null;
+  return (
+    <Panel title="Plan limits">
+      <ConnectStatusLine limits={limits} />
+    </Panel>
+  );
+}
+
+/** Copilot CLI's allowance before Copilot CLI has noted it. */
+function NoAllowance() {
+  return (
+    <Panel title="Plan limits">
+      <p className="note">
+        Your Copilot allowance appears here once Copilot CLI makes a request. It counts Copilot
+        wherever you use it, not just the CLI.
+      </p>
+    </Panel>
+  );
+}
+
+/** How Claude Code's windows get here: its status line. */
+function ConnectStatusLine({ limits }: { limits: Limits | undefined }) {
   const { change } = useView();
   const [connecting, setConnecting] = useState(false);
   if (!limits) return null;
   if (limits.statusLine.state === "connected") {
     return (
-      <Panel title="Plan limits">
-        <p className="note">
-          Claude Code's status line is connected. Your five-hour and weekly windows appear here the
-          next time Claude Code runs in a terminal.
-        </p>
-      </Panel>
+      <p className="note">
+        Claude Code's status line is connected. Your five-hour and weekly windows appear here the
+        next time Claude Code runs in a terminal.
+      </p>
     );
   }
   return (
-    <Panel title="Plan limits">
+    <>
       <p className="note">
         Connect Claude Code's status line to see your five-hour and weekly windows. It is the
         official source and updates while Claude Code runs in a terminal.
@@ -219,7 +353,7 @@ function NoLimits({ limits }: { limits: Limits | undefined }) {
           }}
         />
       )}
-    </Panel>
+    </>
   );
 }
 
@@ -227,6 +361,7 @@ function NoLimits({ limits }: { limits: Limits | undefined }) {
 function Tiles() {
   const status = useStatus();
   const filters = useFilters();
+  const agents = useAgents();
   const today = status.today;
   const weekStart = startOfWeek(today, status.weekStart);
   const monthStart = `${today.slice(0, 8)}01`;
@@ -236,12 +371,18 @@ function Tiles() {
   const sum = (from: string, to: string) => {
     let cost = 0;
     let tokens = 0;
+    let chargedUsd = 0;
+    let chargedCredits = 0;
+    const kinds = new Set<CostProvenance>();
     for (const day of recent.byDay) {
       if (day.date < from || day.date > to) continue;
       cost += day.totals.cost.total;
       tokens += tokensOf(day.totals);
+      chargedUsd += day.totals.chargedUsd;
+      chargedCredits += day.totals.chargedCredits;
+      if (day.totals.costProvenance) kinds.add(day.totals.costProvenance);
     }
-    return { cost, tokens };
+    return { cost, tokens, chargedUsd, chargedCredits, provenance: combined(kinds) };
   };
   const todays = sum(today, today);
   const yesterdays = sum(addDays(today, -1), addDays(today, -1));
@@ -253,12 +394,39 @@ function Tiles() {
     const change = signedPercent(now, before);
     return change ? `${change} on ${what}` : `nothing ${what}`;
   };
+  // Claude Code's cost is all estimate and Copilot CLI's all recorded charges, so the two parts
+  // of a figure are its agents' shares.
+  const split = agents.length > 1;
+  const parts = (period: ReturnType<typeof sum>) =>
+    split ? (
+      <dl className="tile-breakdown">
+        <dt>Claude Code</dt>
+        <dd>
+          {money(Math.max(0, period.cost - period.chargedUsd))}{" "}
+          <span className="muted">estimate</span>
+        </dd>
+        <dt>Copilot CLI</dt>
+        <dd>
+          {money(period.chargedUsd)}{" "}
+          <span className="muted">
+            recorded · {grouped(period.chargedCredits)}{" "}
+            {Math.round(period.chargedCredits) === 1 ? "credit" : "credits"}
+          </span>
+        </dd>
+      </dl>
+    ) : undefined;
+  const badge = (period: ReturnType<typeof sum>) =>
+    period.provenance ? (
+      <span className="badge">{PROVENANCE_BADGE[period.provenance]}</span>
+    ) : undefined;
   return (
     <div className="tiles">
       <Tile
         label="Today"
         value={money(todays.cost)}
         note={`${compact(todays.tokens)} tokens · ${compared(todays.cost, yesterdays.cost, "yesterday")}`}
+        badge={badge(todays)}
+        breakdown={parts(todays)}
       >
         <Sparkline values={spark(12)} label="Daily cost over the last 12 days" format={money} />
       </Tile>
@@ -266,6 +434,8 @@ function Tiles() {
         label="This week"
         value={money(week.cost)}
         note={`${compact(week.tokens)} tokens · ${compared(week.cost, lastWeek.cost, "last week")}`}
+        badge={badge(week)}
+        breakdown={parts(week)}
       >
         <Sparkline values={spark(18)} label="Daily cost over the last 18 days" format={money} />
       </Tile>
@@ -273,6 +443,8 @@ function Tiles() {
         label="This month"
         value={money(month.cost)}
         note={`${compact(month.tokens)} tokens · month to date`}
+        badge={badge(month)}
+        breakdown={parts(month)}
       >
         <Sparkline values={spark(30)} label="Daily cost over the last 30 days" format={money} />
       </Tile>
@@ -280,12 +452,22 @@ function Tiles() {
   );
 }
 
+/** Where the costs of several days come from together. */
+function combined(kinds: ReadonlySet<CostProvenance>): CostProvenance | undefined {
+  if (kinds.has("mixed") || (kinds.has("estimate") && kinds.has("recorded"))) return "mixed";
+  if (kinds.has("recorded")) return "recorded";
+  if (kinds.has("estimate")) return "estimate";
+  return undefined;
+}
+
 function DailyCost({ overview }: { overview: OverviewAnswer | undefined }) {
   const status = useStatus();
   const series = useSeries();
   const rangeText = useRangeText();
   const [asTable, setAsTable] = useState(false);
-  if (!overview) return <section className="panel grow" aria-label="API-equivalent cost per day" />;
+  const provenance = useProvenance(overview?.totals);
+  const name = costName(provenance);
+  if (!overview) return <section className="panel grow" aria-label={`${name} per day`} />;
   const chart = costSeries(overview.models, series);
   const { bucket, columns } = costColumns(
     overview.byDay,
@@ -300,7 +482,7 @@ function DailyCost({ overview }: { overview: OverviewAnswer | undefined }) {
     (best, total, index) => (total > (totals[best] ?? 0) ? index : best),
     0,
   );
-  const label = `API-equivalent cost per ${per} by model, ${rangeText}: ${money(
+  const label = `${name} per ${per} by model, ${rangeText}: ${money(
     overview.totals.cost.total,
   )} in all${
     columns[highest] && (totals[highest] ?? 0) > 0
@@ -310,8 +492,8 @@ function DailyCost({ overview }: { overview: OverviewAnswer | undefined }) {
   return (
     <Panel
       className="grow"
-      title={`API-equivalent cost per ${per}`}
-      subtitle={`Estimate at Anthropic's list prices · ${rangeText}`}
+      title={`${name} per ${per}`}
+      subtitle={`${costSource(provenance)} · ${rangeText}`}
       actions={
         <button
           type="button"
@@ -372,8 +554,15 @@ function DailyCost({ overview }: { overview: OverviewAnswer | undefined }) {
 }
 
 /** The projects that cost the most, and the rest together. */
-function TopProjects({ projects }: { projects: readonly ProjectRow[] | undefined }) {
+function TopProjects({
+  projects,
+  totals,
+}: {
+  projects: readonly ProjectRow[] | undefined;
+  totals: Totals | undefined;
+}) {
   const rangeText = useRangeText();
+  const provenance = useProvenance(totals);
   const rows = projects ?? [];
   const shown = rows.length > 6 ? rows.slice(0, 5) : rows;
   const rest = rows.slice(shown.length);
@@ -397,7 +586,11 @@ function TopProjects({ projects }: { projects: readonly ProjectRow[] | undefined
   ];
   const largest = Math.max(...items.map((item) => item.cost), 0);
   return (
-    <Panel className="side" title="Top projects" subtitle={`API-equivalent cost · ${rangeText}`}>
+    <Panel
+      className="side"
+      title="Top projects"
+      subtitle={`${costName(provenance)} · ${rangeText}`}
+    >
       {projects?.length === 0 ? (
         <p className="note">
           No projects {rangeText === "today" ? "today" : `in the ${rangeText}`}.
@@ -430,6 +623,7 @@ function ModelsPanel({
   const rangeText = useRangeText();
   const prices = useRequest("prices", { models: [] }).data;
   const series = useSeries();
+  const provenance = useProvenance(totals);
   return (
     <Panel
       title="Models"
@@ -452,7 +646,7 @@ function ModelsPanel({
               <th scope="col">Output</th>
               <th scope="col">Cache writes</th>
               <th scope="col">Cache reads</th>
-              <th scope="col">API-equivalent cost</th>
+              <th scope="col">{costName(provenance)}</th>
             </tr>
           </thead>
           <tbody>
@@ -493,7 +687,13 @@ function ModelsPanel({
           </tbody>
         </table>
       </TableScroll>
-      {prices && (
+      {provenance !== "estimate" && (
+        <div className="estimate">
+          <span className="badge">Recorded</span>
+          <span>Copilot CLI's charges, at $0.01 an AI credit</span>
+        </div>
+      )}
+      {prices && provenance !== "recorded" && (
         <div className="estimate">
           <span className="badge">Estimate</span>
           <span>

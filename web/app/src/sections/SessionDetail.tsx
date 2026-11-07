@@ -1,9 +1,16 @@
-// One session: what it cost, against Claude Code's own figure, its cost as it went, its tokens by
-// type, its models and subagents, and the skills and MCP servers its requests are credited to.
+// One session: what it cost, against Claude Code's own figure for a Claude Code session, its cost
+// as it went, its tokens by type, its models and subagents, and the skills and MCP servers Claude
+// Code credits its requests to.
 
 import { type MouseEvent, useState } from "react";
 
-import type { Credit, SessionDetail as Detail, Totals, WhoRow } from "@agent-dashboard/protocol";
+import type {
+  Credit,
+  SessionDetail as Detail,
+  Initiators,
+  Totals,
+  WhoRow,
+} from "@agent-dashboard/protocol";
 
 import { agentName } from "../agents";
 import { LineChart } from "../charts/lines";
@@ -21,9 +28,10 @@ import { cacheShare, costText, tokensOf, useSeries } from "./common";
 import { isRunning } from "../sessions";
 import { OwnFigure, unpriced } from "./Sessions";
 
-/** How Claude Code was started, as the session's heading says it. */
+/** How the agent was started, as the session's heading says it. */
 const ENTRYPOINTS: Record<string, string> = {
   cli: "terminal",
+  "github/cli": "terminal",
   "claude-vscode": "VS Code",
   "claude-desktop": "desktop app",
   "sdk-cli": "Agent SDK",
@@ -70,6 +78,48 @@ function Body({ detail }: { detail: Detail }) {
   const unpricedModels = new Set(
     detail.who.filter((row) => unpriced(row.model)).map((row) => row.model.id),
   ).size;
+  if (detail.agent !== "claude-code") {
+    return (
+      <>
+        <Heading detail={detail} />
+        <div className="tiles four">
+          <Tile
+            label="Cost"
+            value={costText(detail.totals)}
+            badge={<span className="badge">Recorded</span>}
+            note={`${grouped(detail.totals.chargedCredits)} AI ${
+              Math.round(detail.totals.chargedCredits) === 1 ? "credit" : "credits"
+            } as ${agentName(detail.agent)} recorded them`}
+          />
+          <Tile
+            label="Requests"
+            value={grouped(detail.totals.requests)}
+            note={
+              detail.initiators
+                ? initiatorsText(detail.initiators)
+                : subagents.size === 0
+                  ? "All in the session"
+                  : `${grouped(detail.own.requests)} in the session · ${grouped(subagentRequests)} by sub-agents`
+            }
+          />
+          <Tile
+            label="Tokens"
+            value={compact(tokensOf(detail.totals))}
+            note={
+              detail.totals.reasoningTokens > 0
+                ? `${compact(detail.totals.reasoningTokens)} of them reasoning`
+                : `${percent(cacheShare(detail.totals) * 100)} read from the prompt cache`
+            }
+          />
+        </div>
+        <CostOverSession detail={detail} timeZone={status.timeZone} />
+        <div className="pair">
+          <TokensByType totals={detail.totals} costs={false} />
+          <WhoAndCredits detail={detail} timeZone={status.timeZone} />
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <Heading detail={detail} />
@@ -115,11 +165,27 @@ function Body({ detail }: { detail: Detail }) {
       </div>
       <CostOverSession detail={detail} timeZone={status.timeZone} />
       <div className="pair">
-        <TokensByType totals={detail.totals} />
+        <TokensByType totals={detail.totals} costs />
         <WhoAndCredits detail={detail} timeZone={status.timeZone} />
       </div>
     </>
   );
+}
+
+/** Requests by who started them: `2 you sent · 54 the agent made · 6 a sub-agent made`. */
+function initiatorsText(initiators: Initiators): string {
+  return [
+    initiators.you > 0 ? `${grouped(initiators.you)} you sent` : undefined,
+    initiators.agent > 0 ? `${grouped(initiators.agent)} the agent made` : undefined,
+    initiators.subAgents > 0 ? `${grouped(initiators.subAgents)} a sub-agent made` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** What the agent calls the agents a session starts. */
+function subagentWord(detail: Detail): string {
+  return detail.agent === "claude-code" ? "subagent" : "sub-agent";
 }
 
 function Heading({ detail }: { detail: Detail }) {
@@ -181,7 +247,7 @@ function Heading({ detail }: { detail: Detail }) {
           what={{ dataset: "requests", filters: {}, session: detail.id }}
           scope={`All ${grouped(detail.totals.requests)} ${
             detail.totals.requests === 1 ? "request" : "requests"
-          } of this session, its subagents' included`}
+          } of this session, its ${subagentWord(detail)}s' included`}
           className="button export-button"
         />
       </div>
@@ -211,11 +277,13 @@ function CostOverSession({ detail, timeZone }: { detail: Detail; timeZone: strin
     if (row.subagent && !starts.has(row.subagent)) starts.set(row.subagent, row);
   }
   const marks = [...starts.values()];
+  const word = subagentWord(detail);
+  const cost = detail.agent === "claude-code" ? "API-equivalent cost" : "cost";
   const label = `Cumulative cost rises from $0 at ${local(from, timeZone).time} to ${money(total)} at ${
     local(to, timeZone).time
   }${
     marks.length > 0
-      ? `, with ${marks.length === 1 ? "a subagent" : "subagents"} starting at ${marks
+      ? `, with ${marks.length === 1 ? `a ${word}` : `${word}s`} starting at ${marks
           .map((row) => local(row.firstMs, timeZone).time)
           .join(", ")}`
       : ""
@@ -225,8 +293,8 @@ function CostOverSession({ detail, timeZone }: { detail: Detail; timeZone: strin
       title="Cost over the session"
       subtitle={
         marks.length > 0
-          ? "Cumulative API-equivalent cost · dots mark where subagents started"
-          : "Cumulative API-equivalent cost"
+          ? `Cumulative ${cost} · dots mark where ${word}s started`
+          : `Cumulative ${cost}`
       }
       actions={
         <button
@@ -283,7 +351,7 @@ function CostOverSession({ detail, timeZone }: { detail: Detail; timeZone: strin
             x: row.firstMs,
             y: costAt(row.firstMs),
             colour: seriesFill(series.get(row.model.id) ?? "other"),
-            label: `${row.agentType ?? "A"} subagent`,
+            label: `${row.agentType ?? "A"} ${word}`,
           }))}
           xLabels={times(from, to, timeZone)}
           label={label}
@@ -308,7 +376,9 @@ function CostOverSession({ detail, timeZone }: { detail: Detail; timeZone: strin
   );
 }
 
-function TokensByType({ totals }: { totals: Totals }) {
+/** Each type of token, with its cost where the cost is worked out by type: an agent's recorded
+ * charge is for the whole request. */
+function TokensByType({ totals, costs }: { totals: Totals; costs: boolean }) {
   const { tokens, cost } = totals;
   const rows = [
     { name: "Cache reads", tokens: tokens.cacheRead, cost: cost.cacheRead },
@@ -330,7 +400,7 @@ function TokensByType({ totals }: { totals: Totals }) {
                 Share of tokens
               </th>
               <th scope="col">Tokens</th>
-              <th scope="col">Cost</th>
+              {costs && <th scope="col">Cost</th>}
             </tr>
           </thead>
           <tbody>
@@ -354,7 +424,7 @@ function TokensByType({ totals }: { totals: Totals }) {
                   </span>
                 </td>
                 <td>{compact(row.tokens)}</td>
-                <td className="strong">{money(row.cost)}</td>
+                {costs && <td className="strong">{money(row.cost)}</td>}
               </tr>
             ))}
             {totals.webSearchRequests > 0 && (
@@ -364,7 +434,7 @@ function TokensByType({ totals }: { totals: Totals }) {
                 </th>
                 <td className="left" />
                 <td>{grouped(totals.webSearchRequests)}</td>
-                <td className="strong">{money(cost.webSearch)}</td>
+                {costs && <td className="strong">{money(cost.webSearch)}</td>}
               </tr>
             )}
           </tbody>
@@ -380,14 +450,17 @@ function WhoAndCredits({ detail, timeZone }: { detail: Detail; timeZone: string 
     ...detail.skills.map((credit) => ({ kind: "Skill", credit })),
     ...detail.mcpTools.map((credit) => ({ kind: "MCP server", credit })),
   ];
+  const word = subagentWord(detail);
+  // Only Claude Code credits requests to skills and MCP servers.
+  const credited = detail.agent === "claude-code";
   const span = (row: WhoRow) => {
     const first = local(row.firstMs, timeZone).time;
     const last = local(row.lastMs, timeZone).time;
     return first === last ? first : `${first} to ${last}`;
   };
   return (
-    <Panel title="Models and subagents">
-      <TableScroll label="Models and subagents">
+    <Panel title={`Models and ${word}s`}>
+      <TableScroll label={`Models and ${word}s`}>
         <table className="data">
           <thead>
             <tr>
@@ -404,7 +477,7 @@ function WhoAndCredits({ detail, timeZone }: { detail: Detail; timeZone: string 
             {detail.who.map((row) => (
               <tr key={`${row.subagent ?? "session"}-${row.model.id}`}>
                 <th scope="row" className={row.subagent ? "nowrap" : "strong nowrap"}>
-                  {row.subagent ? `${row.agentType ?? "Unnamed"} subagent` : "The session"}
+                  {row.subagent ? `${row.agentType ?? "Unnamed"} ${word}` : "The session"}
                 </th>
                 <td className="left nowrap">
                   <span className="swatch-name">
@@ -425,6 +498,21 @@ function WhoAndCredits({ detail, timeZone }: { detail: Detail; timeZone: string 
           </tbody>
         </table>
       </TableScroll>
+      {credited && <Credits credits={credits} uncredited={detail.uncredited} />}
+    </Panel>
+  );
+}
+
+/** The skills and MCP servers requests are credited to, and the requests credited to neither. */
+function Credits({
+  credits,
+  uncredited,
+}: {
+  credits: { kind: string; credit: Credit }[];
+  uncredited: Totals;
+}) {
+  return (
+    <>
       <h3 className="minor-heading">Credited to skills and MCP servers</h3>
       <ul className="credits">
         {credits.map(({ kind, credit }) => (
@@ -447,11 +535,11 @@ function WhoAndCredits({ detail, timeZone }: { detail: Detail; timeZone: string 
           </span>
           <Pause />
           <span>
-            {requestsText(detail.uncredited)} · {costText(detail.uncredited)}
+            {requestsText(uncredited)} · {costText(uncredited)}
           </span>
         </li>
       </ul>
-    </Panel>
+    </>
   );
 }
 

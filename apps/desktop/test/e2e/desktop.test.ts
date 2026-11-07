@@ -148,7 +148,7 @@ describe("the desktop app", () => {
     ) as { cost: { usd: number }; limits: { window: string; used_percentage: number }[] };
     const tile = await session().findElement(
       By.xpath(
-        '//section[contains(@class, "tile")][h2[normalize-space()="Today"]]//*[contains(@class, "tile-value")]',
+        '//section[contains(@class, "tile")][.//h2[normalize-space()="Today"]]//*[contains(@class, "tile-value")]',
       ),
     );
     assert.equal(await tile.getText(), `$${today.cost.usd.toFixed(2)}`);

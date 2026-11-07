@@ -10,7 +10,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "agent-dashboard"
-version = "1.1.0"
+version = "2.0.0"
 dependencies = [
  "agent-dashboard-core",
  "agent-dashboard-server",
@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "agent-dashboard-core"
-version = "1.1.0"
+version = "2.0.0"
 dependencies = [
  "criterion",
  "dirs 7.0.0",
@@ -62,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "agent-dashboard-desktop"
-version = "1.1.0"
+version = "2.0.0"
 dependencies = [
  "agent-dashboard-core",
  "agent-dashboard-server",
@@ -86,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "agent-dashboard-server"
-version = "1.1.0"
+version = "2.0.0"
 dependencies = [
  "agent-dashboard-core",
  "crossbeam-channel",

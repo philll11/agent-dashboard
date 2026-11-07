@@ -1,5 +1,5 @@
-// Limits: each plan window with its use so far and where it is heading, where the readings come
-// from, and recent five-hour windows.
+// Limits: each agent's plan windows with their use so far and where they are heading, where the
+// readings come from, and Claude Code's recent five-hour windows.
 
 import { useState } from "react";
 
@@ -8,6 +8,7 @@ import type {
   FiveHourWindow,
   Limits as LimitsAnswer,
   StatusLine,
+  WindowReading,
   WindowView,
 } from "@agent-dashboard/protocol";
 
@@ -19,11 +20,20 @@ import { ago, dayAndTime, dayLabel, dayWordsAt, duration, local, money, percent 
 import { ChartIcon, TableIcon, Warning } from "../ui/icons";
 import { Panel, Pill, TableScroll } from "../ui/panels";
 import { useNow } from "../ui/time";
+import { agentName } from "../agents";
 import { costText, SectionHead } from "./common";
 import { ExportMenu } from "../exports";
 import { grouped } from "../format";
 import { ConsentDialog, StatusLineDialog } from "./dialogs";
-import { inOrder, LEVEL_TEXT, meterName, windowName } from "../windows";
+import {
+  byAgent,
+  creditsText,
+  groupedName,
+  inOrder,
+  LEVEL_TEXT,
+  meterName,
+  windowName,
+} from "../windows";
 import { LevelIcon, Provenance } from "./provenance";
 
 const HOUR = 3_600_000;
@@ -33,11 +43,25 @@ export function Limits() {
   const status = useStatus();
   const now = useNow(30_000);
   const limits = useRequest("limits", null).data;
+  const known = useRequest("choices", null).data?.agents.map((agent) => agent.id) ?? [];
   const views = limits ? orderedViews(limits.windows) : [];
+  const groups = byAgent(views.map((view) => view.reading)).map((group) => ({
+    agent: group.agent,
+    views: views.filter((view) => view.reading.agent === group.agent),
+  }));
+  const agents = new Set([...known, ...groups.map((group) => group.agent)]);
+  const copilot = agents.has("copilot-cli");
+  const summary =
+    copilot && agents.size > 1
+      ? "Claude Code's limits are shared with claude.ai, and Copilot's allowance with Copilot everywhere"
+      : copilot
+        ? "Copilot's allowance counts Copilot wherever you use it"
+        : "Limits are shared between Claude Code and claude.ai";
+  const [only] = groups;
   return (
     <div className="section">
-      <SectionHead title="Limits" summary="Limits are shared between Claude Code and claude.ai">
-        <Provenance readings={status.limits} nowMs={now} />
+      <SectionHead title="Limits" summary={summary}>
+        {groups.length < 2 && <Provenance readings={status.limits} nowMs={now} />}
         {limits && limits.recent.length > 0 && (
           <ExportMenu
             what={{ dataset: "five-hour-windows", filters: {} }}
@@ -48,16 +72,40 @@ export function Limits() {
           />
         )}
       </SectionHead>
-      {limits && views.length > 0 && (
+      {limits && groups.length === 1 && only && (
         <div className="window-cards">
-          {views.map((view) => (
-            <WindowCard key={view.reading.window} view={view} views={views} />
+          {only.views.map((view) => (
+            <WindowCard key={view.reading.window} view={view} views={views} name={windowName} />
           ))}
         </div>
       )}
+      {limits &&
+        groups.length > 1 &&
+        groups.map((group) => (
+          <section
+            key={group.agent}
+            className="agent-windows"
+            aria-labelledby={`windows-${group.agent}`}
+          >
+            <div className="agent-windows-head">
+              <h2 id={`windows-${group.agent}`}>{agentName(group.agent)}</h2>
+              <Provenance readings={group.views.map((view) => view.reading)} nowMs={now} />
+            </div>
+            <div className="window-cards">
+              {group.views.map((view) => (
+                <WindowCard
+                  key={view.reading.window}
+                  view={view}
+                  views={views}
+                  name={groupedName}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
       {limits && (
         <div className="pair">
-          <Sources limits={limits} />
+          <Sources limits={limits} copilot={copilot} />
           <RecentWindows recent={limits.recent} />
         </div>
       )}
@@ -82,11 +130,20 @@ function span(view: WindowView, timeZone: string): string | undefined {
     : `${dayLabel(start.day)} ${start.time} to ${dayLabel(end.day)} ${end.time}`;
 }
 
-function WindowCard({ view, views }: { view: WindowView; views: readonly WindowView[] }) {
+function WindowCard({
+  view,
+  views,
+  name: nameOf,
+}: {
+  view: WindowView;
+  views: readonly WindowView[];
+  name: (reading: WindowReading) => string;
+}) {
   const status = useStatus();
   const now = useNow(30_000);
   const { reading } = view;
-  const name = windowName(reading);
+  const name = nameOf(reading);
+  const credits = reading.expired ? undefined : creditsText(reading);
   const used = reading.expired ? 0 : reading.usedPercentage;
   const resetsIn = reading.resetsAtMs ? reading.resetsAtMs - now : undefined;
   const allModels = views.find((other) => other.reading.window === "seven_day");
@@ -123,6 +180,11 @@ function WindowCard({ view, views }: { view: WindowView; views: readonly WindowV
         stale={reading.stale}
         label={`${meterName(reading)}, ${percent(used)} used`}
       />
+      {reading.window === "monthly" && (
+        <p className="window-note">
+          {credits ? `${credits}. ` : ""}It counts Copilot wherever you use it, not just the CLI.
+        </p>
+      )}
       <PaceLine view={view} />
       {reading.model ? null : <UseChart view={view} />}
     </Panel>
@@ -219,6 +281,8 @@ function UseChart({ view }: { view: WindowView }) {
         : [last, { x: resetsAtMs, y: pace.atReset }]
       : undefined;
   const fiveHour = reading.window === "five_hour";
+  // A week's days by their names; a month's by their dates, `1 Nov`.
+  const monthly = reading.window === "monthly";
   const xLabels = fiveHour
     ? [startMs, (startMs + resetsAtMs) / 2, resetsAtMs].map((x) => ({
         x,
@@ -226,7 +290,8 @@ function UseChart({ view }: { view: WindowView }) {
       }))
     : Array.from({ length: 5 }, (_, index) => {
         const x = startMs + ((resetsAtMs - startMs) * index) / 4;
-        return { x, text: dayLabel(local(x, status.timeZone).day).slice(0, 3) };
+        const day = dayLabel(local(x, status.timeZone).day);
+        return { x, text: monthly ? day.slice(4) : day.slice(0, 3) };
       });
   const label = `${windowName(reading)} use rises from 0% ${dayWordsAt(startMs, last.x, status.timeZone)} to ${percent(
     last.y,
@@ -309,7 +374,7 @@ function UseTable({ view }: { view: WindowView }) {
   );
 }
 
-function Sources({ limits }: { limits: LimitsAnswer }) {
+function Sources({ limits, copilot }: { limits: LimitsAnswer; copilot: boolean }) {
   const [dialog, setDialog] = useState<"connect" | "disconnect" | "consent" | null>(null);
   const store = useStore();
   const [problem, setProblem] = useState<string | null>(null);
@@ -357,6 +422,17 @@ function Sources({ limits }: { limits: LimitsAnswer }) {
         </div>
         <StatusLineText limits={limits} />
       </div>
+      {copilot && (
+        <div className="source">
+          <div className="source-head">
+            <span className="source-name">
+              Copilot CLI's session files
+              <Pill tone="accent">Read</Pill>
+            </span>
+          </div>
+          <CopilotText />
+        </div>
+      )}
       <div className="source">
         <div className="source-head">
           <span className="source-name">
@@ -452,14 +528,28 @@ function StatusLineText({ limits }: { limits: LimitsAnswer }) {
   );
 }
 
+function CopilotText() {
+  const status = useStatus();
+  const now = useNow(30_000);
+  const recorded = status.limits.filter((reading) => reading.provenance === "recorded");
+  const newest = Math.max(0, ...recorded.map((reading) => reading.observedMs));
+  return (
+    <p className="note">
+      Recorded. Copilot CLI notes the allowance GitHub reports with each request it makes, so there
+      is nothing to connect
+      {newest > 0 ? `; last reading ${ago(newest, now)}` : "; no reading yet"}.
+    </p>
+  );
+}
+
 function EndpointText({ endpoint }: { endpoint: Endpoint }) {
   const now = useNow(30_000);
   return (
     <>
       <p className="note">
-        Fills the gaps when no terminal session is running. It reads your Claude Code login without
-        changing it and asks at most once every 5 minutes. The endpoint is undocumented, so it may
-        stop working without notice.
+        Fills the gaps in Claude Code's windows when no terminal session is running. It reads your
+        Claude Code login without changing it and asks at most once every 5 minutes. The endpoint is
+        undocumented, so it may stop working without notice.
         {endpoint.enabled && endpoint.askedMs && !endpoint.problem
           ? ` Last asked ${ago(endpoint.askedMs, now)}.`
           : ""}

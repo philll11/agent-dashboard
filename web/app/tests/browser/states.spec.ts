@@ -6,16 +6,17 @@ import { expect, test } from "./fixtures.ts";
 
 test("a first read shows its progress and what is ready", async ({ dashboard, page }) => {
   await dashboard.open({ scenario: "first-run" });
-  await expect(
-    page.getByRole("progressbar", { name: "Reading your Claude Code history" }),
-  ).toHaveAttribute("aria-valuenow", "41");
+  await expect(page.getByRole("progressbar", { name: "Reading your history" })).toHaveAttribute(
+    "aria-valuenow",
+    "41",
+  );
   await expect(page.getByText("Reading your history…")).toBeVisible();
   await dashboard.check("state-first-run");
 });
 
 test("no history says where it looked", async ({ dashboard, page }) => {
   await dashboard.open({ scenario: "empty" });
-  await expect(page.getByRole("heading", { name: "No Claude Code history found" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No history found" })).toBeVisible();
   await expect(page.getByText("/home/you/.claude", { exact: true })).toBeVisible();
   await dashboard.check("state-empty");
 });
@@ -46,7 +47,17 @@ test("prices that drift from Claude Code's own figures are flagged", async ({
 test("new activity being read keeps the numbers in place", async ({ dashboard, page }) => {
   await dashboard.open({ scenario: "reading" });
   await expect(page.getByText("Reading 2 changed files…")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cost per day" })).toBeVisible();
+});
+
+test("Claude Code alone keeps to its estimate, with no agent to choose", async ({
+  dashboard,
+  page,
+}) => {
+  await dashboard.open({ scenario: "claude-only" });
   await expect(page.getByRole("heading", { name: "API-equivalent cost per day" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Agent:/ })).toHaveCount(0);
+  await dashboard.check("state-claude-only");
 });
 
 test("an expired login for the usage endpoint says what to do", async ({ dashboard, page }) => {

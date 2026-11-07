@@ -115,17 +115,17 @@ describe(`${NAME}, installed from its package`, function () {
     await VSBrowser.instance.waitForWorkbench();
   });
 
-  it("shows the five-hour window in the status bar", async () => {
+  it("shows the five-hour window and Copilot's allowance in the status bar", async () => {
     const item = await driver.wait(
       until.elementLocated(By.css('[id$="agentDashboard.status"]')),
       30_000,
     );
     await driver.wait(async () => (await item.getText()).includes("5h"), 30_000);
-    assert.equal((await item.getText()).trim(), "5h 42% · 14:20");
+    assert.equal((await item.getText()).trim(), "5h 42% · 14:20 · Copilot 4%");
     const link = await item.findElement(By.css("[aria-label]"));
     assert.equal(
       await link.getAttribute("aria-label"),
-      "Five-hour window 42% used, resets at 14:20. Open the usage dashboard.",
+      "Five-hour window 42% used, resets at 14:20; Copilot allowance 4% used. Open the usage dashboard.",
     );
   });
 
@@ -136,20 +136,23 @@ describe(`${NAME}, installed from its package`, function () {
       return visible.length > 4 ? visible : undefined;
     }, 30_000);
     const shown = await rows(items ?? []);
-    assert.deepEqual(shown.slice(0, 10), [
+    assert.deepEqual(shown.slice(0, 13), [
       "Plan limits | official · 2 min ago",
       "Five-hour window | 42% · resets 14:20",
       "Weekly, all models | 71% · resets Thu 09:00",
       "Weekly, Fable | 18% · resets Thu 09:00",
-      "Today | $5.10 estimate",
+      "Copilot allowance | 4% · resets 1 Nov 13:00",
+      "Today | $6.84 · includes estimate",
       "Opus 5.5 | $2.10",
       "Fable 5.1 | $1.83",
+      "GPT-5.5 | $1.33",
       "Sonnet 5.5 | $1.11",
+      "Opus 5.5, Copilot CLI | $0.41",
       "Haiku 5.5 | $0.06",
-      "This week | $69.46 + unpriced estimate",
+      "This week | $82.58 + unpriced · includes estimate",
     ]);
-    assert.equal(shown[10], "Top projects | this week");
-    assert.equal(shown.length, 16, "five projects follow");
+    assert.equal(shown[13], "Top projects | this week");
+    assert.equal(shown.length, 19, "five projects follow");
   });
 
   it("opens the matching section of the dashboard from the sidebar", async () => {

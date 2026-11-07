@@ -39,7 +39,7 @@ function FirstRun({ status }: { status: Status }) {
   return (
     <section className="panel first-run" aria-labelledby="first-run-title">
       <div className="first-run-head">
-        <h2 id="first-run-title">Reading your Claude Code history</h2>
+        <h2 id="first-run-title">Reading your history</h2>
         <span className="subtitle figure">
           {grouped(progress.done)} of {grouped(progress.total)} files
         </span>
@@ -72,7 +72,7 @@ function NoHistory({ status, health }: { status: Status; health: Health }) {
       <span className="empty-icon">
         <EmptyFolder size={28} />
       </span>
-      <h2 id="no-history-title">No Claude Code history found</h2>
+      <h2 id="no-history-title">No history found</h2>
       <p className="note">
         We looked in{" "}
         {folders.map((folder, index) => (
@@ -81,8 +81,9 @@ function NoHistory({ status, health }: { status: Status; health: Health }) {
             <span className="mono">{folder}</span>
           </span>
         ))}
-        . Claude Code saves its history there after your first session. If you keep it somewhere
-        else, set <span className="mono">CLAUDE_CONFIG_DIR</span> to that folder.
+        . Claude Code and Copilot CLI save their history there after your first session. If you keep
+        it somewhere else, set <span className="mono">CLAUDE_CONFIG_DIR</span> or{" "}
+        <span className="mono">COPILOT_HOME</span> to that folder, or add it in Settings.
       </p>
       <div className="actions">
         <button

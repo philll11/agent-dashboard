@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 
-import type { ModelRow, PriceRow } from "@agent-dashboard/protocol";
+import type { CostProvenance, ModelRow, PriceRow } from "@agent-dashboard/protocol";
 
 import { LineChart } from "../charts/lines";
 import { moneyTick, niceScale } from "../charts/scale";
@@ -14,13 +14,19 @@ import { seriesFill } from "../models";
 import { ChartIcon, TableIcon, Warning } from "../ui/icons";
 import { Panel, Pause, TableScroll } from "../ui/panels";
 import {
+  AgentMenu,
+  COST_WORDS,
+  costName,
+  costSource,
   costText,
   ProjectMenu,
   RangeMenu,
   SectionHead,
+  useAgents,
   useDays,
   useFilters,
   useExportScope,
+  useProvenance,
   useRangeText,
   useSeries,
 } from "./common";
@@ -34,16 +40,18 @@ export function Models() {
   const rangeText = useRangeText();
   const overview = useRequest("overview", { days, filters: { ...filters, model: null } }).data;
   const models = overview?.models ?? [];
+  const provenance = useProvenance(overview?.totals);
   const summary = overview
     ? `${grouped(models.length)} ${models.length === 1 ? "model" : "models"} ${
         rangeText === "today" ? "today" : `in the ${rangeText}`
-      } · ${money(overview.totals.cost.total)} API-equivalent`
+      } · ${money(overview.totals.cost.total)} ${COST_WORDS[provenance]}`
     : undefined;
   const exportScope = useExportScope(models.length, "model", "models");
   return (
     <div className="section">
       <SectionHead title="Models" summary={summary}>
         <RangeMenu />
+        <AgentMenu />
         <ProjectMenu />
         <ExportMenu
           what={{ dataset: "models", days, filters: { ...filters, model: null } }}
@@ -52,7 +60,7 @@ export function Models() {
         />
       </SectionHead>
       <DailyLines />
-      <TokensAndCost models={models} />
+      <TokensAndCost models={models} provenance={provenance} />
       <PricesUsed models={models} />
     </div>
   );
@@ -66,8 +74,9 @@ function DailyLines() {
   const series = useSeries();
   const [asTable, setAsTable] = useState(false);
   const overview = useRequest("overview", { days, filters: { ...filters, model: null } }).data;
-  if (!overview)
-    return <section className="panel" aria-label="API-equivalent cost per day, by model" />;
+  const provenance = useProvenance(overview?.totals);
+  const name = costName(provenance);
+  if (!overview) return <section className="panel" aria-label={`${name} per day, by model`} />;
   const chart = costSeries(overview.models, series);
   const { bucket, columns } = costColumns(
     overview.byDay,
@@ -91,13 +100,13 @@ function DailyLines() {
         ]
       : [],
   );
-  const label = `${chart.series.length === 1 ? "A line" : `${String(chart.series.length)} lines`} of API-equivalent cost per ${per}, ${rangeText}: ${chart.series
+  const label = `${chart.series.length === 1 ? "A line" : `${String(chart.series.length)} lines`} of ${name.toLowerCase()} per ${per}, ${rangeText}: ${chart.series
     .map((item) => `${item.name} ${money(item.total)}`)
     .join(", ")}.`;
   return (
     <Panel
-      title={`API-equivalent cost per ${per}, by model`}
-      subtitle={`Estimate at Anthropic's list prices · ${rangeText}`}
+      title={`${name} per ${per}, by model`}
+      subtitle={`${costSource(provenance)} · ${rangeText}`}
       actions={
         <button
           type="button"
@@ -197,9 +206,17 @@ function lineColour(series: string): string {
   return series === "other" ? "var(--series-other)" : `var(--series-${series})`;
 }
 
-function TokensAndCost({ models }: { models: readonly ModelRow[] }) {
+function TokensAndCost({
+  models,
+  provenance,
+}: {
+  models: readonly ModelRow[];
+  provenance: CostProvenance;
+}) {
   const rangeText = useRangeText();
   const series = useSeries();
+  // Only Copilot CLI records reasoning tokens, which its output tokens already count.
+  const reasoning = models.some((row) => row.totals.reasoningTokens > 0);
   return (
     <Panel title="Tokens and cost" aside={`· ${rangeText}`}>
       <TableScroll label="Tokens and cost">
@@ -210,11 +227,12 @@ function TokensAndCost({ models }: { models: readonly ModelRow[] }) {
               <th scope="col">Requests</th>
               <th scope="col">Input</th>
               <th scope="col">Output</th>
+              {reasoning && <th scope="col">Of it reasoning</th>}
               <th scope="col">Cache writes, 5 min</th>
               <th scope="col">Cache writes, 1 h</th>
               <th scope="col">Cache reads</th>
               <th scope="col">Fast mode</th>
-              <th scope="col">API-equivalent cost</th>
+              <th scope="col">{costName(provenance)}</th>
             </tr>
           </thead>
           <tbody>
@@ -236,6 +254,7 @@ function TokensAndCost({ models }: { models: readonly ModelRow[] }) {
                   <td>{grouped(row.totals.requests)}</td>
                   <td>{compact(row.totals.tokens.input)}</td>
                   <td>{compact(row.totals.tokens.output)}</td>
+                  {reasoning && <td>{compact(row.totals.reasoningTokens)}</td>}
                   <td>{compact(row.totals.tokens.cacheWrite5m)}</td>
                   <td>{compact(row.totals.tokens.cacheWrite1h)}</td>
                   <td>{compact(row.totals.tokens.cacheRead)}</td>
@@ -270,6 +289,7 @@ function PricesUsed({ models }: { models: readonly ModelRow[] }) {
   const ids = models.filter((row) => !unpriced(row.model)).map((row) => row.model.id);
   const prices = useRequest("prices", { models: ids }).data;
   const rows = (prices?.models ?? []).flatMap((row) => tiers(row));
+  const copilot = useAgents().includes("copilot-cli");
   return (
     <Panel
       title="Prices used"
@@ -314,6 +334,8 @@ function PricesUsed({ models }: { models: readonly ModelRow[] }) {
         {models.some((row) => unpriced(row.model)) && prices && !prices.refresh.enabled
           ? "; Settings can check this project's repository for a newer table once a day."
           : "."}
+        {copilot &&
+          " Copilot CLI's requests cost what Copilot CLI recorded, at $0.01 an AI credit, so they need no price."}
       </p>
     </Panel>
   );

@@ -13,6 +13,9 @@ import { TableScroll } from "../ui/panels";
 import { toTop } from "../ui/scroll";
 import { useView } from "../view";
 import {
+  AgentMenu,
+  COST_WORDS,
+  costName,
   costText,
   ModelMenu,
   RangeMenu,
@@ -21,6 +24,7 @@ import {
   useDays,
   useFilters,
   useExportScope,
+  useProvenance,
   useRangeText,
 } from "./common";
 import { ExportMenu } from "../exports";
@@ -38,10 +42,11 @@ export function Projects() {
   const total = overview?.totals.cost.total ?? 0;
   const small = rows.filter((row) => total > 0 && row.totals.cost.total / total < SMALL_SHARE);
   const shown = small.length > 1 ? rows.filter((row) => !small.includes(row)) : rows;
+  const provenance = useProvenance(overview?.totals);
   const summary = overview
     ? `${grouped(rows.length)} ${rows.length === 1 ? "project" : "projects"} ${
         rangeText === "today" ? "today" : `in the ${rangeText}`
-      } · ${money(total)} API-equivalent`
+      } · ${money(total)} ${COST_WORDS[provenance]}`
     : undefined;
   const largest = Math.max(...shown.map((row) => row.totals.cost.total), 0);
   const exportScope = useExportScope(rows.length, "project", "projects");
@@ -49,6 +54,7 @@ export function Projects() {
     <div className="section">
       <SectionHead title="Projects" summary={summary}>
         <RangeMenu />
+        <AgentMenu />
         <ModelMenu />
         <ExportMenu
           what={{ dataset: "projects", days, filters: { ...filters, project: null } }}
@@ -72,7 +78,7 @@ export function Projects() {
                 <th scope="col">Tokens</th>
                 <th scope="col" aria-sort="descending">
                   <span className="sorted">
-                    API-equivalent cost
+                    {costName(provenance)}
                     <ChevronDown size={12} stroke={2.25} />
                   </span>
                 </th>

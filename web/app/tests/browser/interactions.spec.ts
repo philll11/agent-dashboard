@@ -34,9 +34,9 @@ test("a filter menu opens, moves and chooses from the keyboard", async ({ dashbo
   const menu = page.getByRole("menu", { name: "Model" });
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("menuitemradio", { name: "All models" })).toBeFocused();
-  await expect(menu.getByRole("menuitemradio", { name: "Opus 5.5" })).toBeAttached();
+  await expect(menu.getByRole("menuitemradio", { name: "Opus 5.5", exact: true })).toBeAttached();
   await page.keyboard.press("o");
-  await expect(menu.getByRole("menuitemradio", { name: "Opus 5.5" })).toBeFocused();
+  await expect(menu.getByRole("menuitemradio", { name: "Opus 5.5", exact: true })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(menu).toBeHidden();
   await expect(page.getByRole("button", { name: "Model: Opus 5.5" })).toBeFocused();
@@ -47,6 +47,23 @@ test("a filter menu opens, moves and chooses from the keyboard", async ({ dashbo
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu", { name: "Model" })).toBeHidden();
   await expect(page.getByRole("button", { name: "Model: Opus 5.5" })).toBeFocused();
+});
+
+test("the agent filter narrows the figures to one agent's", async ({ dashboard, page }) => {
+  await dashboard.open();
+  await expect(page.getByRole("heading", { name: "Cost per day" })).toBeVisible();
+  await page.getByRole("button", { name: "Agent: All agents" }).click();
+  await page.getByRole("menuitemradio", { name: "Copilot CLI" }).click();
+  await expect(page.getByRole("button", { name: "Agent: Copilot CLI" })).toBeVisible();
+  await expect(page.getByText(/^As Copilot CLI recorded it · /)).toBeVisible();
+  const today = page.getByRole("region", { name: "Today", exact: true });
+  await expect(today.getByText("$1.74", { exact: true })).toBeVisible();
+  await expect(today.getByText("Recorded", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Agent: Copilot CLI" }).click();
+  await page.getByRole("menuitemradio", { name: "Claude Code" }).click();
+  await expect(page.getByRole("heading", { name: "API-equivalent cost per day" })).toBeVisible();
+  await expect(today.getByText("Estimate", { exact: true })).toBeVisible();
 });
 
 test("the cost chart reads out each day from the keyboard", async ({ dashboard, page }) => {

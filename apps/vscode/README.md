@@ -1,17 +1,17 @@
 # Dashboard for Coding Agents
 
-See how you use Claude Code: how close you are to your plan limits, what your usage would cost at API prices, and where it goes.
+See how you use Claude Code and GitHub Copilot CLI: how close you are to your plan limits, what your usage costs, and where it goes.
 
 > New versions are on the [releases page](https://github.com/philll11/agent-dashboard/releases): install the package for your platform with **Extensions: Install from VSIX…**.
 
 ## What you get
 
-- **A status bar item** with the five-hour window and when it resets, or today's API-equivalent cost before plan limits are recorded.
+- **A status bar item** with Claude Code's five-hour window and when it resets, and Copilot CLI's allowance, or today's cost before plan limits are recorded.
   Its tooltip lists every window; selecting it opens the dashboard.
 - **A summary in the sidebar**: plan limits, today by model, this week, and this week's top projects.
   Each item opens the matching section of the dashboard.
 - **The dashboard in the panel**, in a **Usage dashboard** tab beside the terminal, for keeping your usage in sight while you work.
-  A strip at its top shows the five-hour and weekly windows and the latest session in the project you have open, whether it is running, and what it has used, whichever section is below.
+  A strip at its top shows Claude Code's five-hour and weekly windows, Copilot CLI's allowance and the latest session in the project you have open, whether it is running, and what it has used, whichever section is below.
   Drag the tab beside the terminal or into a sidebar, and it fits itself to the room.
 - **The dashboard in an editor tab**: Overview, Sessions with each session's detail, Projects, Models, Limits and Settings.
   It follows your colour theme, high contrast included, and reopens where you left it, as the panel's does.
@@ -19,15 +19,18 @@ See how you use Claude Code: how close you are to your plan limits, what your us
 
 ## How it works
 
-The extension runs `agent-dashboard`, a small program that comes with it for your platform, which reads Claude Code's transcripts into a history of its own.
+The extension runs `agent-dashboard`, a small program that comes with it for your platform, which reads Claude Code's and Copilot CLI's transcripts into a history of its own.
 Claude Code deletes its transcripts after 30 days by default; the history keeps every request it has read.
 The program does the reading in the background, so VS Code's extension host stays idle.
 
-The extension runs where Claude Code does: in a window connected to WSL, over SSH or in a container, it reads that machine's transcripts.
+The extension runs where your agents do: in a window connected to WSL, over SSH or in a container, it reads that machine's transcripts.
 
 Every surface of agent-dashboard shares the same history: this extension, the command line and the desktop app.
 
 ## Plan limits
+
+Copilot CLI notes your monthly allowance with each request it makes, so it needs nothing connected.
+The allowance counts Copilot wherever you use it, not just the CLI.
 
 Claude Code passes your plan limits to its status line command while it runs in a terminal.
 Connected from the dashboard's Limits section, agent-dashboard becomes that command and records each reading; if you already have a status line, it records the limits and then shows yours.
@@ -37,6 +40,12 @@ The status line runs a copy of agent-dashboard kept with the history, so updatin
 Anthropic's undocumented usage endpoint can fill the gaps when no Claude Code session runs in a terminal.
 It is off unless you turn it on in Settings, labelled experimental, and reads the login Claude Code keeps on your computer without changing it.
 Anthropic's terms say Claude Code's login is for Claude Code and Anthropic's own apps, so decide for yourself whether to turn it on.
+
+## Cost
+
+Claude Code's cost is an API-equivalent estimate at Anthropic's list prices, not what your plan charges.
+Copilot CLI's cost is the charge it records for each request, at $0.01 an AI credit.
+A figure that adds both is labelled as including an estimate.
 
 ## Settings
 
@@ -48,7 +57,7 @@ The dashboard's own Settings section holds the rest: data folders, where plan li
 
 ## Privacy
 
-- agent-dashboard reads the files Claude Code keeps on your machine and records numbers, names and titles in a local database; it never stores prompt or code content.
+- agent-dashboard reads the files Claude Code and Copilot CLI keep on your machine and records numbers, names and titles in a local database; it never stores prompt or code content.
 - There is no telemetry.
 - It only uses the network for features you switch on: plan limits from Anthropic's undocumented usage endpoint (labelled experimental), and the daily check for a newer price table in this repository.
 

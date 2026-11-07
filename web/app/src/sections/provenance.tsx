@@ -5,6 +5,12 @@ import type { Level, WindowReading } from "@agent-dashboard/protocol";
 import { ago } from "../format";
 import { CheckCircle, Clock, Warning } from "../ui/icons";
 
+const SOURCES: Record<WindowReading["provenance"], string> = {
+  official: "Official · status line",
+  recorded: "Recorded · Copilot CLI",
+  experimental: "Experimental · usage endpoint",
+};
+
 /** A warning mark in the colour of its level. */
 export function LevelIcon({ level, size = 13 }: { level: Level; size?: number }) {
   return (
@@ -14,7 +20,8 @@ export function LevelIcon({ level, size = 13 }: { level: Level; size?: number })
   );
 }
 
-/** Where the newest reading comes from, and how old it is: `Official · status line · 2 min ago`. */
+/** Where the newest reading comes from, and how old it is: `Official · status line · 2 min ago`,
+ * `Recorded · Copilot CLI · 1 h ago`. */
 export function Provenance({
   readings,
   nowMs,
@@ -27,8 +34,7 @@ export function Provenance({
     undefined,
   );
   if (!newest) return null;
-  const source =
-    newest.provenance === "official" ? "Official · status line" : "Experimental · usage endpoint";
+  const source = SOURCES[newest.provenance];
   if (newest.stale) {
     return (
       <span className="badge caution">

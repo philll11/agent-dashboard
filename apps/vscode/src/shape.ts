@@ -112,6 +112,14 @@ function source(window: WindowReading): string {
   return "experimental, usage endpoint";
 }
 
+/** What a cost is, after its figure: `$5.10 · estimate`, `$1.74 · recorded`, `$6.84 · includes
+ * estimate`. */
+function kind(totals: Totals): string {
+  if (totals.costProvenance === "recorded") return "recorded";
+  if (totals.costProvenance === "mixed") return "includes estimate";
+  return "estimate";
+}
+
 /** What today's cost is, for a sentence, by where it comes from. */
 function costWords(totals: Totals): string {
   if (totals.costProvenance === "recorded") return "as Copilot CLI recorded it";
@@ -209,7 +217,7 @@ export function tree(summary: Summary, nowMs: number): Node[] {
     show: { section: "limits" },
     expanded: true,
     children: windows.map((window) => ({
-      id: `limits/${window.window}`,
+      id: `limits/${window.agent}/${window.window}`,
       label: windowName(window),
       description: reading(window, nowMs, status.timeZone),
       icon:
@@ -235,7 +243,7 @@ export function tree(summary: Summary, nowMs: number): Node[] {
   const todayNode: Node = {
     id: "today",
     label: "Today",
-    description: `${cost(status.todayTotals)} estimate`,
+    description: `${cost(status.todayTotals)} · ${kind(status.todayTotals)}`,
     show: { section: "overview", range: "today" },
     expanded: true,
     children: today.models.map((row) => ({
@@ -251,7 +259,7 @@ export function tree(summary: Summary, nowMs: number): Node[] {
   const weekNode: Node = {
     id: "week",
     label: "This week",
-    description: `${cost(status.weekTotals)} estimate`,
+    description: `${cost(status.weekTotals)} · ${kind(status.weekTotals)}`,
     show: { section: "overview" },
     expanded: false,
     children: week.models.map((row) => ({
