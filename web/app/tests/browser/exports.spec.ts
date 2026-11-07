@@ -45,7 +45,7 @@ test("the whole history exports with its progress, which can be cancelled", asyn
   dashboard,
   page,
 }) => {
-  await dashboard.open({ theme: "desktop-dark", scenario: "exports" });
+  await dashboard.open({ theme: "desktop-dark", scenario: "export-held" });
   await dashboard.section("Settings");
   await page.evaluate(() => {
     const bridge = window.agentDashboardBridge;

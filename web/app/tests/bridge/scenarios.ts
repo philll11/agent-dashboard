@@ -101,6 +101,9 @@ export const SCENARIOS: Record<string, Scenario> = {
   "unpriced-session": { patch: unpricedSession },
   /** A server of its own for the browser tests that save exports. */
   exports: {},
+  /** A server of its own for the test that holds an export of the whole history part-way, so that
+   * no other test's export reports its progress there meanwhile. */
+  "export-held": {},
   /** New activity is being read. */
   reading: {
     patch: withStatus((status) => {

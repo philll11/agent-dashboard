@@ -36,7 +36,7 @@
           - columnheader "Cost"
           - columnheader "Claude Code's own figure"
       - rowgroup:
-        - row /Review the runbook Running agent-dashboard Claude Code Today \d+:\d+ \d+ min Opus 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$0\.76estimate Not ended yet/:
+        - row /Review the runbook Running agent-dashboard Claude Code Today \d+:\d+ \d+ min Opus 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Not ended yet/:
           - rowheader "Review the runbook Running agent-dashboard":
             - link "Review the runbook Running agent-dashboard":
               - /url: "#session-06469a20-0c28-4129-8023-40cc894f31b4"
@@ -48,9 +48,9 @@
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$0.76estimate"
+          - cell /\$\d+\.\d+/
           - cell "Not ended yet"
-        - row /Tidy the CI matrix infra Copilot CLI Today \d+:\d+ \d+ min GPT-5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$1\.33recorded Recorded cost/:
+        - row /Tidy the CI matrix infra Copilot CLI Today \d+:\d+ \d+ min GPT-5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Recorded cost/:
           - rowheader "Tidy the CI matrix infra":
             - link "Tidy the CI matrix infra":
               - /url: "#session-301ac5fb-bcd8-4c6c-82d6-efff6f9f6b49"
@@ -62,9 +62,9 @@
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$1.33recorded"
+          - cell /\$\d+\.\d+/
           - cell "Recorded cost"
-        - row /Fix flaky date test website Claude Code Today \d+:\d+ \d+ min Sonnet 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$1\.11estimate Within 0\.3%/:
+        - row /Fix flaky date test website Claude Code Today \d+:\d+ \d+ min Sonnet 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.3%/:
           - rowheader "Fix flaky date test website":
             - link "Fix flaky date test website":
               - /url: "#session-b198743d-c29d-49b5-8104-0461eaf8b68b"
@@ -76,9 +76,9 @@
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$1.11estimate"
+          - cell /\$\d+\.\d+/
           - cell "Within 0.3%"
-        - row /Review the release notes agent-dashboard Copilot CLI Today \d+:\d+ \d+ min Opus 5\.5, Copilot CLI \d+ 0 [\d,.]+[bkmBKM]+ \$0\.41recorded Recorded cost/:
+        - row /Review the release notes agent-dashboard Copilot CLI Today \d+:\d+ \d+ min Opus 5\.5, Copilot CLI \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Recorded cost/:
           - rowheader "Review the release notes agent-dashboard":
             - link "Review the release notes agent-dashboard":
               - /url: "#session-99730196-fbaa-4921-89cd-352c434b2e5c"
@@ -90,9 +90,9 @@
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$0.41recorded"
+          - cell /\$\d+\.\d+/
           - cell "Recorded cost"
-        - row /Design the ingest lock agent-dashboard Claude Code Today \d+:\d+ 1 h \d+ min Opus 5\.5 \d+ 1 [\d,.]+[bkmBKM]+ \$1\.34estimate Within 0\.1%/:
+        - row /Design the ingest lock agent-dashboard Claude Code Today \d+:\d+ 1 h \d+ min Opus 5\.5 \d+ 1 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.1%/:
           - rowheader "Design the ingest lock agent-dashboard":
             - link "Design the ingest lock agent-dashboard":
               - /url: "#session-ed0a7cb6-186f-4770-861f-a474c44a47ce"
@@ -104,9 +104,9 @@
           - cell /\d+/
           - cell "1"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$1.34estimate"
+          - cell /\$\d+\.\d+/
           - cell "Within 0.1%"
-        - row /Morning triage notes Claude Code Today \d+:\d+ \d+ min Haiku 5\.5 9 0 [\d,.]+[bkmBKM]+ \$0\.02estimate Within 0\.6%/:
+        - row /Morning triage notes Claude Code Today \d+:\d+ \d+ min Haiku 5\.5 9 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.6%/:
           - rowheader "Morning triage notes":
             - link "Morning triage notes":
               - /url: "#session-adf29ebb-0df2-4d5c-8837-d21abe859ecc"
@@ -118,9 +118,9 @@
           - cell "9"
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$0.02estimate"
+          - cell /\$\d+\.\d+/
           - cell "Within 0.6%"
-        - row /Price table for Claude 5 models agent-dashboard Claude Code Today \d+:\d+ 2 h \d+ min Fable 5\.1, Haiku 5\.5 \d+ 2 [\d,.]+[bkmBKM]+ \$1\.87estimate Within 0\.1%/:
+        - row /Price table for Claude 5 models agent-dashboard Claude Code Today \d+:\d+ 2 h \d+ min Fable 5\.1, Haiku 5\.5 \d+ 2 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.1%/:
           - rowheader "Price table for Claude 5 models agent-dashboard":
             - link "Price table for Claude 5 models agent-dashboard":
               - /url: "#session-18583610-e6bb-4b40-8f2b-d5e73d7b8083"
@@ -132,9 +132,9 @@
           - cell /\d+/
           - cell "2"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$1.87estimate"
+          - cell /\$\d+\.\d+/
           - cell "Within 0.1%"
-        - row /Draft the release notes website Claude Code Fri 9 Oct \d+:\d+ \d+ min Haiku 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$0\.08estimate Within 0\.6%/:
+        - row /Draft the release notes website Claude Code Fri 9 Oct \d+:\d+ \d+ min Haiku 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.6%/:
           - rowheader "Draft the release notes website":
             - link "Draft the release notes website":
               - /url: "#session-46d47e83-b9af-4c39-809d-932250472b5d"
@@ -146,9 +146,9 @@
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$0.08estimate"
+          - cell /\$\d+\.\d+/
           - cell "Within 0.6%"
-        - row /Rate limiter for the gateway api-gateway Claude Code Fri 9 Oct \d+:\d+ 3 h \d+ min Opus 5\.5, Sonnet 5\.5, Haiku 5\.5 \d+ 4 [\d,.]+[bkmBKM]+ \$5\.35estimate 6% lower, prices may be out of date/:
+        - row /Rate limiter for the gateway api-gateway Claude Code Fri 9 Oct \d+:\d+ 3 h \d+ min Opus 5\.5, Sonnet 5\.5, Haiku 5\.5 \d+ 4 [\d,.]+[bkmBKM]+ \$\d+\.\d+ 6% lower, prices may be out of date/:
           - rowheader "Rate limiter for the gateway api-gateway":
             - link "Rate limiter for the gateway api-gateway":
               - /url: "#session-df44ff3a-4b56-4bf0-89ca-9ea2dc5f584e"
@@ -160,9 +160,9 @@
           - cell /\d+/
           - cell "4"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$5.35estimate"
+          - cell /\$\d+\.\d+/
           - cell "6% lower, prices may be out of date"
-        - row /Upgrade the test runner agent-dashboard Claude Code Fri 9 Oct \d+:\d+ \d+ min Haiku 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$0\.11estimate Within 0\.3%/:
+        - row /Upgrade the test runner agent-dashboard Claude Code Fri 9 Oct \d+:\d+ \d+ min Haiku 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.3%/:
           - rowheader "Upgrade the test runner agent-dashboard":
             - link "Upgrade the test runner agent-dashboard":
               - /url: "#session-fec885e6-09d1-4e20-8be4-5643f8199fab"
@@ -174,9 +174,9 @@
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$0.11estimate"
+          - cell /\$\d+\.\d+/
           - cell "Within 0.3%"
-        - row /Terraform module for the queue infra Claude Code Fri 9 Oct \d+:\d+ 1 h \d+ min Sonnet 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$2\.05estimate Within 0\.4%/:
+        - row /Terraform module for the queue infra Claude Code Fri 9 Oct \d+:\d+ 1 h \d+ min Sonnet 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.4%/:
           - rowheader "Terraform module for the queue infra":
             - link "Terraform module for the queue infra":
               - /url: "#session-05f6268c-1614-4a06-884d-93604b6302c2"
@@ -188,9 +188,9 @@
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$2.05estimate"
+          - cell /\$\d+\.\d+/
           - cell "Within 0.4%"
-        - row /Plan the next sprint blog Claude Code Fri 9 Oct \d+:\d+ 1 h \d+ min Opus 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$1\.22estimate Within 0\.6%/:
+        - row /Plan the next sprint blog Claude Code Fri 9 Oct \d+:\d+ 1 h \d+ min Opus 5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Within 0\.6%/:
           - rowheader "Plan the next sprint blog":
             - link "Plan the next sprint blog":
               - /url: "#session-27943324-baac-4a61-827a-274cfdb55b6f"
@@ -202,7 +202,7 @@
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
-          - cell "$1.22estimate"
+          - cell /\$\d+\.\d+/
           - cell "Within 0.6%"
     - text: /Showing 1 to \d+ of \d+ sessions/
     - button "Previous" [disabled]

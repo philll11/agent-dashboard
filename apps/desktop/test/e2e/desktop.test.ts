@@ -82,6 +82,8 @@ async function press(name: string, scope?: WebElement) {
     }),
     10_000,
   );
+  // In the middle of the window, a toast in a corner, such as an export's, never covers it.
+  await session().executeScript("arguments[0].scrollIntoView({ block: 'center' })", button);
   await button.click();
 }
 

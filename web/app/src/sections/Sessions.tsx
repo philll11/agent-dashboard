@@ -205,7 +205,7 @@ function Row({
   ownFigure,
 }: {
   row: SessionRow;
-  /** Shows whose session it is, and whether its cost is an estimate or recorded. */
+  /** Shows whose session it is, which also tells whether its cost is an estimate or recorded. */
   agent: boolean;
   /** Shows how the estimate compares with Claude Code's own figure. */
   ownFigure: boolean;
@@ -258,16 +258,9 @@ function Row({
       <td>{grouped(row.totals.requests)}</td>
       <td>{grouped(row.subagents)}</td>
       <td>{compact(tokensOf(row.totals))}</td>
-      <td className="strong nowrap">
-        {costText(row.totals)}
-        {agent && row.totals.costProvenance && (
-          <span className="cost-kind">
-            {row.totals.costProvenance === "estimate" ? "estimate" : "recorded"}
-          </span>
-        )}
-      </td>
+      <td className="strong nowrap">{costText(row.totals)}</td>
       {ownFigure && (
-        <td className="left nowrap">
+        <td className="left own-figure">
           {row.agent === "claude-code" ? (
             <OwnFigure
               reported={row.reportedUsd}
