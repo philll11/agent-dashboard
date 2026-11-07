@@ -4,6 +4,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use agent_dashboard_core::agent::Agent;
 use serde_json::{Map, Value};
 
 use crate::app::App;
@@ -56,11 +57,12 @@ pub enum Connection {
     Unknown(String),
 }
 
-/// Claude Code's user settings, in the first data root.
+/// Claude Code's user settings, in its first data root.
 #[must_use]
 pub fn settings_path(app: &App) -> Option<PathBuf> {
     app.roots
-        .first()
+        .iter()
+        .find(|root| root.agent == Agent::ClaudeCode)
         .map(|root| root.path.join("settings.json"))
 }
 

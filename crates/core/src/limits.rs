@@ -402,6 +402,40 @@ mod tests {
     }
 
     #[test]
+    fn each_window_starts_its_own_length_before_it_resets() {
+        // 00:00 UTC on 1 December 2026, and on 1 November.
+        let december = 1_796_083_200_000;
+        let november = 1_793_491_200_000;
+        assert_eq!(
+            window_start_ms(FIVE_HOUR, december),
+            december - FIVE_HOURS_MS
+        );
+        assert_eq!(window_start_ms(SEVEN_DAY, december), december - 7 * DAY_MS);
+        assert_eq!(
+            window_start_ms("seven_day:claude-fable", december),
+            december - 7 * DAY_MS
+        );
+        assert_eq!(window_start_ms(MONTHLY, december), november);
+        assert_eq!(window_start_ms(SPEND_LIMIT, december), november);
+    }
+
+    #[test]
+    fn a_monthly_reading_goes_stale_after_a_day_and_the_others_after_an_hour() {
+        let reading = |window: &str| LimitSnapshot {
+            window: window.to_owned(),
+            source: Source::CopilotSessionFiles,
+            observed_ms: 0,
+            used_percentage: 3.5,
+            resets_at_ms: None,
+            used: Some(1575.0),
+            entitlement: Some(45000.0),
+        };
+        assert!(!reading(MONTHLY).stale(2 * 60 * MINUTE));
+        assert!(reading(MONTHLY).stale(25 * 60 * MINUTE));
+        assert!(reading(FIVE_HOUR).stale(2 * 60 * MINUTE));
+    }
+
+    #[test]
     fn readings_that_reset_in_the_same_minute_are_one_window() {
         let reading = |observed_ms: i64, used: f64, resets_at_ms: i64| LimitSnapshot {
             window: FIVE_HOUR.into(),

@@ -60,13 +60,17 @@ fn short_names(paths: &[Option<&str>]) -> Vec<Option<String>> {
         .collect()
 }
 
-/// A model's short name, such as `Opus 5.5`, or its id when the price table does not know it.
+/// A model's short name, such as `Opus 5.5`: the price table's, or else the one its agent
+/// records, such as Copilot CLI's `GPT-6 Luna`, or else its id.
 #[must_use]
 pub fn model_name(app: &App, model: &str) -> String {
-    app.prices.model_name(model).map_or_else(
-        || model.to_owned(),
-        |name| name.strip_prefix("Claude ").unwrap_or(name).to_owned(),
-    )
+    app.prices
+        .model_name(model)
+        .or_else(|| app.model_names.get(model).map(String::as_str))
+        .map_or_else(
+            || model.to_owned(),
+            |name| name.strip_prefix("Claude ").unwrap_or(name).to_owned(),
+        )
 }
 
 #[cfg(test)]

@@ -96,6 +96,8 @@ pub struct App {
     pub config_dir: Option<OsString>,
     /// The value of `COPILOT_HOME`.
     pub copilot_home: Option<OsString>,
+    /// The names the agents show for models the price table does not list, by model id.
+    pub model_names: Arc<HashMap<String, String>>,
     pub home: Option<PathBuf>,
     /// The time zone days are counted in.
     pub zone: TimeZone,
@@ -143,6 +145,7 @@ impl App {
             ),
             config_dir,
             copilot_home,
+            model_names: Arc::default(),
             home,
             system_zone: zone.clone(),
             zone,
@@ -177,6 +180,14 @@ impl App {
                 app.copilot_home.as_deref(),
                 app.home.as_deref(),
                 &folders,
+            );
+        }
+        if let Ok(names) = history.model_names() {
+            app.model_names = Arc::new(
+                names
+                    .into_iter()
+                    .map(|((_, model), name)| (model, name))
+                    .collect(),
             );
         }
         let settings = history.settings().unwrap_or_default();
