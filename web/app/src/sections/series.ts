@@ -32,7 +32,8 @@ export function costSeries(
     const existing = bySeries.get(series);
     if (existing) {
       existing.total += row.totals.cost.total;
-      existing.name = "Other models";
+      // One family's newest version under each agent's id keeps its name.
+      if (series === "other" || existing.name !== row.model.name) existing.name = "Other models";
     } else {
       bySeries.set(series, {
         id: series,

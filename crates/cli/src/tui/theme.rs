@@ -14,6 +14,8 @@ pub enum Series {
     Opus,
     Sonnet,
     Haiku,
+    Gpt,
+    Gemini,
     Other,
 }
 
@@ -166,6 +168,8 @@ impl Theme {
             Series::Opus => palette.opus,
             Series::Sonnet => palette.sonnet,
             Series::Haiku => palette.haiku,
+            Series::Gpt => palette.gpt,
+            Series::Gemini => palette.gemini,
             Series::Other => palette.muted,
         })
     }
@@ -179,6 +183,8 @@ impl Theme {
                 Series::Opus => "▓",
                 Series::Sonnet => "▒",
                 Series::Haiku => "░",
+                Series::Gpt => "▄",
+                Series::Gemini => "▀",
                 Series::Other => "▪",
             }
         } else {

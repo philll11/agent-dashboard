@@ -36,6 +36,8 @@
   --series-opus: #d95926;
   --series-sonnet: #199e70;
   --series-haiku: #c98500;
+  --series-gpt: #d55181;
+  --series-gemini: #008300;
   --selected-outline: none;
   --track-outline: none;
   --swatch-outline: none;
@@ -78,6 +80,8 @@
   --series-opus: #eb6834;
   --series-sonnet: #1baf7a;
   --series-haiku: #eda100;
+  --series-gpt: #e87ba4;
+  --series-gemini: #008300;
 }
 
 /* Tokens worked out from the ones above. They are set on the body, where VS Code's variables
@@ -88,6 +92,8 @@ body {
   --fill-opus: var(--series-opus);
   --fill-sonnet: var(--series-sonnet);
   --fill-haiku: var(--series-haiku);
+  --fill-gpt: var(--series-gpt);
+  --fill-gemini: var(--series-gemini);
   --fill-other: var(--series-other);
   --raised: color-mix(in srgb, var(--ink) 5%, var(--panel));
   --accent-line: color-mix(in srgb, var(--meter) 45%, var(--panel));
@@ -180,6 +186,8 @@ body.vscode-high-contrast-light {
   --series-opus: #eb6834;
   --series-sonnet: #1baf7a;
   --series-haiku: #eda100;
+  --series-gpt: #e87ba4;
+  --series-gemini: #008300;
 }
 
 /* High contrast: no rounding or shadows, full-strength lines, and outlines on whatever is
@@ -207,6 +215,8 @@ body.vscode-high-contrast-light {
   --critical-line: var(--vscode-editorError-foreground);
   --fill-opus: repeating-linear-gradient(45deg, var(--series-opus) 0 3px, var(--page) 3px 5px);
   --fill-sonnet: repeating-linear-gradient(135deg, var(--series-sonnet) 0 3px, var(--page) 3px 5px);
+  --fill-gpt: repeating-linear-gradient(90deg, var(--series-gpt) 0 3px, var(--page) 3px 5px);
+  --fill-gemini: repeating-linear-gradient(0deg, var(--series-gemini) 0 3px, var(--page) 3px 5px);
 }
 
 /* The view in VS Code's panel or a sidebar. No theme variable says which of the two holds it, so
