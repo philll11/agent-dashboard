@@ -10,11 +10,11 @@ expression: shown(&state)
  5 │                                                                                │
  6 │                                                                                │
  7 │                                                                                │
- 8 │                          No Claude Code history found                          │
+ 8 │                                No history found                                │
  9 │                                                                                │
-10 │                       We looked in C:\Users\you\.claude.                       │
-11 │         Claude Code saves its history there after your first session.          │
-12 │      If you keep it somewhere else, set CLAUDE_CONFIG_DIR to that folder.      │
+10 │          We looked in C:\Users\you\.claude and C:\Users\you\.copilot.          │
+11 │          Each agent saves its history there after your first session.          │
+12 │      To read another folder, set CLAUDE_CONFIG_DIR or COPILOT_HOME to it.      │
 13 │                                                                                │
 14 │                                                                                │
 15 │                                                                                │
@@ -36,10 +36,10 @@ styles
  5 │                                                                                │
  6 │                                                                                │
  7 │                                                                                │
- 8 │                          aaaaaaaaaaaaaaaaaaaaaaaaaaaa                          │
+ 8 │                                aaaaaaaaaaaaaaaa                                │
  9 │                                                                                │
-10 │                       dddddddddddddddddddddddddddddddddd                       │
-11 │         ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd          │
+10 │          dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd          │
+11 │          dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd          │
 12 │      dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd      │
 13 │                                                                                │
 14 │                                                                                │

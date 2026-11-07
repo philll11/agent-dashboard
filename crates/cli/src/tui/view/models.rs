@@ -70,11 +70,16 @@ struct Layout {
     prices: (i32, i32),
 }
 
+/// Whether none of a model's requests has a cost: neither a price nor a recorded charge.
+fn unpriced_row(row: &ModelRow) -> bool {
+    row.totals.requests > 0 && row.totals.unpriced_requests == row.totals.requests
+}
+
 fn unpriced(overview: &Overview) -> Vec<String> {
     overview
         .models
         .iter()
-        .filter(|row| row.model.name == row.model.id)
+        .filter(|row| unpriced_row(row))
         .map(|row| clean(&row.model.id))
         .collect()
 }
@@ -263,10 +268,7 @@ fn tokens_box(
         Some(&format!("Tokens and cost · {}", state.range.title())),
         None,
     );
-    let unpriced_any = overview
-        .models
-        .iter()
-        .any(|row| row.model.name == row.model.id);
+    let unpriced_any = overview.models.iter().any(unpriced_row);
     let (heading, first) = if wide {
         (top + 2, top + 3)
     } else {
@@ -329,7 +331,7 @@ fn token_row(
 ) {
     let theme = c.theme;
     let end = |label: &str| end_of(columns, label);
-    let unpriced = row.model.name == row.model.id;
+    let unpriced = unpriced_row(row);
     let of = series.get(&row.model.id).copied().unwrap_or(Series::Other);
     if unpriced {
         c.put(2, y, "?", theme.muted());

@@ -1,0 +1,63 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits                  │
+ 1 │ Sessions › Fix flaky serve tests                                               │
+ 2 │┌─ Fix flaky serve tests ─────────────────────────────────── agent-dashboard ──┐│
+ 3 ││ Sat 10 Oct 11:30–12:16 · 46 min · Copilot CLI 1.0.106                        ││
+ 4 ││ Cost (recorded) $2.48   2 you sent · 54 the agent made · 6 a sub-agent made  ││
+ 5 │└──────────────────────────────────────────────────────────────────────────────┘│
+ 6 │┌─ Cost over the session ──────────────────────────────────────── cumulative ──┐│
+ 7 ││   $4                                                                         ││
+ 8 ││                                                                              ││
+ 9 ││                                                               ▁▁▁▂▂▂▃▃▄▄▅▅▆  ││
+10 ││                                            ▁▁▁▂▂▂▃▃▄▄▅▅▆▆▆▇▇███████████████  ││
+11 ││                         ▁▁▁▂▂▃▃▃▄▄▄▅▅▆▆▇▇▇█████████████████████████████████  ││
+12 ││   $0  ▁▁▁▂▂▃▃▃▄▄▅▅▆▆▇▇▇████████████████████████████████████████████████████  ││
+13 ││      11:30                            11:53                           12:16  ││
+14 │└──────────────────────────────────────────────────────────────────────────────┘│
+15 │┌─ Models and subagents ───────────────────────────────────────────────────────┐│
+16 ││ Who                 Model                 Requests                    Cost   ││
+17 ││ The session         ■ GPT-5.5                   56                   $2.21   ││
+18 ││ explore             ■ GPT-5.5                    6                   $0.27   ││
+19 ││                                                                              ││
+20 ││                                                                              ││
+21 │└──────────────────────────────────────────────────────────────────────────────┘│
+22 │  ↓ tokens by type                                                              │
+23 │ Esc back   ↑↓ scroll   t table view   e export   ? help          Read just now │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb cccccccccc bbbbbbbbbb bbbbbbbb bbbbbbbb                 │
+ 1 │ bbbbbbbbbbbddddddddddddddddddddd                                               │
+ 2 │eeaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeebbbbbbbbbbbbbbbbbeee│
+ 3 │e bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb                        e│
+ 4 │e bbbbbbbbbbbbbbbbaaaaa   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  e│
+ 5 │eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+ 6 │eeaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeebbbbbbbbbbbbeee│
+ 7 │e   bb                                                                         e│
+ 8 │e                                                                              e│
+ 9 │e                                                               fffffffffffff  e│
+10 │e                                            ffffffffffffffffffffffffffffffff  e│
+11 │e                         fffffffffffffffffffffffffffffffffffffffffffffffffff  e│
+12 │e   bb  fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  e│
+13 │e      bbbbb                            bbbbb                           bbbbb  e│
+14 │eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+15 │eeaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+16 │e bbb                 bbbbb                 bbbbbbbb                    bbbb   e│
+17 │e ddddddddddd         g ddddddd                   dd                   aaaaa   e│
+18 │e ddddddd             g ddddddd                    d                   aaaaa   e│
+19 │e                                                                              e│
+20 │e                                                                              e│
+21 │eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+22 │  bbbbbbbbbbbbbbbb                                                              │
+23 │ hhh bbbb   hh bbbbbb   h bbbbbbbbbb   h bbbbbb   h bbbb          bbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #d7dae0
+e = #3a404a
+f = #5cc8e8
+g = #d55181
+h = #5cc8e8 bold

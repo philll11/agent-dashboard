@@ -1,0 +1,87 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits         30 days · all agents · all projects · all models │
+ 1 │ Sessions › Fix flaky serve tests                                                                                       │
+ 2 │┌─ Fix flaky serve tests ─────────────────────────────────────────────────────────────────────────── agent-dashboard ──┐│
+ 3 ││ Sat 10 Oct 11:30–12:16 · 46 min · Copilot CLI 1.0.106 · terminal · session 981f2c4d                                  ││
+ 4 ││ Cost (recorded) $2.48   2 you sent · 54 the agent made · 6 a sub-agent made                                          ││
+ 5 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+ 6 │┌─ Cost over the session ────────────────────── cumulative ──┐┌─ Tokens by type ───────────────────────────────────────┐│
+ 7 ││   $4                                                       ││                                 Tokens           Cost  ││
+ 8 ││                                                            ││ Input                               3K          $0.05  ││
+ 9 ││                                                            ││ Output, 12K of them reasoning      52K          $1.24  ││
+10 ││                                                ▁▁▂▃▄▄▅▆▆█  ││ Cache writes                      151K          $0.82  ││
+11 ││                                     ▁▁▂▂▃▄▅▅▆▇███████████  ││ Cache reads                       719K          $0.37  ││
+12 ││                           ▁▁▂▃▄▄▅▆▆▇█████████████████████  ││                                                        ││
+13 ││                ▁▁▂▂▃▄▅▅▆▇████████████████████████████████  ││                                                        ││
+14 ││   $0 ▁▁▂▃▃▄▅▆▆▇██████████████████████████████████████████  ││                                                        ││
+15 ││      11:30                   11:53                  12:16  ││ Total                                           $2.48  ││
+16 │└────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────┘│
+17 │┌─ Models and subagents ───────────────────────────────────────────────────────────────────────────────────────────────┐│
+18 ││ Who                   Type          Model           When              Requests      Tokens          Cost             ││
+19 ││ The session                         ■ GPT-5.5       11:30–12:16             56        825K         $2.21             ││
+20 ││ explore               subagent      ■ GPT-5.5       11:52–11:58              6        101K         $0.27             ││
+21 ││                                                                                                                      ││
+22 ││                                                                                                                      ││
+23 ││                                                                                                                      ││
+24 ││                                                                                                                      ││
+25 ││                                                                                                                      ││
+26 ││                                                                                                                      ││
+27 ││                                                                                                                      ││
+28 ││                                                                                                                      ││
+29 ││                                                                                                                      ││
+30 ││                                                                                                                      ││
+31 ││                                                                                                                      ││
+32 ││                                                                                                                      ││
+33 ││                                                                                                                      ││
+34 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+35 │ Esc back   ↑↓ scroll   t table view   e export   ? help         Read just now · costs include API-equivalent estimates │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb cccccccccc bbbbbbbbbb bbbbbbbb bbbbbbbb        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+ 1 │ bbbbbbbbbbbddddddddddddddddddddd                                                                                       │
+ 2 │eeaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeebbbbbbbbbbbbbbbbbeee│
+ 3 │e bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb                                  e│
+ 4 │e bbbbbbbbbbbbbbbbaaaaa   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb                                          e│
+ 5 │eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+ 6 │eeaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeebbbbbbbbbbbbeeeeeaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+ 7 │e   bb                                                       ee                                 bbbbbb           bbbb  e│
+ 8 │e                                                            ee ddddd                               dd          aaaaa  e│
+ 9 │e                                                            ee ddddddddddddddddddddddddddddd      ddd          aaaaa  e│
+10 │e                                                ffffffffff  ee dddddddddddd                      dddd          aaaaa  e│
+11 │e                                     fffffffffffffffffffff  ee ddddddddddd                       dddd          aaaaa  e│
+12 │e                           fffffffffffffffffffffffffffffff  ee                                                        e│
+13 │e                ffffffffffffffffffffffffffffffffffffffffff  ee                                                        e│
+14 │e   bb ffffffffffffffffffffffffffffffffffffffffffffffffffff  ee                                                        e│
+15 │e      bbbbb                   bbbbb                  bbbbb  ee aaaaa                                           aaaaa  e│
+16 │eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+17 │eeaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+18 │e bbb                   bbbb          bbbbb           bbbb              bbbbbbbb      bbbbbb          bbbb             e│
+19 │e ddddddddddd                         g ddddddd       bbbbbbbbbbb             dd        dddd         aaaaa             e│
+20 │e ddddddd               bbbbbbbb      g ddddddd       bbbbbbbbbbb              d        dddd         aaaaa             e│
+21 │e                                                                                                                      e│
+22 │e                                                                                                                      e│
+23 │e                                                                                                                      e│
+24 │e                                                                                                                      e│
+25 │e                                                                                                                      e│
+26 │e                                                                                                                      e│
+27 │e                                                                                                                      e│
+28 │e                                                                                                                      e│
+29 │e                                                                                                                      e│
+30 │e                                                                                                                      e│
+31 │e                                                                                                                      e│
+32 │e                                                                                                                      e│
+33 │e                                                                                                                      e│
+34 │eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee│
+35 │ hhh bbbb   hh bbbbbb   h bbbbbbbbbb   h bbbbbb   h bbbb         bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #d7dae0
+e = #3a404a
+f = #5cc8e8
+g = #d55181
+h = #5cc8e8 bold

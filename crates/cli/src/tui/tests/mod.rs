@@ -15,7 +15,7 @@ use serde_json::json;
 
 use agent_dashboard_server::protocol::{Dataset, ExportFormat, Exported};
 
-use self::fixture::{Fixture, Variant};
+use self::fixture::{COPILOT_SESSION, Fixture, Variant};
 use super::state::{Event, ExportNotice, Flow, Overlay, Range, Section, State};
 use super::theme::Theme;
 use super::view::HELP_KEYS;
@@ -252,6 +252,39 @@ fn the_keys_and_the_pickers() {
             hover: 1,
             filter: String::new(),
         });
+    });
+}
+
+#[test]
+fn two_agents_side_by_side() {
+    for size in [WIDE, NARROW] {
+        check("two_agents_overview", Variant::TwoAgents, size, |_| {});
+        check("two_agents_sessions", Variant::TwoAgents, size, |state| {
+            state.section = Section::Sessions;
+            state.sessions.selected = 1;
+        });
+        check("two_agents_limits", Variant::TwoAgents, size, |state| {
+            state.section = Section::Limits;
+        });
+        check("copilot_session", Variant::TwoAgents, size, |state| {
+            state.section = Section::Sessions;
+            state.session = Some(COPILOT_SESSION.to_owned());
+        });
+    }
+    check(
+        "two_agents_limits_scrolled",
+        Variant::TwoAgents,
+        NARROW,
+        |state| {
+            state.section = Section::Limits;
+            state.scroll = 4;
+        },
+    );
+    check("agent_picker", Variant::TwoAgents, NARROW, |state| {
+        state.overlay = Some(Overlay::Agent { hover: 2 });
+    });
+    check("help_two_agents", Variant::TwoAgents, NARROW, |state| {
+        state.overlay = Some(Overlay::Help);
     });
 }
 
@@ -687,6 +720,65 @@ fn the_project_picker_filters_as_it_is_typed() {
     state.update(key(KeyCode::Down));
     state.update(key(KeyCode::Enter));
     assert_eq!(state.project.as_deref(), Some("C--code-api-gateway"));
+}
+
+#[test]
+fn the_agent_picker_applies_an_agent_to_every_request() {
+    let fixture = Fixture::new(Variant::TwoAgents);
+    let mut state = state(&fixture, NARROW, dark(), |_| {});
+    state.sessions.selected = 5;
+    state.update(typed('a'));
+    assert_eq!(state.overlay, Some(Overlay::Agent { hover: 0 }));
+    assert_eq!(
+        state.agent_choices(),
+        [
+            (None, "All agents".to_owned()),
+            (Some("claude-code".to_owned()), "Claude Code".to_owned()),
+            (Some("copilot-cli".to_owned()), "Copilot CLI".to_owned()),
+        ]
+    );
+    state.update(key(KeyCode::Down));
+    state.update(key(KeyCode::Down));
+    state.update(key(KeyCode::Enter));
+    assert_eq!(state.agent.as_deref(), Some("copilot-cli"));
+    assert_eq!(state.overlay, None);
+    assert_eq!(state.sessions.selected, 0, "lists start from the top");
+    let asks = state.asks();
+    let overview = asks
+        .iter()
+        .find(|ask| ask.method == "overview")
+        .expect("the overview is asked again");
+    assert_eq!(overview.params["filters"]["agent"], "copilot-cli");
+
+    state.update(typed('2'));
+    answer(&mut state, &fixture);
+    let page = state.sessions_page().expect("the sessions are answered");
+    assert!(page.rows.iter().all(|row| row.agent == "copilot-cli"));
+    assert!(
+        !shown(&state).contains("Agent  "),
+        "one agent's sessions need no agent column"
+    );
+}
+
+#[test]
+fn a_chosen_agent_is_kept_and_named_whatever_the_history_holds() {
+    let (mut state, _) = ready(WIDE);
+    assert!(
+        !shown(&state).contains("all agents"),
+        "one agent needs no filter"
+    );
+    state.agent = Some("copilot-cli".to_owned());
+    assert_eq!(
+        state.agent_choices().last(),
+        Some(&(Some("copilot-cli".to_owned()), "Copilot CLI".to_owned()))
+    );
+    assert!(shown(&state).contains("30 days · Copilot CLI · all projects · all models"));
+    let asks = state.asks();
+    assert!(
+        asks.iter()
+            .any(|ask| ask.params["filters"]["agent"] == "copilot-cli"),
+        "{asks:?}"
+    );
 }
 
 #[test]

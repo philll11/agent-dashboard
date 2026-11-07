@@ -72,6 +72,25 @@ impl Fixture {
         fs::write(path, lines.join("\n") + "\n").unwrap();
     }
 
+    /// Writes a Copilot CLI session called `title`, working in `C:\code\app`: its
+    /// `workspace.yaml`, and its `events.jsonl` with the event that starts it, then `events`.
+    pub fn copilot_session(&self, session: &str, title: &str, events: &[Value]) {
+        let folder = self.copilot_root().join("session-state").join(session);
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(
+            folder.join("workspace.yaml"),
+            format!("id: {session}\ncwd: C:\\code\\app\nname: {title}\n"),
+        )
+        .unwrap();
+        let start = json!({"type": "session.start",
+            "data": {"copilotVersion": "1.0.106", "context": {"cwd": "C:\\code\\app"}}});
+        let lines: Vec<String> = std::iter::once(&start)
+            .chain(events)
+            .map(Value::to_string)
+            .collect();
+        fs::write(folder.join("events.jsonl"), lines.join("\n") + "\n").unwrap();
+    }
+
     /// The command with nothing on the `PATH`, so that `connect` names agent-dashboard by its
     /// full path on every platform.
     pub fn cli_without_path(&self, args: &[&str]) -> Command {
@@ -95,6 +114,32 @@ pub fn request(id: &str, model: &str, timestamp: &str) -> Value {
             "usage": {"input_tokens": 3, "output_tokens": 640, "cache_read_input_tokens": 42000,
                 "cache_creation_input_tokens": 1500,
                 "cache_creation": {"ephemeral_5m_input_tokens": 500, "ephemeral_1h_input_tokens": 1000}}}
+    })
+}
+
+/// A Copilot CLI request of `model`, which Copilot CLI names `GPT-5.5`, made at `timestamp`: the
+/// person started it, and Copilot CLI recorded it as costing 5 AI credits, $0.05.
+pub fn copilot_request(id: &str, model: &str, timestamp: &str) -> Value {
+    json!({
+        "type": "session.usage_record", "id": format!("event-{id}"), "timestamp": timestamp,
+        "data": {"usage": {"model": model, "modelDisplayName": "GPT-5.5",
+            "inputTokens": 1000, "outputTokens": 200,
+            "cacheReadTokens": 0, "cacheWriteTokens": 0, "reasoningTokens": 50,
+            "initiator": "user", "isByok": false,
+            "accounting": {"usageId": format!("msg_{id}")},
+            "copilotUsage": {"tokenDetails": [{"batchSize": 1000, "costPerBatch": 5_000_000_000_u64,
+                "tokenCount": 1000, "tokenType": "input"}], "totalNanoAiu": 5_000_000_000_u64}}}
+    })
+}
+
+/// Copilot CLI's monthly allowance as a model call at `timestamp` reports it: 1,575 of 45,000 AI
+/// credits used, until 1 November 2026.
+pub fn copilot_allowance(timestamp: &str) -> Value {
+    json!({
+        "type": "model.model_call_success", "timestamp": timestamp,
+        "data": {"quotaSnapshots": {"premium_interactions": {"isUnlimitedEntitlement": false,
+            "entitlementRequests": 45000, "usedRequests": 1575, "remainingPercentage": 96.5,
+            "resetDate": "2026-11-01T00:00:00Z"}}}
     })
 }
 

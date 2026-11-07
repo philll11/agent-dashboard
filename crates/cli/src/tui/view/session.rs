@@ -1,14 +1,15 @@
-//! One session: its cost against Claude Code's own figure, its cost as it went, its tokens by type,
-//! who did the work, and the skills and MCP tools its requests are credited to. A page that
-//! scrolls when it does not fit.
+//! One session: its cost, against Claude Code's own figure for a Claude Code session and by who
+//! started its requests for a Copilot CLI one, its cost as it went, its tokens by type, who did
+//! the work, and the skills and MCP tools a Claude Code session's requests are credited to. A
+//! page that scrolls when it does not fit.
 
 use agent_dashboard_server::fmt::{clock, compact, day_label, duration, grouped, money};
-use agent_dashboard_server::protocol::{Credit, SessionDetail, Totals, WhoRow};
+use agent_dashboard_server::protocol::{Credit, Initiators, SessionDetail, Totals, WhoRow};
 use jiff::{Timestamp, Zoned};
 
 use super::overview::{cost_text, tokens_of};
-use super::{footer, header, scrolled, series_of};
-use crate::tui::canvas::{Canvas, clean, fit, money_tick, nice_scale, round};
+use super::{agent_name, cost_label, footer, header, provenance, scrolled, series_of};
+use crate::tui::canvas::{Canvas, clean, fit, money_tick, nice_scale, round, width};
 use crate::tui::state::{Section, State};
 use crate::tui::theme::Series;
 
@@ -18,15 +19,36 @@ const DRIFT_LIMIT: f64 = 0.02;
 /// as running.
 const RUNNING_MS: i64 = 15 * 60_000;
 
-/// How Claude Code was started, as the session's line says it.
+/// How the agent was started, as the session's line says it.
 fn started_from(entrypoint: &str) -> &str {
     match entrypoint {
-        "cli" => "terminal",
+        "cli" | "github/cli" => "terminal",
         "claude-vscode" => "VS Code",
         "claude-desktop" => "desktop app",
         "sdk-cli" | "sdk-ts" | "sdk-py" => "Agent SDK",
         other => other,
     }
+}
+
+/// Whether the session is Claude Code's, which records its own cost of a session and credits
+/// requests to skills and MCP servers.
+fn claude_code(detail: &SessionDetail) -> bool {
+    detail.agent == "claude-code"
+}
+
+/// Requests by who started them: `2 you sent · 54 the agent made · 6 a sub-agent made`, leaving
+/// out those none started.
+fn started_by(initiators: Initiators) -> String {
+    let parts: Vec<String> = [
+        (initiators.you, "you sent"),
+        (initiators.agent, "the agent made"),
+        (initiators.sub_agents, "a sub-agent made"),
+    ]
+    .into_iter()
+    .filter(|(count, _)| *count > 0)
+    .map(|(count, who)| format!("{} {who}", grouped(count)))
+    .collect();
+    parts.join(" · ")
 }
 
 /// The rows of the page above its bottom boxes, and the boxes' heights: the title box, the cost
@@ -79,8 +101,11 @@ fn layout(state: &State, detail: &SessionDetail) -> Layout {
 }
 
 /// The rows the credits boxes need: a heading, each credit, and the line of what is credited to
-/// neither, a row apart.
+/// neither, a row apart; none for an agent that credits no request.
 fn credit_rows(detail: &SessionDetail, wide: bool) -> i32 {
+    if !claude_code(detail) {
+        return 0;
+    }
     let skills = i32::try_from(detail.skills.len()).unwrap_or(0).max(1);
     let tools = i32::try_from(detail.mcp_tools.len()).unwrap_or(0).max(1);
     if wide {
@@ -178,7 +203,11 @@ fn draw_page(c: &mut Canvas, state: &State, detail: &SessionDetail, title: &str)
         duration(detail.last_ms - detail.first_ms),
     ];
     if let Some(version) = &detail.agent_version {
-        meta.push(format!("Claude Code {}", clean(version)));
+        meta.push(format!(
+            "{} {}",
+            agent_name(state, &detail.agent),
+            clean(version)
+        ));
     }
     if wide {
         if let Some(entrypoint) = &detail.entrypoint {
@@ -190,7 +219,11 @@ fn draw_page(c: &mut Canvas, state: &State, detail: &SessionDetail, title: &str)
         ));
     }
     c.text(2, 1, &fit(&meta.join(" · "), w - 4), theme.muted());
-    own_figure(c, state, detail, 2);
+    if claude_code(detail) {
+        own_figure(c, state, detail, 2);
+    } else {
+        cost_and_initiators(c, state, detail, 2);
+    }
     let layout = layout(state, detail);
     let series = series_of(
         state
@@ -206,52 +239,56 @@ fn draw_page(c: &mut Canvas, state: &State, detail: &SessionDetail, title: &str)
     );
     if wide {
         cost_box(c, state, detail, (0, layout.chart.0, 62, layout.chart.1));
-        tokens_box(c, &detail.totals, (62, layout.chart.0, w - 62, 11));
+        tokens_box(c, detail, (62, layout.chart.0, w - 62, 11));
     } else {
         cost_box(c, state, detail, (0, layout.chart.0, w, layout.chart.1));
     }
-    who_box(c, state, detail, &series, layout.who);
+    // Without the credits boxes below it, the wide layout's box of who did the work reaches the
+    // page's end.
+    let who = if wide && !claude_code(detail) {
+        (layout.who.0, layout.who.1.max(c.h - layout.who.0))
+    } else {
+        layout.who
+    };
+    who_box(c, state, detail, &series, who);
     if let Some(hint) = layout.hint {
         c.text(
             2,
             hint,
-            "↓ tokens by type, skills and MCP tools",
+            if claude_code(detail) {
+                "↓ tokens by type, skills and MCP tools"
+            } else {
+                "↓ tokens by type"
+            },
             theme.muted(),
         );
     }
     if let Some((top, h)) = layout.tokens {
-        tokens_box(c, &detail.totals, (0, top, w, h));
+        tokens_box(c, detail, (0, top, w, h));
     }
+    if claude_code(detail) {
+        credits(c, state, detail, layout.credits);
+    }
+}
+
+/// The skills and MCP tools the session's requests are credited to, from row `top` to the page's
+/// end, and what is credited to neither.
+fn credits(c: &mut Canvas, state: &State, detail: &SessionDetail, top: i32) {
+    let (wide, w) = (state.wide(), c.w);
     let rows = credit_rows(detail, wide);
-    let bottom = c.h.max(layout.credits + rows);
+    let bottom = c.h.max(top + rows);
     if wide {
         let half = w / 2;
-        let h = bottom - layout.credits;
-        credits_box(c, "Skills", &detail.skills, (0, layout.credits, half, h));
-        credits_box(
-            c,
-            "MCP tools",
-            &detail.mcp_tools,
-            (half, layout.credits, w - half, h),
-        );
-        uncredited(c, &detail.uncredited, bottom - 2);
+        let h = bottom - top;
+        credits_box(c, "Skills", &detail.skills, (0, top, half, h));
+        credits_box(c, "MCP tools", &detail.mcp_tools, (half, top, w - half, h));
     } else {
         let skills_h = i32::try_from(detail.skills.len()).unwrap_or(0).max(1) + 3;
-        credits_box(
-            c,
-            "Skills",
-            &detail.skills,
-            (0, layout.credits, w, skills_h),
-        );
-        let h = bottom - layout.credits - skills_h;
-        credits_box(
-            c,
-            "MCP tools",
-            &detail.mcp_tools,
-            (0, layout.credits + skills_h, w, h),
-        );
-        uncredited(c, &detail.uncredited, bottom - 2);
+        credits_box(c, "Skills", &detail.skills, (0, top, w, skills_h));
+        let h = bottom - top - skills_h;
+        credits_box(c, "MCP tools", &detail.mcp_tools, (0, top + skills_h, w, h));
     }
+    uncredited(c, &detail.uncredited, bottom - 2);
 }
 
 /// The estimate against Claude Code's own figure for the session.
@@ -278,7 +315,9 @@ fn own_figure(c: &mut Canvas, state: &State, detail: &SessionDetail, y: i32) {
     let unpriced = detail
         .who
         .iter()
-        .filter(|row| row.model.name == row.model.id)
+        .filter(|row| {
+            row.totals.requests > 0 && row.totals.unpriced_requests == row.totals.requests
+        })
         .map(|row| row.model.id.as_str())
         .collect::<std::collections::HashSet<_>>()
         .len();
@@ -320,6 +359,20 @@ fn own_figure(c: &mut Canvas, state: &State, detail: &SessionDetail, y: i32) {
             theme.muted(),
         );
     }
+}
+
+/// The cost of a session whose agent records no cost of its own, named by where it comes from,
+/// and its requests by who started them, where the agent records that.
+fn cost_and_initiators(c: &mut Canvas, state: &State, detail: &SessionDetail, y: i32) {
+    let theme = c.theme;
+    let label = cost_label(provenance(state, Some(&detail.totals)));
+    let x = c.text(2, y, &format!("{label} "), theme.muted());
+    let x = c.text(x, y, &cost_text(&detail.totals), theme.strong());
+    let Some(initiators) = detail.initiators else {
+        return;
+    };
+    let room = c.w - 2 - (x + 3);
+    c.text(x + 3, y, &fit(&started_by(initiators), room), theme.muted());
 }
 
 /// The cost so far at `at`.
@@ -414,40 +467,66 @@ fn cost_box(
     }
 }
 
-/// Tokens and cost by type: input, output, each kind of cache write, cache reads and web searches.
-fn tokens_box(c: &mut Canvas, totals: &Totals, (x0, y0, w, h): (i32, i32, i32, i32)) {
+/// Tokens and cost by type: input, output with the reasoning it holds, each kind of cache write,
+/// cache reads and web searches. Claude Code's cache writes last 5 minutes or an hour; other
+/// agents record one kind.
+fn tokens_box(c: &mut Canvas, detail: &SessionDetail, (x0, y0, w, h): (i32, i32, i32, i32)) {
     let theme = c.theme;
+    let totals = &detail.totals;
     c.boxed((x0, y0, w, h), Some("Tokens by type"), None);
     let right = x0 + w;
     c.right(right - 18, y0 + 1, "Tokens", theme.muted());
     c.right(right - 3, y0 + 1, "Cost", theme.muted());
     let tokens = &totals.tokens;
     let cost = &totals.cost;
+    let output = if totals.reasoning_tokens > 0 {
+        format!(
+            "Output, {} of them reasoning",
+            compact(totals.reasoning_tokens)
+        )
+    } else {
+        "Output".to_owned()
+    };
     let mut rows = vec![
-        ("Input", compact(tokens.input), cost.input),
-        ("Output", compact(tokens.output), cost.output),
-        (
-            "Cache writes, 5 minutes",
-            compact(tokens.cache_write_5m),
-            cost.cache_write_5m,
-        ),
-        (
-            "Cache writes, 1 hour",
-            compact(tokens.cache_write_1h),
-            cost.cache_write_1h,
-        ),
-        ("Cache reads", compact(tokens.cache_read), cost.cache_read),
+        ("Input".to_owned(), compact(tokens.input), cost.input),
+        (output, compact(tokens.output), cost.output),
     ];
+    if claude_code(detail) {
+        rows.extend([
+            (
+                "Cache writes, 5 minutes".to_owned(),
+                compact(tokens.cache_write_5m),
+                cost.cache_write_5m,
+            ),
+            (
+                "Cache writes, 1 hour".to_owned(),
+                compact(tokens.cache_write_1h),
+                cost.cache_write_1h,
+            ),
+        ]);
+    } else {
+        rows.push((
+            "Cache writes".to_owned(),
+            compact(tokens.cache_write_5m + tokens.cache_write_1h),
+            cost.cache_write_5m + cost.cache_write_1h,
+        ));
+    }
+    rows.push((
+        "Cache reads".to_owned(),
+        compact(tokens.cache_read),
+        cost.cache_read,
+    ));
     if totals.web_search_requests > 0 {
         rows.push((
-            "Web searches",
+            "Web searches".to_owned(),
             grouped(totals.web_search_requests),
             cost.web_search,
         ));
     }
     for (row, (label, count, usd)) in (0..).zip(rows) {
         let y = y0 + 2 + row;
-        c.text(x0 + 2, y, label, theme.text());
+        let room = right - 18 - width(&count) - 2 - (x0 + 2);
+        c.text(x0 + 2, y, &fit(&label, room), theme.text());
         c.right(right - 18, y, &count, theme.text());
         c.right(right - 3, y, &money(usd), theme.strong());
     }

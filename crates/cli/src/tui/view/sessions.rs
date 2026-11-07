@@ -12,12 +12,18 @@ use crate::tui::state::{Section, State};
 /// How far the estimate may be from Claude Code's figure before prices may be out of date.
 const DRIFT_LIMIT: f64 = 0.02;
 
-/// The columns: where the title, the project and the start begin and how wide each is, and where
-/// the right-aligned figures end. They keep the boards' places at 120 and 80 columns; a wider
-/// window gives the title the room.
+/// How wide the agent's column is, for the first word of its name: `Claude`, `Copilot`.
+const AGENT_WIDTH: i32 = 7;
+
+/// The columns: where the title, the project, the agent and the start begin and how wide each
+/// is, and where the right-aligned figures end. They keep the boards' places at 120 and 80
+/// columns; a wider window gives the title the room, and the agent's column takes it from the
+/// title.
 struct Columns {
     title: (i32, i32),
     project: (i32, i32),
+    /// Where the agent's column begins, while the list holds more than one agent's sessions.
+    agent: Option<i32>,
     started: i32,
     /// Duration, subagents, requests, cost and Claude Code's own figure, in the wide layout.
     figures: Option<[i32; 5]>,
@@ -25,25 +31,35 @@ struct Columns {
 }
 
 fn columns(state: &State, w: i32) -> Columns {
-    if state.wide() {
-        let extra = w - 120;
-        Columns {
-            title: (4, 25 + extra),
-            project: (31 + extra, 16),
-            started: 49 + extra,
-            figures: Some([w - 47, w - 36, w - 26, w - 15, w - 2]),
-            cost: w - 15,
-        }
+    let agent = state.agent.is_none() && state.several_agents();
+    let (extra, title, figures, cost) = if state.wide() {
+        (
+            w - 120,
+            25,
+            Some([w - 47, w - 36, w - 26, w - 15, w - 2]),
+            w - 15,
+        )
     } else {
-        let extra = w - 80;
-        Columns {
-            title: (4, 28 + extra),
-            project: (34 + extra, 16),
-            started: 52 + extra,
-            figures: None,
-            cost: w - 4,
-        }
+        (w - 80, 28, None, w - 4)
+    };
+    let title = title + extra - if agent { AGENT_WIDTH + 2 } else { 0 };
+    let project = 4 + title + 2;
+    Columns {
+        title: (4, title),
+        project: (project, 16),
+        agent: agent.then_some(project + 18),
+        started: project + 18 + if agent { AGENT_WIDTH + 2 } else { 0 },
+        figures,
+        cost,
     }
+}
+
+/// The first word of an agent's name, as the list's column shows it: `Copilot`.
+fn agent_word(state: &State, id: &str) -> String {
+    let name = super::agent_name(state, id);
+    name.split_whitespace()
+        .next()
+        .map_or_else(|| name.clone(), str::to_owned)
 }
 
 pub fn draw(c: &mut Canvas, state: &State) {
@@ -128,6 +144,9 @@ fn headings(c: &mut Canvas, columns: &Columns, y: i32) {
     let theme = c.theme;
     c.text(columns.title.0, y, "Session", theme.muted());
     c.text(columns.project.0, y, "Project", theme.muted());
+    if let Some(agent) = columns.agent {
+        c.text(agent, y, "Agent", theme.muted());
+    }
     c.text(columns.started, y, "Started", theme.muted());
     if let Some([duration, subagents, requests, cost, own]) = columns.figures {
         c.right(duration, y, "Duration", theme.muted());
@@ -205,6 +224,14 @@ fn session_row(c: &mut Canvas, state: &State, row: &SessionRow, y: i32, columns:
         &fit(&clean(&row.project.name), columns.project.1),
         theme.muted(),
     );
+    if let Some(agent) = columns.agent {
+        c.text(
+            agent,
+            y,
+            &fit(&agent_word(state, &row.agent), AGENT_WIDTH),
+            theme.muted(),
+        );
+    }
     let started = Timestamp::from_millisecond(row.first_ms)
         .map(|at| day_time(&at.to_zoned(state.zone())))
         .unwrap_or_default();

@@ -1,13 +1,14 @@
 //! Made-up answers for the interface's tests: thirty days of four models' use, projects, sessions,
 //! a session's detail and plan limits, shaped like the design's terminal boards, and the states the
-//! boards draw.
+//! boards draw; with Copilot CLI's sessions and allowance beside Claude Code's in one of them.
 
 use agent_dashboard_server::protocol::{
     Access, AgentChoice, Choices, Cost, CostPoint, CostProvenance, Credit, Day, DayCost, Days,
     Endpoint, FastPrices, FiveHourWindow, Folder, FolderState, Health, HistoryFacts, ImportOffer,
-    Level, Limits, LongPrompt, Model, ModelDay, ModelRow, Overview, Pace, PriceDrift, PriceRefresh,
-    PriceRow, Prices, Progress, Project, ProjectRow, Provenance, SessionDetail, SessionRow,
-    SessionsPage, Status, StatusLine, Tokens, Totals, UsePoint, WhoRow, WindowReading, WindowView,
+    Initiators, Level, Limits, LongPrompt, Model, ModelDay, ModelRow, Overview, Pace, PriceDrift,
+    PriceRefresh, PriceRow, Prices, Progress, Project, ProjectRow, Provenance, SessionDetail,
+    SessionRow, SessionsPage, Status, StatusLine, Tokens, Totals, UsePoint, WhoRow, WindowReading,
+    WindowView,
 };
 use jiff::civil::{Date, date};
 use jiff::tz::TimeZone;
@@ -31,9 +32,41 @@ pub enum Variant {
     ReadOnly,
     TooNew,
     Error,
+    /// Copilot CLI's sessions and allowance beside Claude Code's.
+    TwoAgents,
 }
 
 pub const ZONE: &str = "Pacific/Auckland";
+
+/// The model of Copilot CLI's sessions, by its id and the name Copilot CLI records for it.
+const COPILOT_MODEL: (&str, &str) = ("gpt-5.5", "GPT-5.5");
+
+/// The Copilot CLI session whose detail the fixture has.
+pub const COPILOT_SESSION: &str = "981f2c4d-0000-4000-8000-000000000001";
+
+/// Whether the session at `index` of the list is Copilot CLI's, in the variant that has some.
+fn copilot_session(variant: Variant, index: usize) -> bool {
+    variant == Variant::TwoAgents && index % 3 == 1
+}
+
+/// What `cost` dollars of Copilot CLI's recorded charges look like: one kind of cache write, and
+/// some of the output reasoning.
+fn charged(cost: f64, requests: u64) -> Totals {
+    let mut charged = Totals {
+        requests,
+        reasoning_tokens: whole(cost * 4_000.0),
+        cost_provenance: Some(CostProvenance::Recorded),
+        charged_requests: requests,
+        charged_usd: cost,
+        charged_credits: cost * 100.0,
+        ..totals(cost, 20.0, 0.0)
+    };
+    charged.tokens.cache_write_5m += charged.tokens.cache_write_1h;
+    charged.tokens.cache_write_1h = 0;
+    charged.cost.cache_write_5m += charged.cost.cache_write_1h;
+    charged.cost.cache_write_1h = 0.0;
+    charged
+}
 
 /// The four models, with their share of the requests per dollar.
 const MODELS: [(&str, &str, f64); 4] = [
@@ -234,6 +267,13 @@ fn model(index: usize) -> Model {
     }
 }
 
+fn copilot_model() -> Model {
+    Model {
+        id: COPILOT_MODEL.0.to_owned(),
+        name: COPILOT_MODEL.1.to_owned(),
+    }
+}
+
 fn project(index: usize) -> Project {
     let (id, name, _, _) = PROJECTS[index];
     Project {
@@ -300,6 +340,7 @@ impl Fixture {
             "prices" => json_of(self.prices(params)),
             "import/offer" => json_of(self.import_offer()),
             "sessions" => json_of(self.sessions(params)),
+            "session" if params["id"] == COPILOT_SESSION => json_of(self.copilot_session()),
             "session" => json_of(self.session()),
             other => Err(format!("the fixture has no answer to {other}")),
         }
@@ -361,19 +402,34 @@ impl Fixture {
     }
 
     fn health(&self) -> Health {
-        let mut folders = vec![Folder {
-            path: r"C:\Users\you\.claude".to_owned(),
-            agent: "claude-code".to_owned(),
-            source: "default".to_owned(),
-            state: if self.variant == Variant::Empty {
-                FolderState::Missing
-            } else {
-                FolderState::Found {
-                    transcripts: 2_748,
-                    bytes: 2_900_000_000,
-                }
+        let mut folders = vec![
+            Folder {
+                path: r"C:\Users\you\.claude".to_owned(),
+                agent: "claude-code".to_owned(),
+                source: "default".to_owned(),
+                state: if self.variant == Variant::Empty {
+                    FolderState::Missing
+                } else {
+                    FolderState::Found {
+                        transcripts: 2_748,
+                        bytes: 2_900_000_000,
+                    }
+                },
             },
-        }];
+            Folder {
+                path: r"C:\Users\you\.copilot".to_owned(),
+                agent: "copilot-cli".to_owned(),
+                source: "default".to_owned(),
+                state: if self.variant == Variant::TwoAgents {
+                    FolderState::Found {
+                        transcripts: 71,
+                        bytes: 240_000_000,
+                    }
+                } else {
+                    FolderState::Missing
+                },
+            },
+        ];
         if self.variant == Variant::Folder {
             folders.push(Folder {
                 path: r"\\wsl.localhost\Ubuntu\home\you\.claude".to_owned(),
@@ -427,6 +483,9 @@ impl Fixture {
                 name: (*name).to_owned(),
             }));
         }
+        if self.variant == Variant::TwoAgents {
+            models.push(copilot_model());
+        }
         models
     }
 
@@ -435,11 +494,18 @@ impl Fixture {
         projects.sort_by(|a, b| a.name.cmp(&b.name));
         let mut models = self.models();
         models.sort_by(|a, b| a.name.cmp(&b.name));
+        let mut agents = vec![AgentChoice {
+            id: "claude-code".to_owned(),
+            name: "Claude Code".to_owned(),
+        }];
+        if self.variant == Variant::TwoAgents {
+            agents.push(AgentChoice {
+                id: "copilot-cli".to_owned(),
+                name: "Copilot CLI".to_owned(),
+            });
+        }
         Choices {
-            agents: vec![AgentChoice {
-                id: "claude-code".to_owned(),
-                name: "Claude Code".to_owned(),
-            }],
+            agents,
             projects,
             models,
         }
@@ -464,6 +530,8 @@ impl Fixture {
             .unwrap_or(date(2026, 10, 10));
         let project = params["filters"]["project"].as_str();
         let model_filter = params["filters"]["model"].as_str();
+        let agent = params["filters"]["agent"].as_str();
+        let claude_code = agent.is_none_or(|agent| agent == "claude-code");
         let share = project.map_or(1.0, Self::project_share);
         let mut by_day = Vec::new();
         let mut model_totals: Vec<Totals> = vec![Totals::default(); MODELS.len()];
@@ -476,7 +544,10 @@ impl Fixture {
             let mut day_totals = Totals::default();
             let mut parts: Vec<ModelDay> = Vec::new();
             for (index, cost) in costs.iter().enumerate() {
-                if model_filter.is_some_and(|id| id != MODELS[index].0) || *cost <= 0.0 {
+                if model_filter.is_some_and(|id| id != MODELS[index].0)
+                    || *cost <= 0.0
+                    || !claude_code
+                {
                     continue;
                 }
                 let part = totals(
@@ -512,7 +583,7 @@ impl Fixture {
             })
             .collect();
         if model_filter.is_none() {
-            for row in self.more_models(share) {
+            for row in self.more_models(share, agent) {
                 add(&mut all, &row.totals);
                 models.push(row);
             }
@@ -536,8 +607,9 @@ impl Fixture {
     }
 
     /// The models besides the four that the variant has, in the share of the cost a project
-    /// filter keeps: none in the chart, so that only the tables show them.
-    fn more_models(&self, share: f64) -> Vec<ModelRow> {
+    /// filter keeps, of `agent` or every agent: none in the chart, so that only the tables show
+    /// them.
+    fn more_models(&self, share: f64, agent: Option<&str>) -> Vec<ModelRow> {
         let row = |id: &str, name: &str, totals: Totals| ModelRow {
             model: Model {
                 id: id.to_owned(),
@@ -566,6 +638,13 @@ impl Fixture {
                 .iter()
                 .map(|(id, name, cost)| row(id, name, totals(cost * share, 12.0, 0.0)))
                 .collect(),
+            Variant::TwoAgents if agent.is_none_or(|agent| agent == "copilot-cli") => {
+                vec![row(
+                    COPILOT_MODEL.0,
+                    COPILOT_MODEL.1,
+                    charged(18.4 * share, whole(312.0 * share)),
+                )]
+            }
             _ => Vec::new(),
         }
     }
@@ -656,7 +735,7 @@ impl Fixture {
             limit_reached_ms: None,
             since_ms: since,
         };
-        vec![
+        let mut windows = vec![
             WindowView {
                 reading: reading(
                     "five_hour",
@@ -693,7 +772,47 @@ impl Fixture {
                 series: series(week_start, 18.0, 30),
                 pace: (!stale).then(|| pace(31.0, week_start)),
             },
-        ]
+        ];
+        if self.variant == Variant::TwoAgents {
+            windows.push(self.allowance());
+        }
+        windows
+    }
+
+    /// Copilot CLI's monthly allowance, as its session files recorded it an hour ago.
+    fn allowance(&self) -> WindowView {
+        let observed = self.now_ms() - 60 * 60_000;
+        let start = ms("2026-10-01T00:00:00+00:00[UTC]");
+        let resets = ms("2026-11-01T00:00:00+00:00[UTC]");
+        let used = 3.5;
+        WindowView {
+            reading: WindowReading {
+                agent: "copilot-cli".to_owned(),
+                window: "monthly".to_owned(),
+                model: None,
+                used_percentage: used,
+                resets_at_ms: Some(resets),
+                observed_ms: observed,
+                provenance: Provenance::Recorded,
+                level: Level::Normal,
+                used: Some(1_575.0),
+                entitlement: Some(45_000.0),
+                stale: false,
+                expired: false,
+            },
+            start_ms: Some(start),
+            series: (1..=10)
+                .map(|point: i64| UsePoint {
+                    ms: start + (observed - start) * point / 10,
+                    used: used * f64::from(u8::try_from(point).unwrap_or(0)) / 10.0,
+                })
+                .collect(),
+            pace: Some(Pace {
+                at_reset: 10.9,
+                limit_reached_ms: None,
+                since_ms: observed - 24 * 60 * 60_000,
+            }),
+        }
     }
 
     fn limits(&self) -> Limits {
@@ -825,6 +944,23 @@ impl Fixture {
                 let first_ms = newest - step * 110 * 60_000;
                 let title = TITLES[index % TITLES.len()];
                 let project_index = [0, 0, 1, 0, 2, 0, 3, 4][index % 8];
+                let requests = 40 + (u64::try_from(index).unwrap_or(0) * 53) % 220;
+                if copilot_session(self.variant, index) {
+                    let cost = cost / 4.0;
+                    return SessionRow {
+                        id: format!("981f2c4d-0000-4000-8000-{index:012}"),
+                        agent: "copilot-cli".to_owned(),
+                        title: (!title.is_empty()).then(|| title.to_owned()),
+                        project: project(project_index),
+                        first_ms,
+                        last_ms: first_ms + minutes * 60_000,
+                        models: vec![copilot_model()],
+                        subagents: u64::from(index % 4 == 1),
+                        totals: charged(cost, requests / 4),
+                        reported_usd: None,
+                        drift: None,
+                    };
+                }
                 let reported = (index % 5 != 4).then(|| {
                     if index == 6 {
                         cost * 0.93
@@ -848,7 +984,7 @@ impl Fixture {
                         u64::from(index % 3 == 0)
                     },
                     totals: Totals {
-                        requests: 40 + (u64::try_from(index).unwrap_or(0) * 53) % 220,
+                        requests,
                         ..totals(cost, 20.0, 0.0)
                     },
                     reported_usd: reported,
@@ -860,9 +996,11 @@ impl Fixture {
 
     fn sessions(&self, params: &Value) -> SessionsPage {
         let search = params["search"].as_str().map(str::to_lowercase);
+        let agent = params["filters"]["agent"].as_str();
         let rows: Vec<SessionRow> = self
             .session_rows()
             .into_iter()
+            .filter(|row| agent.is_none_or(|agent| row.agent == agent))
             .filter(|row| {
                 search.as_deref().is_none_or(|search| {
                     row.title
@@ -971,6 +1109,67 @@ impl Fixture {
                 requests: 229,
                 ..totals(13.19, 17.0, 0.0)
             },
+        }
+    }
+
+    /// A Copilot CLI session: its requests by who started them, a sub-agent's among them, and
+    /// nothing credited to skills or MCP servers, which Copilot CLI does not record.
+    fn copilot_session(&self) -> SessionDetail {
+        let first = self.at(date(2026, 10, 10), 11, 30);
+        let last = self.at(date(2026, 10, 10), 12, 16);
+        let (cost, requests) = (2.48, 62);
+        let cumulative_cost = (1..=requests)
+            .map(|step: i64| CostPoint {
+                ms: first + (last - first) * step / requests,
+                usd: cost * f64::from(u8::try_from(step).unwrap_or(0)) / 62.0,
+            })
+            .collect();
+        let totals = Totals {
+            reasoning_tokens: 11_700,
+            ..charged(cost, 62)
+        };
+        let own = charged(2.21, 56);
+        SessionDetail {
+            id: COPILOT_SESSION.to_owned(),
+            title: Some(TITLES[1].to_owned()),
+            project: project(0),
+            transcript: None,
+            first_ms: first,
+            last_ms: last,
+            agent_version: Some("1.0.106".to_owned()),
+            agent: "copilot-cli".to_owned(),
+            initiators: Some(Initiators {
+                you: 2,
+                agent: 54,
+                sub_agents: 6,
+            }),
+            entrypoint: Some("github/cli".to_owned()),
+            totals: totals.clone(),
+            own: own.clone(),
+            reported_usd: None,
+            drift: None,
+            cumulative_cost,
+            who: vec![
+                WhoRow {
+                    subagent: None,
+                    agent_type: None,
+                    model: copilot_model(),
+                    first_ms: first,
+                    last_ms: last,
+                    totals: own,
+                },
+                WhoRow {
+                    subagent: Some("toolu_1".to_owned()),
+                    agent_type: Some("explore".to_owned()),
+                    model: copilot_model(),
+                    first_ms: self.at(date(2026, 10, 10), 11, 52),
+                    last_ms: self.at(date(2026, 10, 10), 11, 58),
+                    totals: charged(0.27, 6),
+                },
+            ],
+            skills: Vec::new(),
+            mcp_tools: Vec::new(),
+            uncredited: totals,
         }
     }
 }

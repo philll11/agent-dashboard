@@ -7,7 +7,7 @@ use predicates::prelude::*;
 use predicates::str::contains;
 use serde_json::{Value, json};
 
-use common::{Fixture, NOW, request, today_at};
+use common::{Fixture, NOW, copilot_allowance, copilot_request, request, today_at};
 
 const TODAY_NOON: &str = "2026-10-10T12:00:00Z";
 
@@ -747,6 +747,249 @@ fn limits_shows_each_window_and_the_recent_five_hour_windows() {
         .assert()
         .success()
         .stdout(contains("The usage endpoint is already off."));
+}
+
+/// A history of both agents: a Claude Code session and a Copilot CLI one today, with Copilot
+/// CLI's allowance.
+fn both_agents() -> Fixture {
+    let fixture = Fixture::new();
+    fixture.transcript(
+        "s1",
+        &[
+            json!({"type": "ai-title", "aiTitle": "Fix the importer"}),
+            request("1", "claude-opus-5-5", &today_at("08:00:00")),
+        ],
+    );
+    fixture.copilot_session(
+        "c1",
+        "Port the parser",
+        &[
+            copilot_request("c1", "gpt-5.5", &today_at("09:00:00")),
+            copilot_request("c2", "gpt-5.5", &today_at("09:10:00")),
+            copilot_allowance(&today_at("09:10:05")),
+        ],
+    );
+    fixture
+}
+
+/// The JSON a command writes.
+fn json_of(fixture: &Fixture, args: &[&str]) -> Value {
+    let output = fixture.cli(args).assert().success();
+    serde_json::from_slice(&output.get_output().stdout).unwrap()
+}
+
+/// What a command writes.
+fn text_of(fixture: &Fixture, args: &[&str]) -> String {
+    let output = fixture.cli(args).assert().success();
+    String::from_utf8_lossy(&output.get_output().stdout).into_owned()
+}
+
+/// The figures of a table's total row, in the order of its columns.
+fn total_row(table: &str) -> Vec<&str> {
+    table
+        .lines()
+        .find(|line| line.starts_with("  Total"))
+        .map(|line| line.split_whitespace().skip(1).collect())
+        .unwrap_or_default()
+}
+
+#[test]
+fn today_counts_one_agent_or_both_and_says_where_the_cost_comes_from() {
+    let fixture = both_agents();
+
+    let both = text_of(&fixture, &["today"]);
+    assert!(
+        both.starts_with("Saturday 10 October · cost includes estimate · prices of 10 Oct 2026\n"),
+        "{both}"
+    );
+    assert!(
+        both.contains("■ GPT-5.5 ") && both.contains("Opus 5.5 "),
+        "{both}"
+    );
+    assert_eq!(
+        total_row(&both),
+        ["3", "1K", "2K", "42K", "$0.13"],
+        "{both}"
+    );
+    assert!(
+        both.contains(
+            "Plan limits: not recorded yet. To record them, run agent-dashboard statusline connect\n\
+             Copilot allowance, recorded, 2 h ago: 4% · 1,575 of 45,000 AI credits · resets 1 Nov 00:00\n"
+        ),
+        "{both}"
+    );
+
+    let copilot = text_of(&fixture, &["today", "--agent", "copilot-cli"]);
+    assert!(
+        copilot.starts_with("Saturday 10 October · recorded cost\n"),
+        "{copilot}"
+    );
+    assert!(
+        copilot.contains("GPT-5.5") && !copilot.contains("Opus"),
+        "{copilot}"
+    );
+    assert_eq!(
+        total_row(&copilot),
+        ["2", "400", "0", "0", "$0.10"],
+        "{copilot}"
+    );
+    assert!(
+        !copilot.contains("Plan limits") && copilot.contains("Copilot allowance, recorded"),
+        "{copilot}"
+    );
+
+    let claude = text_of(&fixture, &["today", "--agent", "claude-code"]);
+    assert!(
+        claude
+            .starts_with("Saturday 10 October · API-equivalent estimate · prices of 10 Oct 2026\n"),
+        "{claude}"
+    );
+    assert!(
+        claude.contains("Opus 5.5") && !claude.contains("GPT-5.5"),
+        "{claude}"
+    );
+    assert!(!claude.contains("Copilot allowance"), "{claude}");
+
+    let today = json_of(&fixture, &["today", "--agent", "copilot-cli", "--json"]);
+    assert_eq!(today["requests"], 2);
+    assert_eq!(today["cost"]["usd"], 0.1);
+    assert_eq!(today["cost"]["provenance"], "recorded");
+    assert_eq!(today["limits"][0]["agent"], "copilot-cli");
+    assert_eq!(today["limits"][0]["window"], "monthly");
+    assert_eq!(today["limits"][0]["used_credits"], 1575.0);
+    assert_eq!(today["limits"][0]["entitlement_credits"], 45000.0);
+}
+
+#[test]
+fn every_report_and_the_export_keep_to_the_agent_given() {
+    let fixture = both_agents();
+    let range = ["--since", "2026-10-10", "--until", "2026-10-10"];
+    let json = |command: &str, agent: Option<&str>| -> Value {
+        let mut args = vec![command];
+        args.extend(range);
+        if let Some(agent) = agent {
+            args.extend(["--agent", agent]);
+        }
+        args.push("--json");
+        json_of(&fixture, &args)
+    };
+
+    for (command, field) in [
+        ("daily", "requests"),
+        ("weekly", "requests"),
+        ("monthly", "requests"),
+    ] {
+        assert_eq!(json(command, None)[0][field], 3, "{command}");
+        let copilot = json(command, Some("copilot-cli"));
+        assert_eq!(copilot[0][field], 2, "{command}");
+        assert_eq!(copilot[0]["cost"]["provenance"], "recorded", "{command}");
+        let claude = json(command, Some("claude-code"));
+        assert_eq!(claude[0][field], 1, "{command}");
+        assert_eq!(claude[0]["cost"]["provenance"], "estimate", "{command}");
+    }
+
+    let models = json("models", Some("copilot-cli"));
+    assert_eq!(models.as_array().unwrap().len(), 1);
+    assert_eq!(models[0]["model"], "gpt-5.5");
+
+    let sessions = json("sessions", None);
+    assert_eq!(sessions.as_array().unwrap().len(), 2);
+    let sessions = json("sessions", Some("copilot-cli"));
+    assert_eq!(sessions.as_array().unwrap().len(), 1);
+    assert_eq!(sessions[0]["session_id"], "c1");
+    assert_eq!(sessions[0]["agent"], "copilot-cli");
+    assert_eq!(sessions[0]["title"], "Port the parser");
+
+    let projects = json("projects", Some("claude-code"));
+    assert_eq!(projects[0]["requests"], 1);
+
+    let requests = json_of(&fixture, &["export", "--agent", "copilot-cli", "--json"]);
+    let requests = requests.as_array().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(
+        requests
+            .iter()
+            .all(|request| request["agent"] == "copilot-cli")
+    );
+
+    let mut args = vec!["sessions"];
+    args.extend(range);
+    args.extend(["--agent", "copilot-cli"]);
+    fixture
+        .cli(&args)
+        .assert()
+        .success()
+        .stdout(contains("10 Oct 2026 to 10 Oct 2026 · recorded cost"))
+        .stdout(contains("Port the parser · app"))
+        .stdout(contains("Fix the importer").not());
+}
+
+#[test]
+fn an_agent_the_history_does_not_know_is_refused() {
+    let fixture = Fixture::new();
+    fixture
+        .cli(&["daily", "--agent", "codex"])
+        .assert()
+        .code(2)
+        .stderr(contains("invalid value 'codex' for '--agent <AGENT>'"))
+        .stderr(contains("claude-code"))
+        .stderr(contains("copilot-cli"));
+}
+
+#[test]
+fn limits_puts_each_agents_windows_under_its_name() {
+    let fixture = both_agents();
+    let resets = NOW.parse::<jiff::Timestamp>().unwrap().as_second() + 2 * 3600;
+    fixture
+        .cli(&["statusline"])
+        .write_stdin(
+            json!({"model": {"id": "claude-opus-5-5", "display_name": "Opus"},
+                   "rate_limits": {"five_hour": {"used_percentage": 42.0, "resets_at": resets}}})
+            .to_string(),
+        )
+        .assert()
+        .success();
+
+    let text = text_of(&fixture, &["limits"]);
+    let claude = text
+        .find("Claude Code · limits shared with claude.ai\n")
+        .expect(&text);
+    let recent = text.find("Recent five-hour windows").expect(&text);
+    let copilot = text.find("\nCopilot CLI\n").expect(&text);
+    assert!(claude < recent && recent < copilot, "{text}");
+    // The columns line up across the agents' tables, and only Copilot CLI's has AI credits.
+    assert!(
+        text.contains(
+            "Window              Used     Resets                 Source     Reading\n\
+             Five-hour window     42%     14:00, in 2 h 00 min   official   just now\n"
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains(
+            "Window              Used     Resets                 Source     Reading   AI credits\n\
+             Monthly allowance     4%     Sun 1 Nov, 00:00       recorded   2 h ago   1,575 of 45,000\n"
+        ),
+        "{text}"
+    );
+
+    let limits = json_of(&fixture, &["limits", "--json"]);
+    assert_eq!(limits["windows"][0]["agent"], "claude-code");
+    assert_eq!(limits["windows"][0]["window"], "five_hour");
+    assert!(limits["windows"][0].get("used_credits").is_none());
+    assert_eq!(limits["windows"][1]["agent"], "copilot-cli");
+    assert_eq!(limits["windows"][1]["window"], "monthly");
+    assert_eq!(limits["windows"][1]["provenance"], "recorded");
+    assert_eq!(limits["windows"][1]["used_credits"], 1575.0);
+
+    fixture
+        .cli(&["limits", "--csv"])
+        .assert()
+        .success()
+        .stdout(contains(
+            ",stale,expired,agent,used_credits,entitlement_credits\n",
+        ))
+        .stdout(contains(",copilot-cli,1575,45000\n"));
 }
 
 /// Makes the fixture's history one that a newer agent-dashboard has upgraded to schema 999,

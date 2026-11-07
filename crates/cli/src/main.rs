@@ -19,6 +19,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::report::Bucket;
 use agent_dashboard_server::app::App;
 use agent_dashboard_server::program;
@@ -28,7 +29,7 @@ use jiff::civil::Date;
 
 use crate::report::Output;
 
-/// See how you use Claude Code: plan limits, usage, API-equivalent cost and where it goes.
+/// See how you use Claude Code and Copilot CLI: plan limits, usage, cost and where it goes.
 ///
 /// Without a command, in a terminal, it opens the dashboard there.
 #[derive(Debug, Parser)]
@@ -40,12 +41,14 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Today's requests and API-equivalent cost by model, and the plan limits.
+    /// Today's requests and cost by model, and the plan limits.
     Today {
+        #[command(flatten)]
+        only: Only,
         #[command(flatten)]
         format: Format,
     },
-    /// Requests, tokens and API-equivalent cost per day, for the last 30 days unless told otherwise.
+    /// Requests, tokens and cost per day, for the last 30 days unless told otherwise.
     Daily {
         /// The first day, such as 2026-10-05.
         #[arg(long, value_name = "DATE")]
@@ -54,10 +57,11 @@ enum Command {
         #[arg(long, value_name = "DATE")]
         until: Option<Date>,
         #[command(flatten)]
+        only: Only,
+        #[command(flatten)]
         format: Format,
     },
-    /// Requests, tokens and API-equivalent cost per week, for the last 12 weeks unless told
-    /// otherwise.
+    /// Requests, tokens and cost per week, for the last 12 weeks unless told otherwise.
     Weekly {
         /// A day in the first week, such as 2026-08-03.
         #[arg(long, value_name = "DATE")]
@@ -66,10 +70,12 @@ enum Command {
         #[arg(long, value_name = "DATE")]
         until: Option<Date>,
         #[command(flatten)]
+        only: Only,
+        #[command(flatten)]
         format: Format,
     },
-    /// Requests, tokens and API-equivalent cost per calendar month, for the last 12 months unless
-    /// told otherwise.
+    /// Requests, tokens and cost per calendar month, for the last 12 months unless told
+    /// otherwise.
     Monthly {
         /// A day in the first month, such as 2026-01-01.
         #[arg(long, value_name = "DATE")]
@@ -78,26 +84,34 @@ enum Command {
         #[arg(long, value_name = "DATE")]
         until: Option<Date>,
         #[command(flatten)]
+        only: Only,
+        #[command(flatten)]
         format: Format,
     },
-    /// Requests and API-equivalent cost by model, for the last 30 days unless told otherwise.
+    /// Requests and cost by model, for the last 30 days unless told otherwise.
     Models {
         #[command(flatten)]
         days: Days,
         #[command(flatten)]
+        only: Only,
+        #[command(flatten)]
         format: Format,
     },
-    /// Requests and API-equivalent cost by session, for the last 7 days unless told otherwise.
+    /// Requests and cost by session, for the last 7 days unless told otherwise.
     Sessions {
         #[command(flatten)]
         days: Days,
         #[command(flatten)]
+        only: Only,
+        #[command(flatten)]
         format: Format,
     },
-    /// Requests and API-equivalent cost by project, for the last 30 days unless told otherwise.
+    /// Requests and cost by project, for the last 30 days unless told otherwise.
     Projects {
         #[command(flatten)]
         days: Days,
+        #[command(flatten)]
+        only: Only,
         #[command(flatten)]
         format: Format,
     },
@@ -106,6 +120,8 @@ enum Command {
     Export {
         #[command(flatten)]
         days: Days,
+        #[command(flatten)]
+        only: Only,
         #[command(flatten)]
         format: Format,
         /// The file to write, made for spreadsheets: CSV gets a byte order mark, and text that a
@@ -146,8 +162,9 @@ enum Command {
         #[arg(long)]
         status_line_copy: bool,
     },
-    /// Each plan window with its use, reset and source, and the recent five-hour windows; or
-    /// choose where plan limits come from, besides Claude Code's status line.
+    /// Each agent's plan windows with their use, reset and source, and Claude Code's recent
+    /// five-hour windows; or choose where Claude Code's plan limits come from, besides its status
+    /// line.
     #[command(args_conflicts_with_subcommands = true)]
     Limits {
         #[command(subcommand)]
@@ -253,6 +270,38 @@ struct Days {
     until: Option<Date>,
 }
 
+/// Which agent's requests a report counts.
+#[derive(Debug, Args)]
+struct Only {
+    /// Count only this agent's requests; every agent's unless given.
+    #[arg(long, value_enum, value_name = "AGENT")]
+    agent: Option<AgentName>,
+}
+
+impl Only {
+    fn agent(&self) -> Option<Agent> {
+        self.agent.map(AgentName::agent)
+    }
+}
+
+/// An agent, by the name the history, filters and exports use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum AgentName {
+    /// Claude Code
+    ClaudeCode,
+    /// GitHub Copilot CLI
+    CopilotCli,
+}
+
+impl AgentName {
+    fn agent(self) -> Agent {
+        match self {
+            Self::ClaudeCode => Agent::ClaudeCode,
+            Self::CopilotCli => Agent::CopilotCli,
+        }
+    }
+}
+
 #[derive(Debug, Args)]
 #[group(multiple = false)]
 struct Format {
@@ -286,47 +335,11 @@ fn main() -> ExitCode {
             help()
         };
     };
+    let command = match report(&app, command) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
     match command {
-        Command::Today { format } => report::today(&app, format.output()),
-        Command::Daily {
-            since,
-            until,
-            format,
-        } => report::daily(&app, since, until, format.output()),
-        Command::Weekly {
-            since,
-            until,
-            format,
-        } => report::periods(&app, Bucket::Week, since, until, format.output()),
-        Command::Monthly {
-            since,
-            until,
-            format,
-        } => report::periods(&app, Bucket::Month, since, until, format.output()),
-        Command::Models { days, format } => {
-            breakdown::models(&app, days.since, days.until, format.output())
-        }
-        Command::Sessions { days, format } => {
-            breakdown::sessions(&app, days.since, days.until, format.output())
-        }
-        Command::Projects { days, format } => {
-            breakdown::projects(&app, days.since, days.until, format.output())
-        }
-        Command::Export {
-            days,
-            format,
-            output,
-        } => export::run(
-            &app,
-            days.since,
-            days.until,
-            if format.json {
-                ExportFormat::Json
-            } else {
-                ExportFormat::Csv
-            },
-            output.as_deref(),
-        ),
         Command::Prices { action } => match action {
             None => prices::status(&app),
             Some(PricesAction::Refresh { switch }) => prices::switch(&app, switch == Switch::On),
@@ -357,7 +370,78 @@ fn main() -> ExitCode {
             status_line_copy: status_line_copy.then(program::this).and_then(Result::ok),
             ..app
         }),
+        Command::Today { .. }
+        | Command::Daily { .. }
+        | Command::Weekly { .. }
+        | Command::Monthly { .. }
+        | Command::Models { .. }
+        | Command::Sessions { .. }
+        | Command::Projects { .. }
+        | Command::Export { .. } => unreachable!("reports run above"),
     }
+}
+
+/// Runs a report of requests, or the export; any other command comes back to run.
+fn report(app: &App, command: Command) -> Result<ExitCode, Command> {
+    Ok(match command {
+        Command::Today { only, format } => report::today(app, only.agent(), format.output()),
+        Command::Daily {
+            since,
+            until,
+            only,
+            format,
+        } => report::daily(app, (since, until), only.agent(), format.output()),
+        Command::Weekly {
+            since,
+            until,
+            only,
+            format,
+        } => report::periods(
+            app,
+            Bucket::Week,
+            (since, until),
+            only.agent(),
+            format.output(),
+        ),
+        Command::Monthly {
+            since,
+            until,
+            only,
+            format,
+        } => report::periods(
+            app,
+            Bucket::Month,
+            (since, until),
+            only.agent(),
+            format.output(),
+        ),
+        Command::Models { days, only, format } => {
+            breakdown::models(app, (days.since, days.until), only.agent(), format.output())
+        }
+        Command::Sessions { days, only, format } => {
+            breakdown::sessions(app, (days.since, days.until), only.agent(), format.output())
+        }
+        Command::Projects { days, only, format } => {
+            breakdown::projects(app, (days.since, days.until), only.agent(), format.output())
+        }
+        Command::Export {
+            days,
+            only,
+            format,
+            output,
+        } => export::run(
+            app,
+            (days.since, days.until),
+            only.agent(),
+            if format.json {
+                ExportFormat::Json
+            } else {
+                ExportFormat::Csv
+            },
+            output.as_deref(),
+        ),
+        other => return Err(other),
+    })
 }
 
 /// The help, on standard error with the status a missing command gets, for a run without a
@@ -370,12 +454,26 @@ fn help() -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use clap::CommandFactory;
+    use agent_dashboard_core::agent::Agent;
+    use clap::{CommandFactory, ValueEnum};
 
-    use super::Cli;
+    use super::{AgentName, Cli};
 
     #[test]
     fn command_definition_is_valid() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn every_agent_is_named_as_the_history_names_it() {
+        let named: Vec<Agent> = AgentName::value_variants()
+            .iter()
+            .map(|name| {
+                let value = name.to_possible_value().expect("every agent has a name");
+                assert_eq!(value.get_name(), name.agent().as_str());
+                name.agent()
+            })
+            .collect();
+        assert_eq!(named, Agent::ALL);
     }
 }

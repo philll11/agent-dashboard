@@ -1,5 +1,5 @@
-//! The cost chart: API-equivalent cost per day, week or month, stacked by model series, with its
-//! legend; and the same as a table.
+//! The cost chart: cost per day, week or month, stacked by model series, with its legend; and the
+//! same as a table.
 
 use std::collections::HashMap;
 

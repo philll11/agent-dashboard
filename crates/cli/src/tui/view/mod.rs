@@ -12,13 +12,14 @@ mod session;
 mod sessions;
 
 use agent_dashboard_server::fmt::{ago, grouped};
+use agent_dashboard_server::protocol::{CostProvenance, Totals};
 use jiff::Timestamp;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 
 use super::canvas::{Canvas, fit, width};
-use super::state::{ExportNotice, Section, State};
+use super::state::{ExportNotice, Section, State, agent_name as named_agent};
 
 #[cfg(test)]
 pub use overlays::HELP_KEYS;
@@ -83,9 +84,36 @@ pub fn page_overflow(state: &State) -> i32 {
     let page = match state.section {
         Section::Sessions if state.session.is_some() => session::height(state),
         Section::Models => models::height(state),
+        Section::Limits => limits::height(state),
         _ => 0,
     };
     page - page_rows(state)
+}
+
+/// Where the costs shown come from: `totals`' own provenance, or, while none of their requests is
+/// priced, where the agents in view take theirs from.
+pub fn provenance(state: &State, totals: Option<&Totals>) -> CostProvenance {
+    if let Some(provenance) = totals.and_then(|totals| totals.cost_provenance) {
+        return provenance;
+    }
+    let agents = state.agents_in_view();
+    match (
+        agents.contains(&"claude-code"),
+        agents.contains(&"copilot-cli"),
+    ) {
+        (true, true) => CostProvenance::Mixed,
+        (false, true) => CostProvenance::Recorded,
+        _ => CostProvenance::Estimate,
+    }
+}
+
+/// What a cost is called, by where it comes from.
+pub fn cost_label(provenance: CostProvenance) -> &'static str {
+    match provenance {
+        CostProvenance::Estimate => "API-equivalent cost",
+        CostProvenance::Recorded => "Cost (recorded)",
+        CostProvenance::Mixed => "Cost (includes estimate)",
+    }
 }
 
 /// The rows a page shows at once: from the third row to the one above the key line.
@@ -119,7 +147,10 @@ pub fn reading(state: &State) -> Option<(u64, u64)> {
 /// the range and filters.
 pub fn header(c: &mut Canvas, state: &State, selected: Option<Section>) {
     let theme = c.theme;
-    let mut x = c.text(1, 0, brand(c.w), theme.strong()) + 3;
+    let filters = filters(state);
+    // The filters keep two columns apart from the sections.
+    let filters_room = if state.wide() { width(&filters) + 2 } else { 0 };
+    let mut x = c.text(1, 0, brand(c.w - filters_room), theme.strong()) + 3;
     for section in Section::ALL {
         let style = if Some(section) == selected {
             theme.selected()
@@ -128,9 +159,8 @@ pub fn header(c: &mut Canvas, state: &State, selected: Option<Section>) {
         };
         x = c.text(x, 0, &format!(" {} ", section.name()), style) + 1;
     }
-    let filters = filters(state);
     if state.wide() {
-        c.right(c.w - 1, 0, &filters, theme.muted());
+        c.right(c.w - 1, 0, &fit(&filters, c.w - 1 - (x + 1)), theme.muted());
     }
 }
 
@@ -149,7 +179,8 @@ fn brand(columns: i32) -> &'static str {
     }
 }
 
-/// The range and filters, as the header names them: `30 days · all projects · all models`.
+/// The range and filters, as the header names them: `30 days · all projects · all models`, with
+/// the agent after the range once there is more than one to choose from.
 fn filters(state: &State) -> String {
     let project = state
         .project
@@ -159,13 +190,22 @@ fn filters(state: &State) -> String {
         .model
         .as_ref()
         .map_or_else(|| "all models".to_owned(), |id| model_name(state, id));
-    format!("{} · {project} · {model}", state.range.title())
+    if state.agent_shown() {
+        let agent = state
+            .agent
+            .as_ref()
+            .map_or_else(|| "all agents".to_owned(), |id| agent_name(state, id));
+        format!("{} · {agent} · {project} · {model}", state.range.title())
+    } else {
+        format!("{} · {project} · {model}", state.range.title())
+    }
 }
 
 /// The filters chosen, for the narrow layouts, whose header has no room for them: `None` when
 /// none is.
 pub fn chosen_filters(state: &State) -> Option<String> {
     let parts: Vec<String> = [
+        state.agent.as_ref().map(|id| agent_name(state, id)),
         state.project.as_ref().map(|id| project_name(state, id)),
         state.model.as_ref().map(|id| model_name(state, id)),
     ]
@@ -173,6 +213,16 @@ pub fn chosen_filters(state: &State) -> Option<String> {
     .flatten()
     .collect();
     (!parts.is_empty() && !state.wide()).then(|| parts.join(" · "))
+}
+
+/// An agent's name, as the history's choices give it: `Copilot CLI`.
+pub fn agent_name(state: &State, id: &str) -> String {
+    super::canvas::clean(
+        &state
+            .choices()
+            .and_then(|choices| choices.agents.iter().find(|agent| agent.id == id))
+            .map_or_else(|| named_agent(id), |agent| agent.name.clone()),
+    )
 }
 
 pub fn project_name(state: &State, id: &str) -> String {
@@ -203,7 +253,12 @@ pub fn footer(c: &mut Canvas, state: &State, keys: &[(&str, &str)], note: Option
     } else {
         let (read, style) = read_note(state);
         let shown = if state.wide() && !read.is_empty() {
-            format!("{read} · costs are API-equivalent estimates")
+            let costs = match provenance(state, None) {
+                CostProvenance::Estimate => "costs are API-equivalent estimates",
+                CostProvenance::Recorded => "costs are as Copilot CLI recorded them",
+                CostProvenance::Mixed => "costs include API-equivalent estimates",
+            };
+            format!("{read} · {costs}")
         } else {
             read
         };
@@ -382,20 +437,37 @@ fn empty(c: &mut Canvas, state: &State) {
         [one] => format!("We looked in {one}."),
         [rest @ .., last] => format!("We looked in {} and {last}.", rest.join(", ")),
     };
+    let mut agents: Vec<&str> = state.health().map_or_else(Vec::new, |health| {
+        health
+            .folders
+            .iter()
+            .map(|folder| folder.agent.as_str())
+            .collect()
+    });
+    agents.sort_unstable();
+    agents.dedup();
+    let (saves, elsewhere) = match agents.as_slice() {
+        ["copilot-cli"] => (
+            "Copilot CLI saves its history there after your first session.",
+            "If you keep it somewhere else, set COPILOT_HOME to that folder.",
+        ),
+        [] | ["claude-code"] => (
+            "Claude Code saves its history there after your first session.",
+            "If you keep it somewhere else, set CLAUDE_CONFIG_DIR to that folder.",
+        ),
+        _ => (
+            "Each agent saves its history there after your first session.",
+            "To read another folder, set CLAUDE_CONFIG_DIR or COPILOT_HOME to it.",
+        ),
+    };
     message(
         c,
         &[
-            ("No Claude Code history found", theme.strong()),
+            ("No history found", theme.strong()),
             ("", theme.text()),
             (&looked, theme.text()),
-            (
-                "Claude Code saves its history there after your first session.",
-                theme.text(),
-            ),
-            (
-                "If you keep it somewhere else, set CLAUDE_CONFIG_DIR to that folder.",
-                theme.text(),
-            ),
+            (saves, theme.text()),
+            (elsewhere, theme.text()),
         ],
         Some(&[("q", "quit"), ("R", "check again"), ("?", "help")]),
         state,

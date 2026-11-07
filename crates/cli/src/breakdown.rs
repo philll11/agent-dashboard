@@ -4,8 +4,9 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{History, ProjectKey, SessionKey};
-use agent_dashboard_core::report::{self, Filter, Range};
+use agent_dashboard_core::report::{self, Range};
 use jiff::Span;
 use jiff::civil::Date;
 
@@ -14,14 +15,17 @@ use agent_dashboard_server::fmt::short_date;
 use agent_dashboard_server::names::{model_name, project_names};
 use agent_dashboard_server::protocol::Dataset;
 
-use crate::report::{Output, Row, cells, ready_history, sum, table, total_row};
+use crate::report::{
+    Given, Output, Row, added, cells, cost_note, only, provenance, ready_history, sum, table,
+    total_row,
+};
 use crate::style::Paint;
 
 /// The longest label a session or project gets in a table.
 const LABEL_LIMIT: usize = 40;
 
 /// The days to report on: `days` days up to today unless given.
-fn days(app: &App, since: Option<Date>, until: Option<Date>, days: i64) -> (Date, Date) {
+fn days(app: &App, (since, until): Given, days: i64) -> (Date, Date) {
     let until = until.unwrap_or_else(|| app.now_zoned().date());
     let since = since.unwrap_or_else(|| {
         until
@@ -31,12 +35,18 @@ fn days(app: &App, since: Option<Date>, until: Option<Date>, days: i64) -> (Date
     (since, until)
 }
 
-fn heading(app: &App, since: Date, until: Date) -> String {
+/// The line above a table: its days, and what its costs are.
+fn heading(
+    app: &App,
+    (since, until): (Date, Date),
+    (history, agent): (&History, Option<Agent>),
+    totals: &report::Totals,
+) -> String {
     format!(
-        "{} to {} · API-equivalent estimate · prices of {}",
+        "{} to {} · {}",
         short_date(since),
         short_date(until),
-        short_date(app.prices.checked())
+        cost_note(app, provenance(history, agent, totals))
     )
 }
 
@@ -51,28 +61,25 @@ fn shorten(text: &str, limit: usize) -> String {
     }
 }
 
-fn open(app: &App) -> Result<History, ExitCode> {
-    ready_history(app)
-}
-
-pub fn models(app: &App, since: Option<Date>, until: Option<Date>, output: Output) -> ExitCode {
-    let history = match open(app) {
-        Ok(history) => history,
+pub fn models(app: &App, given: Given, agent: Option<Agent>, output: Output) -> ExitCode {
+    let (app, history) = match ready_history(app) {
+        Ok(ready) => ready,
         Err(code) => return code,
     };
-    let (since, until) = days(app, since, until, 30);
+    let app = &app;
+    let (since, until) = days(app, given, 30);
     if output != Output::Table {
         drop(history);
         return crate::export::print(
             app,
-            &crate::export::params(Dataset::Models, output, since, until),
+            &crate::export::params(Dataset::Models, output, (since, until), agent),
         );
     }
     let models = match report::by_model(
         &history,
         &app.prices,
         Range::days(since, until, &app.zone),
-        &Filter::default(),
+        &only(agent),
     ) {
         Ok(models) => models,
         Err(error) => {
@@ -81,7 +88,8 @@ pub fn models(app: &App, since: Option<Date>, until: Option<Date>, output: Outpu
         }
     };
     let paint = Paint::for_stdout();
-    let mut out = format!("{}\n\n", paint.muted(&heading(app, since, until)));
+    let heading = heading(app, (since, until), (&history, agent), &sum(&models));
+    let mut out = format!("{}\n\n", paint.muted(&heading));
     if models.is_empty() {
         let _ = writeln!(out, "{}", paint.muted("No requests on these days."));
     } else {
@@ -114,24 +122,25 @@ struct SessionView {
     totals: report::Totals,
 }
 
-pub fn sessions(app: &App, since: Option<Date>, until: Option<Date>, output: Output) -> ExitCode {
-    let history = match open(app) {
-        Ok(history) => history,
+pub fn sessions(app: &App, given: Given, agent: Option<Agent>, output: Output) -> ExitCode {
+    let (app, history) = match ready_history(app) {
+        Ok(ready) => ready,
         Err(code) => return code,
     };
-    let (since, until) = days(app, since, until, 7);
+    let app = &app;
+    let (since, until) = days(app, given, 7);
     if output != Output::Table {
         drop(history);
         return crate::export::print(
             app,
-            &crate::export::params(Dataset::Sessions, output, since, until),
+            &crate::export::params(Dataset::Sessions, output, (since, until), agent),
         );
     }
     let sessions = match report::by_session(
         &history,
         &app.prices,
         Range::days(since, until, &app.zone),
-        &Filter::default(),
+        &only(agent),
     ) {
         Ok(sessions) => sessions,
         Err(error) => {
@@ -168,22 +177,22 @@ pub fn sessions(app: &App, since: Option<Date>, until: Option<Date>, output: Out
             .cmp(&a.first_ms)
             .then_with(|| a.session_id.cmp(&b.session_id))
     });
-    print!("{}", sessions_table(app, since, until, &views));
+    let totals = added(views.iter().map(|session| &session.totals));
+    let heading = heading(app, (since, until), (&history, agent), &totals);
+    print!("{}", sessions_table(&heading, &views, &totals));
     ExitCode::SUCCESS
 }
 
-fn sessions_table(app: &App, since: Date, until: Date, sessions: &[SessionView]) -> String {
+fn sessions_table(heading: &str, sessions: &[SessionView], totals: &report::Totals) -> String {
     let paint = Paint::for_stdout();
-    let mut out = format!("{}\n\n", paint.muted(&heading(app, since, until)));
+    let mut out = format!("{}\n\n", paint.muted(heading));
     if sessions.is_empty() {
         let _ = writeln!(out, "{}", paint.muted("No sessions on these days."));
         return out;
     }
-    let mut totals = report::Totals::default();
     let rows: Vec<Row> = sessions
         .iter()
         .map(|session| {
-            add(&mut totals, &session.totals);
             let title = session
                 .title
                 .clone()
@@ -196,28 +205,29 @@ fn sessions_table(app: &App, since: Date, until: Date, sessions: &[SessionView])
             }
         })
         .collect();
-    out.push_str(&table(paint, "Session", &rows, &total_row(&totals)));
+    out.push_str(&table(paint, "Session", &rows, &total_row(totals)));
     out
 }
 
-pub fn projects(app: &App, since: Option<Date>, until: Option<Date>, output: Output) -> ExitCode {
-    let history = match open(app) {
-        Ok(history) => history,
+pub fn projects(app: &App, given: Given, agent: Option<Agent>, output: Output) -> ExitCode {
+    let (app, history) = match ready_history(app) {
+        Ok(ready) => ready,
         Err(code) => return code,
     };
-    let (since, until) = days(app, since, until, 30);
+    let app = &app;
+    let (since, until) = days(app, given, 30);
     if output != Output::Table {
         drop(history);
         return crate::export::print(
             app,
-            &crate::export::params(Dataset::Projects, output, since, until),
+            &crate::export::params(Dataset::Projects, output, (since, until), agent),
         );
     }
     let totals = match report::by_project(
         &history,
         &app.prices,
         Range::days(since, until, &app.zone),
-        &Filter::default(),
+        &only(agent),
     ) {
         Ok(projects) => projects,
         Err(error) => {
@@ -228,15 +238,15 @@ pub fn projects(app: &App, since: Option<Date>, until: Option<Date>, output: Out
     let names = project_names(&history);
     let name = |key: ProjectKey| names.get(&key).cloned().unwrap_or_default();
     let paint = Paint::for_stdout();
-    let mut out = format!("{}\n\n", paint.muted(&heading(app, since, until)));
+    let all = added(totals.iter().map(|project| &project.totals));
+    let heading = heading(app, (since, until), (&history, agent), &all);
+    let mut out = format!("{}\n\n", paint.muted(&heading));
     if totals.is_empty() {
         let _ = writeln!(out, "{}", paint.muted("No requests on these days."));
     } else {
-        let mut all = report::Totals::default();
         let rows: Vec<Row> = totals
             .iter()
             .map(|project| {
-                add(&mut all, &project.totals);
                 let label = shorten(&name(project.project).0, LABEL_LIMIT);
                 Row {
                     label_len: label.chars().count(),
@@ -249,14 +259,6 @@ pub fn projects(app: &App, since: Option<Date>, until: Option<Date>, output: Out
     }
     print!("{out}");
     ExitCode::SUCCESS
-}
-
-fn add(sum: &mut report::Totals, totals: &report::Totals) {
-    sum.requests += totals.requests;
-    sum.tokens.add(totals.tokens);
-    sum.cost.add(totals.cost);
-    sum.unpriced_requests += totals.unpriced_requests;
-    sum.web_search_requests += totals.web_search_requests;
 }
 
 #[cfg(test)]

@@ -80,17 +80,18 @@ fn model_name_from<'a>(
     recorded: Option<&str>,
     model: &str,
 ) -> String {
+    let short = |name: &str| name.strip_prefix("Claude ").unwrap_or(name).to_owned();
     if let Some(name) = priced(model) {
-        return name.to_owned();
+        return short(name);
     }
     let Some(recorded) = recorded else {
         return model.to_owned();
     };
-    let short = recorded.strip_prefix("Claude ").unwrap_or(recorded);
+    let short = short(recorded);
     if priced(&model.replace('.', "-")).is_some() {
         format!("{short}, Copilot CLI")
     } else {
-        short.to_owned()
+        short
     }
 }
 
@@ -99,7 +100,7 @@ mod tests {
     use super::{model_name_from, short_names};
 
     fn priced(id: &str) -> Option<&'static str> {
-        (id == "claude-opus-5-5").then_some("Opus 5.5")
+        (id == "claude-opus-5-5").then_some("Claude Opus 5.5")
     }
 
     #[test]

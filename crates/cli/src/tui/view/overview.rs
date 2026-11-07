@@ -3,14 +3,16 @@
 
 use agent_dashboard_core::report::Bucket;
 use agent_dashboard_server::fmt::{compact, day_label, grouped, money, percent, short_date};
-use agent_dashboard_server::protocol::{Access, Day, FolderState, ModelRow, Overview, Totals};
+use agent_dashboard_server::protocol::{
+    Access, CostProvenance, Day, FolderState, ModelRow, Overview, Totals,
+};
 use jiff::ToSpan;
 use jiff::civil::Date;
 
 use super::chart::{self, Chart};
 use super::limits as windows;
-use super::{KEYS, footer, header, notice, reading, series_of};
-use crate::tui::canvas::{Canvas, clean, fit, spark};
+use super::{KEYS, agent_name, cost_label, footer, header, notice, provenance, reading, series_of};
+use crate::tui::canvas::{Canvas, clean, fit, spark, width};
 use crate::tui::state::{Section, State, day};
 use crate::tui::theme::Series;
 
@@ -160,8 +162,10 @@ fn unreadable_folder(state: &State) -> Option<Notice> {
                 clean(&folder.path),
                 clean(reason)
             ),
-            narrow: "A Claude Code folder cannot be read: agent-dashboard doctor says which"
-                .to_owned(),
+            narrow: format!(
+                "A {} folder cannot be read: agent-dashboard doctor says which",
+                agent_name(state, &folder.agent)
+            ),
             warning: true,
         })
     })
@@ -175,8 +179,18 @@ fn first_read(state: &State) -> Option<Notice> {
     })
 }
 
+/// Claude Code's plan limits, all of them old: no session has run in a terminal to report them.
 fn stale_limits(state: &State) -> Option<Notice> {
-    let limits = &state.status()?.limits;
+    let claude_code = "claude-code";
+    if state.agent.as_deref().is_some_and(|id| id != claude_code) {
+        return None;
+    }
+    let limits: Vec<_> = state
+        .status()?
+        .limits
+        .iter()
+        .filter(|reading| reading.agent == claude_code)
+        .collect();
     if limits.is_empty()
         || !limits
             .iter()
@@ -289,6 +303,31 @@ pub fn daily_cost(costs: impl Iterator<Item = (Date, f64)>, first: Date, last: D
     out
 }
 
+/// The narrow layout's box of today, this week and this month, named by where their costs come
+/// from.
+fn tiles_title(provenance: CostProvenance) -> &'static str {
+    match provenance {
+        CostProvenance::Estimate => "Cost, API-equivalent",
+        CostProvenance::Recorded => "Cost, recorded",
+        CostProvenance::Mixed => "Cost, includes estimate",
+    }
+}
+
+/// The boxes of today, this week and this month, before their figures come.
+fn empty_tiles(c: &mut Canvas, state: &State, top: i32) {
+    if state.wide() {
+        let column = c.w / 3;
+        for (index, label) in (0..).zip(["Today", "This week", "This month"]) {
+            let x = index * column;
+            let w = if index == 2 { c.w - x } else { column };
+            c.boxed((x, top, w, 4), Some(label), None);
+        }
+    } else {
+        let title = tiles_title(provenance(state, None));
+        c.boxed((0, top, c.w, 3), Some(title), None);
+    }
+}
+
 /// Today, this week and this month: in three boxes with sparklines in the wide layout, and on one
 /// line in the narrow one.
 fn tiles(c: &mut Canvas, state: &State, top: i32) {
@@ -299,16 +338,7 @@ fn tiles(c: &mut Canvas, state: &State, top: i32) {
             .tiles_request()
             .and_then(|request| state.overview(&request)),
     ) else {
-        if state.wide() {
-            let column = c.w / 3;
-            for (index, label) in (0..).zip(["Today", "This week", "This month"]) {
-                let x = index * column;
-                let w = if index == 2 { c.w - x } else { column };
-                c.boxed((x, top, w, 4), Some(label), None);
-            }
-        } else {
-            c.boxed((0, top, c.w, 3), Some("Cost, API-equivalent"), None);
-        }
+        empty_tiles(c, state, top);
         return;
     };
     let today = day(&status.today);
@@ -322,7 +352,8 @@ fn tiles(c: &mut Canvas, state: &State, top: i32) {
     let last_week = sum(&recent.by_day, back(week, 7), back(today, 7));
     let this_month = sum(&recent.by_day, month, today);
     if !state.wide() {
-        c.boxed((0, top, c.w, 3), Some("Cost, API-equivalent"), None);
+        let title = tiles_title(provenance(state, Some(&recent.totals)));
+        c.boxed((0, top, c.w, 3), Some(title), None);
         let mut x = c.text(2, top + 1, "Today ", theme.muted());
         x = c.text(x, top + 1, &money(todays.0), theme.strong());
         x = c.text(x + 3, top + 1, "Week ", theme.muted());
@@ -469,13 +500,16 @@ fn models(c: &mut Canvas, state: &State, overview: &Overview, (top, h): (i32, i3
         Some(&format!("Models · {}", state.range.title())),
         None,
     );
-    // Columns end at the box's right, as on the 120 and 80 column boards.
+    // Columns end at the box's right, as on the 120 and 80 column boards; the cache reads move
+    // left of a cost heading too long to keep two columns from them.
     let columns: Vec<(&str, i32)> = if wide {
+        let cost = cost_label(provenance(state, Some(&overview.totals)));
+        let cost_end = w - 28;
         vec![
             ("Requests", w - 86),
             ("Tokens", w - 70),
-            ("Cache reads", w - 52),
-            ("API-equivalent cost", w - 28),
+            ("Cache reads", (w - 52).min(cost_end - width(cost) - 2)),
+            (cost, cost_end),
             ("Share", w - 16),
         ]
     } else {
@@ -528,8 +562,10 @@ fn models(c: &mut Canvas, state: &State, overview: &Overview, (top, h): (i32, i3
         c.text(4, y, "Total", theme.strong());
         c.right(cost_end, y, &cost_text(&overview.totals), theme.strong());
         c.right(share_end, y, "100%", theme.text());
+        // The price table makes estimates, which costs Copilot CLI recorded need none of.
         let line = y + 2;
-        if line < top + h - 1 {
+        let estimated = provenance(state, Some(&overview.totals)) != CostProvenance::Recorded;
+        if line < top + h - 1 && estimated {
             price_line(c, state, overview, line);
         }
     }
