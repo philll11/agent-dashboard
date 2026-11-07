@@ -15,7 +15,8 @@
       "provenance": "estimate",
       "price_table": "2026-10-10",
       "unpriced_requests": 0
-    }
+    },
+    "agent": "claude-code"
   },
   {
     "model": "claude-sonnet-5-5",
@@ -33,7 +34,8 @@
       "provenance": "estimate",
       "price_table": "2026-10-10",
       "unpriced_requests": 0
-    }
+    },
+    "agent": "claude-code"
   },
   {
     "model": "claude-orion-1",
@@ -51,6 +53,7 @@
       "provenance": "estimate",
       "price_table": "2026-10-10",
       "unpriced_requests": 1
-    }
+    },
+    "agent": "claude-code"
   }
 ]

@@ -314,35 +314,8 @@ pub fn write(
                 PeriodRow::of(&app, bucket, period)
             }))
         }
-        Dataset::Models => {
-            let summary = summary(&app, &history, range, &params.filters)?;
-            out.table(&rows(&summary.models, |model| ModelRow {
-                model: model.model.clone(),
-                name: app.prices.model_name(&model.model).map(str::to_owned),
-                requests: model.totals.requests,
-                tokens: TokensJson::of(&model.totals),
-                cost: CostJson::of(&app, &model.totals),
-            }))
-        }
-        Dataset::Projects => {
-            let summary = summary(&app, &history, range, &params.filters)?;
-            let names = crate::names::project_names(&history);
-            out.table(&rows(&summary.projects, |project| {
-                let project = &project.totals;
-                let (name, path, transcript_folder) =
-                    names.get(&project.project).cloned().unwrap_or_default();
-                ProjectRow {
-                    name,
-                    path,
-                    transcript_folder,
-                    sessions: project.sessions,
-                    requests: project.totals.requests,
-                    tokens: TokensJson::of(&project.totals),
-                    cost: CostJson::of(&app, &project.totals),
-                    last_request_at: at(project.last_ms),
-                }
-            }))
-        }
+        Dataset::Models => out.table(&model_rows(&app, &history, range, &params.filters)?),
+        Dataset::Projects => out.table(&project_rows(&app, &history, range, &params.filters)?),
         Dataset::Sessions => {
             let sessions = matching_sessions(
                 &app,
@@ -416,6 +389,86 @@ pub fn csv_field(text: &str) -> String {
 
 fn failed_write(error: &io::Error) -> ExportError {
     ExportError::Failed(format!("Cannot write the export: {error}"))
+}
+
+/// Each agent's models, one agent after the other.
+fn model_rows(
+    app: &App,
+    history: &History,
+    range: Range,
+    filters: &Filters,
+) -> Result<Vec<ModelRow>, ExportError> {
+    let mut models = Vec::new();
+    for (agent, summary) in by_agent(app, history, range, filters)? {
+        models.extend(summary.models.iter().map(|model| ModelRow {
+            model: model.model.clone(),
+            name: app.prices.model_name(&model.model).map(str::to_owned),
+            requests: model.totals.requests,
+            tokens: TokensJson::of(&model.totals),
+            cost: CostJson::of(app, &model.totals),
+            agent: agent.as_str(),
+        }));
+    }
+    Ok(models)
+}
+
+/// Each agent's projects, one agent after the other.
+fn project_rows(
+    app: &App,
+    history: &History,
+    range: Range,
+    filters: &Filters,
+) -> Result<Vec<ProjectRow>, ExportError> {
+    let names = crate::names::project_names(history);
+    let mut projects = Vec::new();
+    for (agent, summary) in by_agent(app, history, range, filters)? {
+        projects.extend(summary.projects.iter().map(|project| {
+            let project = &project.totals;
+            let (name, path, transcript_folder) =
+                names.get(&project.project).cloned().unwrap_or_default();
+            ProjectRow {
+                name,
+                path,
+                transcript_folder,
+                sessions: project.sessions,
+                requests: project.totals.requests,
+                tokens: TokensJson::of(&project.totals),
+                cost: CostJson::of(app, &project.totals),
+                last_request_at: at(project.last_ms),
+                agent: agent.as_str(),
+            }
+        }));
+    }
+    Ok(projects)
+}
+
+/// Each agent's summary, in the agents' order: the agent `filters` names, or every agent the
+/// history holds. Models and projects are listed by agent, since each agent may be paid for by
+/// someone else.
+fn by_agent(
+    app: &App,
+    history: &History,
+    range: Range,
+    filters: &Filters,
+) -> Result<Vec<(Agent, report::Summary)>, ExportError> {
+    let agents = match filters.agent.as_deref() {
+        Some(name) => match Agent::from_name(name) {
+            Some(agent) => vec![agent],
+            // The filter says why it names no agent.
+            None => return summary(app, history, range, filters).map(|_| Vec::new()),
+        },
+        None => history.agents()?,
+    };
+    agents
+        .into_iter()
+        .map(|agent| {
+            let filters = Filters {
+                agent: Some(agent.as_str().to_owned()),
+                ..filters.clone()
+            };
+            Ok((agent, summary(app, history, range, &filters)?))
+        })
+        .collect()
 }
 
 fn summary(
@@ -902,6 +955,8 @@ struct ModelRow {
     requests: u64,
     tokens: TokensJson,
     cost: CostJson,
+    /// The agent whose requests these are: a model that two agents used is a row for each.
+    agent: &'static str,
 }
 
 impl Row for ModelRow {
@@ -917,6 +972,7 @@ impl Row for ModelRow {
         "unpriced_requests",
         "price_table",
         "name",
+        "agent",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
@@ -926,6 +982,7 @@ impl Row for ModelRow {
         ];
         cells.extend(total_cells(&self.tokens, &self.cost));
         cells.push(text(self.name.as_deref()));
+        cells.push(plain(&self.agent));
         cells
     }
 }
@@ -941,6 +998,8 @@ struct ProjectRow {
     tokens: TokensJson,
     cost: CostJson,
     last_request_at: String,
+    /// The agent whose requests these are: a project that two agents worked in is a row for each.
+    agent: &'static str,
 }
 
 impl Row for ProjectRow {
@@ -959,6 +1018,7 @@ impl Row for ProjectRow {
         "price_table",
         "last_request_at",
         "transcript_folder",
+        "agent",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
@@ -977,6 +1037,7 @@ impl Row for ProjectRow {
             plain(&self.cost.price_table),
             plain(&self.last_request_at),
             Cell::Text(Cow::Borrowed(&self.transcript_folder)),
+            plain(&self.agent),
         ]
     }
 }

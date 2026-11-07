@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./agents": "./src/agents.ts",
     "./format": "./src/format.ts",
     "./models": "./src/models.ts",
     "./windows": "./src/windows.ts",

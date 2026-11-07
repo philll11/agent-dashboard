@@ -86,14 +86,25 @@ export class SummaryModel implements vscode.Disposable {
       const server = this.server;
       const status = await server.request("status", null);
       const filters = { project: null, model: null };
+      const todayDays = { first: status.today, last: status.today };
+      const weekDays = { first: startOfWeek(status.today, status.weekStart), last: status.today };
       const [choices, today, week] = await Promise.all([
         server.request("choices", null),
-        server.request("overview", { days: { first: status.today, last: status.today }, filters }),
-        server.request("overview", {
-          days: { first: startOfWeek(status.today, status.weekStart), last: status.today },
-          filters,
-        }),
+        server.request("overview", { days: todayDays, filters }),
+        server.request("overview", { days: weekDays, filters }),
       ]);
+      // With more than one agent, each agent's usage is listed apart.
+      const agents = choices.agents.length > 1 ? choices.agents.map((agent) => agent.id) : [];
+      const [todayByAgent, weekByAgent] = await Promise.all(
+        [todayDays, weekDays].map((days) =>
+          Promise.all(
+            agents.map(async (agent) => ({
+              agent,
+              overview: await server.request("overview", { days, filters: { ...filters, agent } }),
+            })),
+          ),
+        ),
+      );
       if (settings || !this.#summary) {
         const [limits, offer] = await Promise.all([
           server.request("limits", null),
@@ -102,7 +113,15 @@ export class SummaryModel implements vscode.Disposable {
         this.#limitsConnected = limits.statusLine.state === "connected" || limits.endpoint.enabled;
         this.#importOffered = offer !== null && !offer.dismissed && offer.requests > 0;
       }
-      this.#summary = { status, choices, today, week, limitsConnected: this.#limitsConnected };
+      this.#summary = {
+        status,
+        choices,
+        today,
+        week,
+        todayByAgent: todayByAgent ?? [],
+        weekByAgent: weekByAgent ?? [],
+        limitsConnected: this.#limitsConnected,
+      };
       this.#changed.fire();
     } catch (error) {
       if (this.server.state.kind === "running") {

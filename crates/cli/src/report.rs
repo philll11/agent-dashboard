@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 use std::process::ExitCode;
 
 use agent_dashboard_core::agent::Agent;
-use agent_dashboard_core::history::History;
+use agent_dashboard_core::history::{History, HistoryError};
 use agent_dashboard_core::limits::{FIVE_HOUR, Level, LimitSnapshot, SEVEN_DAY, Source};
 use agent_dashboard_core::report::{
     self, Bucket, CostProvenance, DayTotals, Filter, ModelTotals, Range, Totals,
@@ -149,7 +149,15 @@ pub fn today(app: &App, agent: Option<Agent>, output: Output) -> ExitCode {
             if models.is_empty() {
                 let _ = writeln!(out, "{}", paint.muted("No requests today."));
             } else {
-                out.push_str(&model_table(app, paint, &models));
+                let split = split_agents(&history, agent);
+                let groups = match models_by_agent(app, &history, range, &split) {
+                    Ok(groups) => groups,
+                    Err(error) => {
+                        eprintln!("Cannot read the history: {error}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                out.push_str(&model_table(app, paint, &models, &groups));
             }
             out.push('\n');
             let agents = agents_in_view(&history, agent);
@@ -415,8 +423,9 @@ pub fn total_row(totals: &Totals) -> Row {
     }
 }
 
-fn model_table(app: &App, paint: Paint, models: &[ModelTotals]) -> String {
-    let rows: Vec<Row> = models
+/// Each model's row, marked with its series.
+pub fn model_rows(app: &App, paint: Paint, models: &[ModelTotals]) -> Vec<Row> {
+    models
         .iter()
         .map(|model| {
             let name = model_name(app, &model.model);
@@ -429,7 +438,86 @@ fn model_table(app: &App, paint: Paint, models: &[ModelTotals]) -> String {
                 values: cells(&model.totals),
             }
         })
-        .collect();
+        .collect()
+}
+
+/// The agents a report splits its models and projects between, so that one agent's are never
+/// added to another's: every agent the history holds, while it holds more than one and the
+/// report is not of one agent.
+pub fn split_agents(history: &History, agent: Option<Agent>) -> Vec<Agent> {
+    if agent.is_some() {
+        return Vec::new();
+    }
+    let agents = history.agents().unwrap_or_default();
+    if agents.len() > 1 { agents } else { Vec::new() }
+}
+
+/// An agent's row of the totals of its models or projects, which come after it.
+pub fn agent_row(paint: Paint, agent: Agent, totals: &Totals) -> Row {
+    let name = agent.display_name();
+    Row {
+        label: paint.strong(name),
+        label_len: name.chars().count(),
+        values: cells(totals),
+    }
+}
+
+/// A row of a model or project under its agent's row, a step in from it.
+pub fn under_agent(name: &str, totals: &Totals) -> Row {
+    Row {
+        label: format!("  {name}"),
+        label_len: name.chars().count() + 2,
+        values: cells(totals),
+    }
+}
+
+/// Each agent's row, then its models under it, without the models' series marks, which colour a
+/// model whichever agent used it.
+pub fn agent_model_rows(app: &App, paint: Paint, groups: &[(Agent, Vec<ModelTotals>)]) -> Vec<Row> {
+    let mut rows = Vec::new();
+    for (agent, models) in groups {
+        rows.push(agent_row(paint, *agent, &sum(models)));
+        rows.extend(
+            models
+                .iter()
+                .map(|model| under_agent(&model_name(app, &model.model), &model.totals)),
+        );
+    }
+    rows
+}
+
+/// Each of `agents`' models in `range`, highest cost first.
+///
+/// # Errors
+///
+/// When the history cannot be read.
+pub fn models_by_agent(
+    app: &App,
+    history: &History,
+    range: Range,
+    agents: &[Agent],
+) -> Result<Vec<(Agent, Vec<ModelTotals>)>, HistoryError> {
+    agents
+        .iter()
+        .map(|agent| {
+            let models = report::by_model(history, &app.prices, range, &only(Some(*agent)))?;
+            Ok((*agent, models))
+        })
+        .collect()
+}
+
+/// Today's models: each agent's under its row when `groups` splits them by agent.
+fn model_table(
+    app: &App,
+    paint: Paint,
+    models: &[ModelTotals],
+    groups: &[(Agent, Vec<ModelTotals>)],
+) -> String {
+    let rows = if groups.is_empty() {
+        model_rows(app, paint, models)
+    } else {
+        agent_model_rows(app, paint, groups)
+    };
     let total = sum(models);
     let mut out = table(paint, "Model", &rows, &total_row(&total));
     if total.unpriced_requests > 0 && total.unpriced_requests < total.requests {

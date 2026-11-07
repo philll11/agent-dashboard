@@ -1,7 +1,8 @@
 //! Which series each model belongs to, as every surface colours them (ADR 0007): each family's
 //! newest version in the history gets the family's colour, and every other model shares the series
 //! of other models. Copilot CLI names Claude's models with dots, as in `claude-opus-5.5`, so the
-//! same version under both agents' ids shares the family's colour.
+//! same version under both agents' ids shares the family's colour. While usage splits by agent,
+//! each agent takes a series of its own.
 
 use std::collections::HashMap;
 
@@ -73,11 +74,26 @@ pub fn series_of<'a>(models: impl IntoIterator<Item = &'a str>) -> HashMap<Strin
         .collect()
 }
 
+/// The series an agent's part of a chart takes while usage splits by agent: Claude Code the first
+/// palette slot, Copilot CLI the second, in every theme.
+pub fn agent_series(agent: &str) -> Series {
+    match agent {
+        "claude-code" => Series::Fable,
+        "copilot-cli" => Series::Opus,
+        _ => Series::Other,
+    }
+}
+
 /// What each series is called in a legend: its model's name, or `Other models` for several.
 #[derive(Debug, Default)]
 pub struct SeriesNames(HashMap<Series, String>);
 
 impl SeriesNames {
+    /// Series named as given, such as each agent's.
+    pub fn named(names: impl IntoIterator<Item = (Series, String)>) -> Self {
+        Self(names.into_iter().collect())
+    }
+
     pub fn of(rows: &[ModelRow], series: &HashMap<String, Series>) -> Self {
         let mut names: HashMap<Series, String> = HashMap::new();
         for row in rows {
@@ -119,6 +135,13 @@ mod tests {
         assert_eq!(series["claude-opus-4-20250514"], Series::Other);
         assert_eq!(series["claude-sonnet-4-5-20250929"], Series::Sonnet);
         assert_eq!(series["glm-4.6"], Series::Other);
+    }
+
+    #[test]
+    fn each_agent_takes_a_palette_slot_of_its_own() {
+        assert_eq!(agent_series("claude-code"), Series::Fable);
+        assert_eq!(agent_series("copilot-cli"), Series::Opus);
+        assert_eq!(agent_series("codex"), Series::Other);
     }
 
     #[test]

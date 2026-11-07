@@ -57,7 +57,7 @@ test.describe("in the panel", () => {
 
   test("says when there is no session yet", async ({ dashboard, page }) => {
     await dashboard.open({ placement: "view", scenario: "empty" });
-    await expect(strip(page).getByText("No Claude Code session today yet.")).toBeVisible();
+    await expect(strip(page).getByText("No session today yet.")).toBeVisible();
     await expect(
       strip(page).getByRole("button", { name: "Connect the status line…" }),
     ).toBeVisible();
@@ -100,7 +100,7 @@ test.describe("in the panel", () => {
 
   test("leaves the plan limits out of the Overview below", async ({ dashboard, page }) => {
     await dashboard.open({ placement: "view" });
-    await expect(page.getByRole("heading", { name: "API-equivalent cost per day" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cost per day" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Plan limits" })).toHaveCount(0);
   });
 

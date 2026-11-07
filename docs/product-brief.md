@@ -30,6 +30,8 @@ agent-dashboard adds months of history, comparisons across projects, sessions an
 
 ## Principles
 
+- **Each agent's usage apart.**
+  The agents are often paid for by different people, such as Claude Code by the person and Copilot by their employer, so models and projects are split by agent before anything else; only the total cost adds them up.
 - **Glance first, detail on demand.**
   The most frequent job is answered without a click; everything else is one step away.
 - **Every number says where it comes from.**
@@ -71,7 +73,7 @@ Every section filters by date range (today, 7 days, 30 days, this month, all tim
 ### Desktop
 
 - One window with the full dashboard, following the operating system's light or dark mode.
-- A menu bar or tray item showing the highest current use of the five-hour window and Copilot's allowance.
+- A menu bar or tray item showing the five-hour window's use, marked once that or Copilot's allowance passes 70%.
 
 ### Terminal
 

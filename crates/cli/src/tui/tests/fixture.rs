@@ -44,6 +44,20 @@ const COPILOT_MODEL: (&str, &str) = ("gpt-5.5", "GPT-5.5");
 /// The Copilot CLI session whose detail the fixture has.
 pub const COPILOT_SESSION: &str = "981f2c4d-0000-4000-8000-000000000001";
 
+/// The projects Copilot CLI works in, by their place among the projects, with its share of its
+/// cost and its sessions there.
+const COPILOT_PROJECTS: [(usize, f64, u64); 3] = [(0, 0.6, 14), (1, 0.3, 6), (4, 0.1, 3)];
+
+/// What Copilot CLI recorded as charged on `day`: less at weekends.
+fn copilot_cost(day: Date) -> f64 {
+    let weekend = matches!(
+        day.weekday(),
+        jiff::civil::Weekday::Saturday | jiff::civil::Weekday::Sunday
+    );
+    let cost = 0.4 + f64::from(day.day() % 7) * 0.12;
+    if weekend { cost * 0.4 } else { cost }
+}
+
 /// Whether the session at `index` of the list is Copilot CLI's, in the variant that has some.
 fn copilot_session(variant: Variant, index: usize) -> bool {
     variant == Variant::TwoAgents && index % 3 == 1
@@ -283,6 +297,20 @@ fn project(index: usize) -> Project {
     }
 }
 
+/// The first and last of the days a request asks for, the thirty days unless it names them.
+fn days_of(params: &Value) -> (Date, Date) {
+    let day = |which: &str, otherwise: Date| {
+        params["days"][which]
+            .as_str()
+            .and_then(|day| day.parse().ok())
+            .unwrap_or(otherwise)
+    };
+    (
+        day("first", date(2026, 9, 11)),
+        day("last", date(2026, 10, 10)),
+    )
+}
+
 fn json_of(value: impl serde::Serialize) -> Result<Value, String> {
     serde_json::to_value(value).map_err(|error| error.to_string())
 }
@@ -511,30 +539,30 @@ impl Fixture {
         }
     }
 
-    /// The share of the cost a project filter keeps.
-    fn project_share(id: &str) -> f64 {
-        PROJECTS
-            .iter()
-            .find(|(project, ..)| *project == id)
-            .map_or(1.0, |(_, _, share, _)| *share)
+    /// The share of `agent`'s cost, or every agent's, a project filter keeps.
+    fn project_share(id: &str, agent: Option<&str>) -> f64 {
+        let index = PROJECTS.iter().position(|(project, ..)| *project == id);
+        if agent == Some("copilot-cli") {
+            return index
+                .and_then(|index| COPILOT_PROJECTS.iter().find(|(of, ..)| *of == index))
+                .map_or(0.0, |(_, share, _)| *share);
+        }
+        index.map_or(1.0, |index| PROJECTS[index].2)
     }
 
     fn overview(&self, params: &Value) -> Overview {
-        let first: Date = params["days"]["first"]
-            .as_str()
-            .and_then(|day| day.parse().ok())
-            .unwrap_or(date(2026, 9, 11));
-        let last: Date = params["days"]["last"]
-            .as_str()
-            .and_then(|day| day.parse().ok())
-            .unwrap_or(date(2026, 10, 10));
+        let (first, last) = days_of(params);
         let project = params["filters"]["project"].as_str();
         let model_filter = params["filters"]["model"].as_str();
         let agent = params["filters"]["agent"].as_str();
         let claude_code = agent.is_none_or(|agent| agent == "claude-code");
-        let share = project.map_or(1.0, Self::project_share);
+        let copilot = self.variant == Variant::TwoAgents
+            && agent.is_none_or(|agent| agent == "copilot-cli")
+            && model_filter.is_none_or(|id| id == COPILOT_MODEL.0);
+        let share = project.map_or(1.0, |id| Self::project_share(id, agent));
         let mut by_day = Vec::new();
         let mut model_totals: Vec<Totals> = vec![Totals::default(); MODELS.len()];
+        let mut copilot_totals = Totals::default();
         let mut all = Totals::default();
         for (day, costs) in self
             .days
@@ -562,6 +590,15 @@ impl Fixture {
                     totals: part,
                 });
             }
+            if copilot {
+                let part = charged(copilot_cost(*day) * share, whole(17.0 * share));
+                add(&mut day_totals, &part);
+                add(&mut copilot_totals, &part);
+                parts.push(ModelDay {
+                    model: COPILOT_MODEL.0.to_owned(),
+                    totals: part,
+                });
+            }
             if day_totals.requests == 0 {
                 continue;
             }
@@ -582,8 +619,14 @@ impl Fixture {
                 totals,
             })
             .collect();
+        if copilot_totals.requests > 0 {
+            models.push(ModelRow {
+                model: copilot_model(),
+                totals: copilot_totals,
+            });
+        }
         if model_filter.is_none() {
-            for row in self.more_models(share, agent) {
+            for row in self.more_models(share) {
                 add(&mut all, &row.totals);
                 models.push(row);
             }
@@ -592,7 +635,7 @@ impl Fixture {
         let projects = if project.is_some() {
             Vec::new()
         } else {
-            self.project_rows(&by_day, all.cost.total)
+            self.project_rows(&by_day, all.cost.total, agent)
         };
         Overview {
             days: Days {
@@ -607,9 +650,8 @@ impl Fixture {
     }
 
     /// The models besides the four that the variant has, in the share of the cost a project
-    /// filter keeps, of `agent` or every agent: none in the chart, so that only the tables show
-    /// them.
-    fn more_models(&self, share: f64, agent: Option<&str>) -> Vec<ModelRow> {
+    /// filter keeps: none in the chart, so that only the tables show them.
+    fn more_models(&self, share: f64) -> Vec<ModelRow> {
         let row = |id: &str, name: &str, totals: Totals| ModelRow {
             model: Model {
                 id: id.to_owned(),
@@ -638,24 +680,28 @@ impl Fixture {
                 .iter()
                 .map(|(id, name, cost)| row(id, name, totals(cost * share, 12.0, 0.0)))
                 .collect(),
-            Variant::TwoAgents if agent.is_none_or(|agent| agent == "copilot-cli") => {
-                vec![row(
-                    COPILOT_MODEL.0,
-                    COPILOT_MODEL.1,
-                    charged(18.4 * share, whole(312.0 * share)),
-                )]
-            }
             _ => Vec::new(),
         }
     }
 
-    fn project_rows(&self, by_day: &[Day], total: f64) -> Vec<ProjectRow> {
+    /// Each project's totals, of `agent` or every agent's.
+    fn project_rows(&self, by_day: &[Day], total: f64, agent: Option<&str>) -> Vec<ProjectRow> {
         let base = self.at(date(2026, 10, 10), 13, 42);
+        let copilot = agent == Some("copilot-cli");
         PROJECTS
             .iter()
             .enumerate()
             .filter(|_| total > 0.0)
-            .map(|(index, (_, _, share, sessions))| {
+            .filter_map(|(index, (_, _, share, sessions))| {
+                if !copilot {
+                    return Some((index, *share, *sessions));
+                }
+                COPILOT_PROJECTS
+                    .iter()
+                    .find(|(of, ..)| *of == index)
+                    .map(|(_, share, sessions)| (index, *share, *sessions))
+            })
+            .map(|(index, share, sessions)| {
                 let wave = |day: usize| {
                     #[allow(clippy::cast_precision_loss)]
                     let at = (day * (index + 2)) as f64 * 0.37;
@@ -672,9 +718,13 @@ impl Fixture {
                 let cost = total * share;
                 ProjectRow {
                     project: project(index),
-                    sessions: *sessions,
+                    sessions,
                     last_ms: base - i64::try_from(index).unwrap_or(0) * 26 * 60 * 60 * 1000,
-                    totals: totals(cost, 25.0, 0.0),
+                    totals: if copilot {
+                        charged(cost, whole(cost * 17.0))
+                    } else {
+                        totals(cost, 25.0, 0.0)
+                    },
                     daily_cost,
                 }
             })

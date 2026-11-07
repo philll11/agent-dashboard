@@ -1011,6 +1011,19 @@ a:hover {
   gap: 6px;
 }
 
+/* An agent's row heads its models' or projects' rows, which sit indented under it. */
+.data .agent-row > * {
+  font-weight: 600;
+}
+
+.data .nested {
+  padding-left: 20px;
+}
+
+.ranking-group + .ranking-group {
+  margin-top: 14px;
+}
+
 .cost-kind {
   margin-left: 6px;
   font-weight: 400;

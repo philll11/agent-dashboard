@@ -764,8 +764,8 @@ fn both_agents() -> Fixture {
         "c1",
         "Port the parser",
         &[
-            copilot_request("c1", "gpt-5.5", &today_at("09:00:00")),
-            copilot_request("c2", "gpt-5.5", &today_at("09:10:00")),
+            copilot_request("c1", ("gpt-5.5", "GPT-5.5"), &today_at("09:00:00")),
+            copilot_request("c2", ("gpt-5.5", "GPT-5.5"), &today_at("09:10:00")),
             copilot_allowance(&today_at("09:10:05")),
         ],
     );
@@ -803,7 +803,7 @@ fn today_counts_one_agent_or_both_and_says_where_the_cost_comes_from() {
         "{both}"
     );
     assert!(
-        both.contains("■ GPT-5.5 ") && both.contains("Opus 5.5 "),
+        both.contains("\n  GPT-5.5 ") && both.contains("\n  Opus 5.5 "),
         "{both}"
     );
     assert_eq!(
@@ -858,6 +858,214 @@ fn today_counts_one_agent_or_both_and_says_where_the_cost_comes_from() {
     assert_eq!(today["limits"][0]["window"], "monthly");
     assert_eq!(today["limits"][0]["used_credits"], 1575.0);
     assert_eq!(today["limits"][0]["entitlement_credits"], 45000.0);
+}
+
+/// Each of a table's lines between its heading and its total: its label, with any step in, then
+/// its figures, which two spaces or more keep apart from it: `["  Opus 5.5", "1", …]`.
+fn table_rows(table: &str) -> Vec<Vec<String>> {
+    table
+        .lines()
+        .skip_while(|line| !line.starts_with("Model") && !line.starts_with("Project"))
+        .skip(1)
+        .take_while(|line| !line.starts_with("  Total"))
+        .map(|line| {
+            let rest = line.trim_start();
+            let indent = &line[..line.len() - rest.len()];
+            let label = rest.split("  ").next().unwrap_or_default();
+            let mut row = vec![format!("{indent}{label}")];
+            row.extend(rest[label.len()..].split_whitespace().map(str::to_owned));
+            row
+        })
+        .collect()
+}
+
+/// Both agents' history, with Copilot CLI's id for the model Claude Code used as well, which stays
+/// apart from Claude Code's.
+fn both_agents_on_one_model() -> Fixture {
+    let fixture = both_agents();
+    fixture.copilot_session(
+        "c2",
+        "Review the parser",
+        &[copilot_request(
+            "c3",
+            ("claude-opus-5.5", "Claude Opus 5.5"),
+            &today_at("10:00:00"),
+        )],
+    );
+    fixture
+}
+
+/// The label of each of a table's rows, with its requests.
+fn requests_by_row(table: &str) -> Vec<[String; 2]> {
+    table_rows(table)
+        .into_iter()
+        .map(|row| [row[0].clone(), row[1].clone()])
+        .collect()
+}
+
+/// The days of the agents' requests in `both_agents`.
+const TODAY_ONLY: [&str; 4] = ["--since", "2026-10-10", "--until", "2026-10-10"];
+
+#[test]
+fn with_both_agents_each_agents_models_come_under_it_and_are_never_added_together() {
+    let fixture = both_agents_on_one_model();
+
+    let today = text_of(&fixture, &["today"]);
+    assert_eq!(
+        requests_by_row(&today),
+        [
+            ["Claude Code", "1"],
+            ["  Opus 5.5", "1"],
+            ["Copilot CLI", "3"],
+            ["  GPT-5.5", "2"],
+            ["  Opus 5.5, Copilot CLI", "1"],
+        ],
+        "{today}"
+    );
+    assert_eq!(total_row(&today)[0], "4", "{today}");
+
+    let models = text_of(&fixture, &[&["models"][..], &TODAY_ONLY[..]].concat());
+    assert_eq!(
+        requests_by_row(&models),
+        requests_by_row(&today),
+        "{models}"
+    );
+
+    let models = json_of(
+        &fixture,
+        &[&["models"][..], &TODAY_ONLY[..], &["--json"]].concat(),
+    );
+    let rows: Vec<(&str, &str, u64)> = models
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            (
+                row["agent"].as_str().unwrap(),
+                row["model"].as_str().unwrap(),
+                row["requests"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            ("claude-code", "claude-opus-5-5", 1),
+            ("copilot-cli", "gpt-5.5", 2),
+            ("copilot-cli", "claude-opus-5.5", 1),
+        ]
+    );
+    assert_eq!(models[1]["cost"]["provenance"], "recorded");
+
+    let csv = text_of(
+        &fixture,
+        &[&["models"][..], &TODAY_ONLY[..], &["--csv"]].concat(),
+    );
+    let lines: Vec<&str> = csv.lines().collect();
+    assert!(lines[0].starts_with("model,requests,") && lines[0].ends_with(",name,agent"));
+    assert!(lines[1].starts_with("claude-opus-5-5,1,") && lines[1].ends_with(",claude-code"));
+    assert!(lines[2].starts_with("gpt-5.5,2,") && lines[2].ends_with(",copilot-cli"));
+    assert_eq!(lines.len(), 4, "{csv}");
+}
+
+#[test]
+fn with_both_agents_each_agents_projects_come_under_it_and_are_never_added_together() {
+    let fixture = both_agents_on_one_model();
+
+    let projects = text_of(&fixture, &[&["projects"][..], &TODAY_ONLY[..]].concat());
+    assert_eq!(
+        requests_by_row(&projects),
+        [
+            ["Claude Code", "1"],
+            ["  app", "1"],
+            ["Copilot CLI", "3"],
+            ["  app", "3"],
+        ],
+        "{projects}"
+    );
+    assert_eq!(total_row(&projects)[0], "4", "{projects}");
+
+    let projects = json_of(
+        &fixture,
+        &[&["projects"][..], &TODAY_ONLY[..], &["--json"]].concat(),
+    );
+    let agents: Vec<&str> = projects
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["agent"].as_str().unwrap())
+        .collect();
+    assert_eq!(agents, ["claude-code", "copilot-cli"]);
+    let csv = text_of(
+        &fixture,
+        &[&["projects"][..], &TODAY_ONLY[..], &["--csv"]].concat(),
+    );
+    let lines: Vec<&str> = csv.lines().collect();
+    assert!(lines[0].ends_with(",transcript_folder,agent"), "{csv}");
+    assert!(
+        lines[1].ends_with(",claude-code") && lines[2].ends_with(",copilot-cli"),
+        "{csv}"
+    );
+}
+
+#[test]
+fn with_an_agent_given_or_one_agent_in_the_history_models_and_projects_keep_to_it() {
+    let fixture = both_agents();
+    let range = ["--since", "2026-10-10", "--until", "2026-10-10"];
+    for command in ["models", "projects"] {
+        let json = json_of(
+            &fixture,
+            &[
+                &[command][..],
+                &range[..],
+                &["--agent", "claude-code", "--json"],
+            ]
+            .concat(),
+        );
+        assert!(
+            json.as_array()
+                .unwrap()
+                .iter()
+                .all(|row| row["agent"] == "claude-code"),
+            "{command}: {json}"
+        );
+        let csv = text_of(
+            &fixture,
+            &[
+                &[command][..],
+                &range[..],
+                &["--agent", "copilot-cli", "--csv"],
+            ]
+            .concat(),
+        );
+        assert!(
+            csv.lines().skip(1).all(|row| row.ends_with(",copilot-cli")),
+            "{command}: {csv}"
+        );
+        let table = text_of(
+            &fixture,
+            &[&[command][..], &range[..], &["--agent", "copilot-cli"]].concat(),
+        );
+        assert!(!table.contains("Copilot CLI   "), "{command}: {table}");
+    }
+    let today = text_of(&fixture, &["today", "--agent", "copilot-cli"]);
+    assert!(today.contains("\n■ GPT-5.5 "), "{today}");
+
+    let claude_only = Fixture::new();
+    claude_only.transcript(
+        "s1",
+        &[request("1", "claude-opus-5-5", &today_at("08:00:00"))],
+    );
+    let today = text_of(&claude_only, &["today"]);
+    assert!(
+        today.contains("\n■ Opus 5.5 ") && !today.contains("Claude Code"),
+        "{today}"
+    );
+    let models = json_of(
+        &claude_only,
+        &[&["models"][..], &range[..], &["--json"]].concat(),
+    );
+    assert_eq!(models[0]["agent"], "claude-code", "{models}");
 }
 
 #[test]

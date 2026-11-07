@@ -10,20 +10,20 @@ expression: shown(&state)
  5 ││ Copilot           4%  █░░░░░░░░░░░░░░░  1 Nov 13:00                          ││
  6 │└──────────────────────────────────────────────────────────────────────────────┘│
  7 │┌─ Cost, includes estimate ────────────────────────────────────────────────────┐│
- 8 ││ Today $5.05   Week $64.82   Month $99.18                                     ││
+ 8 ││ Today $5.35   Week $68.81   Month $104.98                                    ││
  9 │└──────────────────────────────────────────────────────────────────────────────┘│
-10 │┌─ Cost per day by model · 30 days ──────────────┐┌─ Top projects · 30 days ───┐│
-11 ││  $20                                           ││ agent-dash… ██████ $117.75 ││
-12 ││                                                ││ api-gateway ███░░░  $68.17 ││
-13 ││                █ █                             ││ website     ██░░░░  $46.48 ││
-14 ││           █    ███ █  █   █     ██             ││ infra       ██░░░░  $37.18 ││
-15 ││  $10      ███  █████  █ █ █  █████             ││ notes       █░░░░░  $15.49 ││
-16 ││      █  █████  █████  █ ███  █████             ││ Other proj… █░░░░░  $24.79 ││
-17 ││      █  █████  ███████████████████             ││                            ││
-18 ││      ██████████████████████████████            ││                            ││
-19 ││   $0 ██████████████████████████████            ││                            ││
+10 │┌─ Cost per day by agent · 30 days ──────────────┐┌─ Top projects · 30 days ───┐│
+11 ││  $20                                           ││ ■ Claude Code              ││
+12 ││                                                ││   agent-da… ██████ $110.76 ││
+13 ││                █ █        █                    ││   api-gate… ███░░░  $64.12 ││
+14 ││           ███  ███ █  █   █  █ ███             ││   website   ██░░░░  $43.72 ││
+15 ││  $10    █ ███  █████  █ █ █  █████             ││   Other pr… ████░░  $72.87 ││
+16 ││      █  █████  █████  █████  █████             ││ ■ Copilot CLI              ││
+17 ││      █  █████ ████████████████████             ││   agent-da… █░░░░░  $10.31 ││
+18 ││      ██████████████████████████████            ││   api-gate… ░░░░░░   $5.16 ││
+19 ││   $0 ██████████████████████████████            ││   notes     ░░░░░░   $1.72 ││
 20 ││      11   16   21   26   1    6   10           ││                            ││
-21 ││ ■ Fable  ■ Opus  ■ Sonnet  ■ Haiku  ■ GPT-5.5  ││                            ││
+21 ││ ■ Claude Code $291.46  ■ Copilot CLI $17.18    ││                            ││
 22 │└────────────────────────────────────────────────┘└────────────────────────────┘│
 23 │ q quit   ←→ sections   t table view   e export   ? help          Read just now │
 
@@ -36,22 +36,22 @@ styles
  5 │d eeeeeee           aa  fggggggggggggggg  ccccccccccc                          d│
  6 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
  7 │ddaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddd│
- 8 │d ccccccaaaaa   cccccaaaaaa   ccccccaaaaaa                                     d│
+ 8 │d ccccccaaaaa   cccccaaaaaa   ccccccaaaaaaa                                    d│
  9 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
 10 │ddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaadddd│
-11 │d  ccc                                           dd eeeeeeeeeee cccccc aaaaaaa d│
-12 │d                                                dd eeeeeeeeeee cccggg  aaaaaa d│
-13 │d                j j                             dd eeeeeee     ccgggg  aaaaaa d│
-14 │d           k    ljl k  j   l     jj             dd eeeee       ccgggg  aaaaaa d│
-15 │d  ccc      lll  lllkl  l j l  jjjlj             dd eeeee       cggggg  aaaaaa d│
-16 │d      j  jklll  llljl  l ljl  lllll             dd ccccccccccc cggggg  aaaaaa d│
-17 │d      l  lllll  llmlljkljllljklllll             dd                            d│
-18 │d      lljllmlmllmlmmlllllllmllmmmmll            dd                            d│
-19 │d   cc mmmmmmmmmmmmmmmmmmmmmmmmmmmmmm            dd                            d│
+11 │d  ccc                                           dd j aaaaaaaaaaa              d│
+12 │d                                                dd   eeeeeeeee cccccc aaaaaaa d│
+13 │d                j j        k                    dd   eeeeeeeee cccggg  aaaaaa d│
+14 │d           jkk  jjj j  j   j  k kjj             dd   eeeeeee   ccgggg  aaaaaa d│
+15 │d  ccc    k jjj  jjjjj  j j j  jjjjj             dd   ccccccccc ccccgg  aaaaaa d│
+16 │d      j  jjjjj  jjjjj  jkjjj  jjjjj             dd k aaaaaaaaaaa              d│
+17 │d      j  jjjjj kjjjjjjjjjjjjjjjjjjj             dd   eeeeeeeee cggggg  aaaaaa d│
+18 │d      jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj            dd   eeeeeeeee gggggg   aaaaa d│
+19 │d   cc jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj            dd   eeeee     gggggg   aaaaa d│
 20 │d      cc   cc   cc   cc   c    c   cc           dd                            d│
-21 │d m eeeee  l eeee  j eeeeee  k eeeee  n eeeeeee  dd                            d│
+21 │d j eeeeeeeeeee aaaaaaa  k eeeeeeeeeee aaaaaa    dd                            d│
 22 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
-23 │ o cccc   oo cccccccc   o cccccccccc   o cccccc   o cccc          ccccccccccccc │
+23 │ l cccc   ll cccccccc   l cccccccccc   l cccccc   l cccc          ccccccccccccc │
 
 a = #f0f2f5 bold
 b = #0b0d10 on #5cc8e8 bold
@@ -62,9 +62,6 @@ f = #5cc8e8
 g = #2a2f37
 h = #fab219
 i = #fab219 bold
-j = #199e70
-k = #c98500
-l = #d95926
-m = #3987e5
-n = #d55181
-o = #5cc8e8 bold
+j = #3987e5
+k = #d95926
+l = #5cc8e8 bold

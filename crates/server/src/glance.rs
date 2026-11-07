@@ -8,7 +8,7 @@ use jiff::Timestamp;
 use jiff::tz::TimeZone;
 
 use crate::app::App;
-use crate::fmt::{ago, money, percent, when};
+use crate::fmt::{ago, grouped, money, percent, when};
 use crate::protocol::{Level, Provenance, WindowReading};
 use crate::requests::window_reading;
 
@@ -71,8 +71,8 @@ impl Line {
     }
 }
 
-/// The use the icon shows: the higher of the five-hour window's and Copilot CLI's allowance's,
-/// while a reading of it is current.
+/// The use the icon shows: the five-hour window's, while a reading of it is current, at the more
+/// urgent level of the five-hour window and Copilot CLI's allowance.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Figure {
     /// The share of the limit used, in percent.
@@ -151,7 +151,8 @@ fn moment(ms: i64, zone: &TimeZone, now_ms: i64) -> String {
     when(&zoned(ms), &zoned(now_ms))
 }
 
-/// How much of a window is used, marked from 70%, and when it resets: `71% ▲ · resets Thu 09:00`.
+/// How much of a window is used, marked from 70%, and when it resets: `71% ▲ · resets Thu 09:00`;
+/// for an allowance whose credits are known, how many of them: `4% · 1,608 of 45,000 AI credits`.
 fn value(reading: &WindowReading, zone: &TimeZone, now_ms: i64) -> String {
     if expired(reading, now_ms) {
         return reading.resets_at_ms.map_or_else(
@@ -165,10 +166,33 @@ fn value(reading: &WindowReading, zone: &TimeZone, now_ms: i64) -> String {
         " ▲"
     };
     let used = format!("{}{mark}", percent(reading.used_percentage));
+    if let (Some(credits), Some(entitlement)) = (reading.used, reading.entitlement) {
+        return format!(
+            "{used} · {} of {} AI credits",
+            whole(credits),
+            whole(entitlement)
+        );
+    }
     match reading.resets_at_ms {
         Some(resets_at_ms) => format!("{used} · resets {}", moment(resets_at_ms, zone, now_ms)),
         None => used,
     }
+}
+
+/// A count of credits, to the whole credit: `45,000`.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn whole(credits: f64) -> String {
+    grouped(credits.round().max(0.0) as u64)
+}
+
+/// The more urgent of two levels.
+fn higher(a: Level, b: Level) -> Level {
+    let rank = |level: Level| match level {
+        Level::Normal => 0,
+        Level::Warning => 1,
+        Level::Critical => 2,
+    };
+    if rank(b) > rank(a) { b } else { a }
 }
 
 /// A cost as the dashboard writes it, saying when some requests have no price.
@@ -219,14 +243,14 @@ pub fn compose(readings: &[WindowReading], today: Today, zone: &TimeZone, now_ms
     };
     let five_hour = current("five_hour");
     let allowance = current("monthly");
-    let figure = [five_hour, allowance]
-        .into_iter()
-        .flatten()
-        .max_by(|a, b| a.used_percentage.total_cmp(&b.used_percentage))
-        .map(|reading| Figure {
-            used: reading.used_percentage,
-            level: reading.level,
-        });
+    // The figure is the person's own five-hour window; Copilot CLI's allowance, which an employer
+    // may pay for, only lends it its level, so that it never passes 70% unseen.
+    let figure = five_hour.map(|reading| Figure {
+        used: reading.used_percentage,
+        level: allowance.map_or(reading.level, |allowance| {
+            higher(reading.level, allowance.level)
+        }),
+    });
     let mut status: Vec<String> = Vec::new();
     if let Some(reading) = five_hour {
         status.push(format!("5h {}", value(reading, zone, now_ms)));
@@ -242,15 +266,17 @@ pub fn compose(readings: &[WindowReading], today: Today, zone: &TimeZone, now_ms
             percent(reading.used_percentage)
         ));
     }
-    let (tooltip, title) = match figure {
-        Some(figure) => (
-            format!("{NAME} - {}", status.join(" · ")),
-            match figure.level {
-                Level::Normal => percent(figure.used),
-                Level::Warning | Level::Critical => format!("{} ▲", percent(figure.used)),
-            },
-        ),
-        None => (format!("{NAME} - {} today", cost(today)), money(today.usd)),
+    let tooltip = if status.is_empty() {
+        format!("{NAME} - {} today", cost(today))
+    } else {
+        format!("{NAME} - {}", status.join(" · "))
+    };
+    let title = match figure {
+        Some(figure) => match figure.level {
+            Level::Normal => percent(figure.used),
+            Level::Warning | Level::Critical => format!("{} ▲", percent(figure.used)),
+        },
+        None => money(today.usd),
     };
     Glance {
         figure,

@@ -413,6 +413,31 @@ impl State {
         }
     }
 
+    /// Whether usage splits by agent before anything else: no agent is chosen and the history
+    /// holds more than one, whose models and projects are never added together.
+    pub fn by_agent(&self) -> bool {
+        self.agent.is_none() && self.several_agents()
+    }
+
+    /// The agents usage splits between, by id, while it splits by agent; none otherwise.
+    pub fn split_agents(&self) -> Vec<&str> {
+        if self.by_agent() {
+            self.agents_in_view()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// The answers to `request` for each agent usage splits between, in the order of the
+    /// history's agents, once every one has come.
+    pub fn agent_overviews(&self, request: Option<Request>) -> Option<Vec<(&str, &Overview)>> {
+        let request = request?;
+        self.split_agents()
+            .into_iter()
+            .map(|agent| Some((agent, self.overview(&of_agent(&request, agent))?)))
+            .collect()
+    }
+
     pub fn sessions_page(&self) -> Option<&SessionsPage> {
         match self.answers.get(&self.sessions_request()?) {
             Some(Answer::Sessions(page)) => Some(page),
@@ -503,13 +528,24 @@ impl State {
         ))
     }
 
-    /// The selected project's days, for the chart under the Projects table.
+    /// The selected project's days, for the chart under the Projects table; an agent's projects
+    /// while an agent or its small projects together are selected; and every project otherwise.
     pub fn project_chart_request(&self) -> Option<Request> {
-        let id = self.selected_project()?;
-        Some(overview_request(
-            &self.days()?,
-            &self.filters(Some(&id), self.model.as_deref()),
-        ))
+        let every = self.projects_request()?;
+        Some(match super::view::projects::selected_for_chart(self) {
+            (Some(project), agent) => {
+                let mut request = overview_request(
+                    &self.days()?,
+                    &self.filters(Some(&project), self.model.as_deref()),
+                );
+                if let Some(agent) = agent {
+                    request = of_agent(&request, &agent);
+                }
+                request
+            }
+            (None, Some(agent)) => of_agent(&every, &agent),
+            (None, None) => every,
+        })
     }
 
     /// The prices of the models the Models section lists.
@@ -612,6 +648,18 @@ impl State {
                 add(Some(prices_request(&[])));
             }
             Section::Limits => add(Some(Request::new("limits", Value::Null))),
+        }
+        // Each agent's part, while usage splits by agent.
+        let split = match self.section {
+            Section::Overview => self.overview_request(),
+            Section::Projects => self.projects_request(),
+            Section::Models => self.models_request(),
+            _ => None,
+        };
+        if let Some(request) = split {
+            for agent in self.split_agents() {
+                needed.push(of_agent(&request, agent));
+            }
         }
         needed
     }
@@ -892,13 +940,19 @@ impl State {
                 }
             }
             Section::Projects => {
+                use super::view::projects::Row;
                 match super::view::projects::rows(self).get(self.projects.selected) {
-                    Some(super::view::projects::Row::Project(row)) => {
+                    Some(Row::Agent(agent, _)) => {
+                        self.agent = Some((*agent).to_owned());
+                        self.section = Section::Overview;
+                        self.filtered();
+                    }
+                    Some(Row::Project(row, _)) => {
                         self.project = Some(row.project.id.clone());
                         self.section = Section::Overview;
                         self.filtered();
                     }
-                    Some(super::view::projects::Row::Others(_)) => {
+                    Some(Row::Others(..)) => {
                         self.overlay = Some(Overlay::Project {
                             hover: 0,
                             filter: String::new(),
@@ -916,14 +970,6 @@ impl State {
         let page = self.sessions_page()?;
         let index = self.sessions.selected.checked_sub(self.sessions_offset())?;
         Some(page.rows.get(index)?.id.clone())
-    }
-
-    /// The id of the project the Projects table selects, if it is one project.
-    pub fn selected_project(&self) -> Option<String> {
-        match super::view::projects::rows(self).get(self.projects.selected)? {
-            super::view::projects::Row::Project(row) => Some(row.project.id.clone()),
-            super::view::projects::Row::Others(_) => None,
-        }
     }
 
     /// A new range or filter: lists start from the top.
@@ -1331,6 +1377,13 @@ fn counted(count: impl TryInto<u64>, one: &str, many: &str) -> String {
 
 pub fn status_request() -> Request {
     Request::new("status", Value::Null)
+}
+
+/// `request` for `agent`'s requests alone.
+pub fn of_agent(request: &Request, agent: &str) -> Request {
+    let mut params = request.params.clone();
+    params["filters"]["agent"] = json!(agent);
+    Request::new(request.method, params)
 }
 
 pub fn overview_request(days: &Days, filters: &Value) -> Request {

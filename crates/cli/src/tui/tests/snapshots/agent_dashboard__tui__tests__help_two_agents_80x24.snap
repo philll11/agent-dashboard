@@ -13,17 +13,17 @@ expression: shown(&state)
  8 ││ Today $5.│  Home End           top, bottom                        │          ││
  9 │└──────────│  Enter              open                               │──────────┘│
 10 │┌─ Cost per│  Esc                back, close                        │0 days ───┐│
-11 ││  $20     │  /                  search the sessions                │█ $117.75 ││
-12 ││          │  r  a  p  m         range, agent, project, model       │░  $68.17 ││
-13 ││          │  t                  charts or tables                   │░  $46.48 ││
-14 ││          │  e                  export the section                 │░  $37.18 ││
-15 ││  $10     │  R                  read new transcripts now           │░  $15.49 ││
-16 ││      █  █│  ?                  this help                          │░  $24.79 ││
-17 ││      █  █│  q  Ctrl-C          quit                               │          ││
-18 ││      ████│                                                        │          ││
-19 ││   $0 ████│                                                        │          ││
+11 ││  $20     │  /                  search the sessions                │          ││
+12 ││          │  r  a  p  m         range, agent, project, model       │█ $110.76 ││
+13 ││          │  t                  charts or tables                   │░  $64.12 ││
+14 ││          │  e                  export the section                 │░  $43.72 ││
+15 ││  $10    █│  R                  read new transcripts now           │░  $72.87 ││
+16 ││      █  █│  ?                  this help                          │          ││
+17 ││      █  █│  q  Ctrl-C          quit                               │░  $10.31 ││
+18 ││      ████│                                                        │░   $5.16 ││
+19 ││   $0 ████│                                                        │░   $1.72 ││
 20 ││      11  └────────────────────────────────────────────────────────┘          ││
-21 ││ ■ Fable  ■ Opus  ■ Sonnet  ■ Haiku  ■ GPT-5.5  ││                            ││
+21 ││ ■ Claude Code $291.46  ■ Copilot CLI $17.18    ││                            ││
 22 │└────────────────────────────────────────────────┘└────────────────────────────┘│
 23 │ Esc close                                                        Read just now │
 

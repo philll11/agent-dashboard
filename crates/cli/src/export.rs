@@ -1,5 +1,6 @@
 //! `agent-dashboard export`, and the reports' JSON and CSV, which come from the same export as
-//! the dashboard's files.
+//! the dashboard's files; a report of every agent's models or projects asks for each agent's
+//! apart.
 
 use std::io::{self, BufWriter, IsTerminal, Write};
 use std::ops::ControlFlow;

@@ -45,6 +45,7 @@ for (const theme of THEMES) {
     test("Copilot CLI session detail", async ({ dashboard, page }) => {
       await dashboard.open({ theme });
       await dashboard.section("Sessions");
+      await page.getByRole("searchbox", { name: "Search sessions" }).fill("handbook");
       await page.getByRole("link", { name: /Draft the importer's handbook/ }).click();
       await expect(page.getByRole("heading", { name: "Models and sub-agents" })).toBeVisible();
       await expect(

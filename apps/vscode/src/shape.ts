@@ -4,15 +4,17 @@
 import type {
   Choices,
   Level,
+  ModelRow,
   Overview,
   Show,
   Status,
   Totals,
   WindowReading,
 } from "@agent-dashboard/protocol";
+import { type AgentOverview, agentName, agentSeries, nameUnder } from "@agent-dashboard/app/agents";
 import { ago, money, percent, when } from "@agent-dashboard/app/format";
 import { type Series, seriesOf } from "@agent-dashboard/app/models";
-import { inOrder, LEVEL_TEXT, windowName } from "@agent-dashboard/app/windows";
+import { creditsText, inOrder, LEVEL_TEXT, windowName } from "@agent-dashboard/app/windows";
 
 /** The server's answers that the status bar item and the tree are made from. */
 export interface Summary {
@@ -22,6 +24,10 @@ export interface Summary {
   today: Overview;
   /** This week's requests, from its first day to today. */
   week: Overview;
+  /** Today's and this week's requests of each agent, while the history holds more than one; the
+   * tree then lists each agent's apart, since each may be paid for by someone else. */
+  todayByAgent: AgentOverview[];
+  weekByAgent: AgentOverview[];
   /** Whether Claude Code's status line records plan limits, as far as the settings tell. */
   limitsConnected: boolean;
 }
@@ -64,8 +70,9 @@ export interface Node {
   expanded: boolean;
 }
 
-/** The most projects the tree lists. */
+/** The most projects the tree lists, and the most of each agent's while it lists them apart. */
 const TOP_PROJECTS = 5;
+const TOP_PROJECTS_EACH = 3;
 
 /** The newest reading among `readings`. */
 function newest(readings: readonly WindowReading[]): WindowReading | undefined {
@@ -97,6 +104,8 @@ function reading(window: WindowReading, nowMs: number, timeZone: string, marked 
   }
   const share = percent(window.usedPercentage);
   const used = marked && window.level !== "normal" ? `${share} ▲` : share;
+  const credits = creditsText(window);
+  if (credits) return `${used} · ${credits}`;
   return resetsAt == null ? used : `${used} · resets ${when(resetsAt, nowMs, timeZone)}`;
 }
 
@@ -240,21 +249,45 @@ export function tree(summary: Summary, nowMs: number): Node[] {
       expanded: false,
     });
   }
+  const todayOnly = { range: "today" } as const;
+  /** A model's item: under its agent's item without a swatch, as the dashboard's tables show it. */
+  const modelNode = (id: string, row: ModelRow, show: Show, agent?: string): Node => ({
+    id: `${id}/${row.model.id}`,
+    label: agent ? nameUnder(agent, row.model.name) : row.model.name,
+    description: cost(row.totals),
+    ...(agent ? {} : { icon: { kind: "model", series: series.get(row.model.id) ?? "other" } }),
+    show,
+    children: [],
+    expanded: false,
+  });
+  /** Each agent's item, with its cost and its models' items under it. */
+  const agentNodes = (
+    id: string,
+    groups: readonly AgentOverview[],
+    range: Pick<Show, "range">,
+    expanded: boolean,
+  ): Node[] =>
+    groups.map(({ agent, overview }) => ({
+      id: `${id}/${agent}`,
+      label: agentName(agent),
+      description: `${cost(overview.totals)} · ${kind(overview.totals)}`,
+      icon: { kind: "model", series: agentSeries(agent) },
+      show: { section: "overview", agent, ...range },
+      expanded,
+      children: overview.models.map((row) =>
+        modelNode(`${id}/${agent}`, row, { section: "models", agent, ...range }, agent),
+      ),
+    }));
   const todayNode: Node = {
     id: "today",
     label: "Today",
     description: `${cost(status.todayTotals)} · ${kind(status.todayTotals)}`,
-    show: { section: "overview", range: "today" },
+    show: { section: "overview", ...todayOnly },
     expanded: true,
-    children: today.models.map((row) => ({
-      id: `today/${row.model.id}`,
-      label: row.model.name,
-      description: cost(row.totals),
-      icon: { kind: "model", series: series.get(row.model.id) ?? "other" },
-      show: { section: "models", range: "today" },
-      children: [],
-      expanded: false,
-    })),
+    children:
+      summary.todayByAgent.length > 0
+        ? agentNodes("today", summary.todayByAgent, todayOnly, true)
+        : today.models.map((row) => modelNode("today", row, { section: "models", ...todayOnly })),
   };
   const weekNode: Node = {
     id: "week",
@@ -262,31 +295,49 @@ export function tree(summary: Summary, nowMs: number): Node[] {
     description: `${cost(status.weekTotals)} · ${kind(status.weekTotals)}`,
     show: { section: "overview" },
     expanded: false,
-    children: week.models.map((row) => ({
-      id: `week/${row.model.id}`,
-      label: row.model.name,
+    children:
+      summary.weekByAgent.length > 0
+        ? agentNodes("week", summary.weekByAgent, {}, true)
+        : week.models.map((row) => modelNode("week", row, { section: "models" })),
+  };
+  const projectNodes = (
+    id: string,
+    rows: Overview["projects"],
+    count: number,
+    agent?: string,
+  ): Node[] =>
+    rows.slice(0, count).map((row) => ({
+      id: `${id}/${row.project.id}`,
+      label: row.project.name,
       description: cost(row.totals),
-      icon: { kind: "model", series: series.get(row.model.id) ?? "other" },
-      show: { section: "models" },
+      icon: { kind: "folder" },
+      show: { section: "sessions", project: row.project.id, ...(agent ? { agent } : {}) },
       children: [],
       expanded: false,
-    })),
-  };
+    }));
   const projects: Node = {
     id: "projects",
     label: "Top projects",
     description: "this week",
     show: { section: "projects" },
     expanded: true,
-    children: week.projects.slice(0, TOP_PROJECTS).map((row) => ({
-      id: `projects/${row.project.id}`,
-      label: row.project.name,
-      description: cost(row.totals),
-      icon: { kind: "folder" },
-      show: { section: "sessions", project: row.project.id },
-      children: [],
-      expanded: false,
-    })),
+    children:
+      summary.weekByAgent.length > 0
+        ? summary.weekByAgent.map(({ agent, overview }) => ({
+            id: `projects/${agent}`,
+            label: agentName(agent),
+            description: cost(overview.totals),
+            icon: { kind: "model", series: agentSeries(agent) },
+            show: { section: "projects", agent },
+            expanded: true,
+            children: projectNodes(
+              `projects/${agent}`,
+              overview.projects,
+              TOP_PROJECTS_EACH,
+              agent,
+            ),
+          }))
+        : projectNodes("projects", week.projects, TOP_PROJECTS),
   };
   return [limits, todayNode, weekNode, projects];
 }

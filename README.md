@@ -9,7 +9,7 @@ It runs inside VS Code, as a desktop app and in the terminal, on Windows, macOS 
 ## What it is for
 
 - **Plan limits at a glance**: how much of Claude Code's five-hour and weekly windows and Copilot's monthly allowance you have used, and when they reset.
-- **Usage and cost**: tokens and cost today, this week and this month, by agent and model, in one figure that says whether it includes an estimate.
+- **Usage and cost**: tokens and cost today, this week and this month, in one figure that says whether it includes an estimate, and each agent's models and projects apart, since the agents are often paid for by different people.
 - **Where it goes**: projects, sessions, subagents, skills and MCP servers, and how well the prompt cache works for you.
 - **History that lasts**: Claude Code deletes its transcripts after 30 days by default; agent-dashboard keeps what it has read.
 - **Your data, your way**: CSV and JSON export, and terminal reports you can script.
@@ -57,7 +57,7 @@ macOS asks once before the app opens: in **System Settings**, **Privacy & Securi
 
 - The sidebar holds the sections: Overview, Sessions, Projects, Models, Limits and Settings.
 - The window is light or dark as your system is, and remembers its size and place.
-- Its item in the notification area, or the menu bar on macOS, shows the highest current use of the five-hour window and Copilot's allowance, and its menu lists every plan window and today's cost.
+- Its item in the notification area, or the menu bar on macOS, shows how much of the five-hour window you have used, marked once that or Copilot's allowance passes 70%, and its menu lists every plan window and today's cost.
   On Windows and macOS, closing the window keeps the app running there, and **Quit** in the item's menu ends it; on Linux, closing the window quits unless you switch keeping it running on in Settings.
   Settings can also hide the item and open the app at login, in the item without the window.
 - Each section's **Export** button saves its table as CSV or JSON, and Settings saves the whole history.

@@ -603,7 +603,7 @@ function NotificationArea({ desktop, settings }: { desktop: Desktop; settings: S
     <Panel title={place.charAt(0).toUpperCase() + place.slice(1)}>
       <SwitchRow
         name={`Show plan limits in the ${place}`}
-        text="Its icon shows the highest use of Claude Code's five-hour window and Copilot's allowance, and its menu lists every plan window and opens the dashboard."
+        text="Its icon shows how much of the five-hour window you have used, marked once that or Copilot's allowance passes 70%, and its menu lists every plan window and opens the dashboard."
         checked={settings.tray}
         onChange={(tray) => {
           change(() => store.send("settings/set", { tray }));

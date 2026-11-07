@@ -270,7 +270,23 @@ fn two_agents_side_by_side() {
             state.section = Section::Sessions;
             state.session = Some(COPILOT_SESSION.to_owned());
         });
+        check("two_agents_models", Variant::TwoAgents, size, |state| {
+            state.section = Section::Models;
+        });
+        check("two_agents_projects", Variant::TwoAgents, size, |state| {
+            state.section = Section::Projects;
+            state.projects.selected = 8;
+            state.projects.top = 9 - super::view::projects::visible_rows(state);
+        });
     }
+    let fixture = Fixture::new(Variant::TwoAgents);
+    let mono = state(
+        &fixture,
+        WIDE,
+        Theme::new(&Palette::DARK, true, true),
+        |_| {},
+    );
+    insta::assert_snapshot!("two_agents_overview_no_colour_120x36", shown(&mono));
     check(
         "two_agents_limits_scrolled",
         Variant::TwoAgents,
@@ -743,12 +759,12 @@ fn the_agent_picker_applies_an_agent_to_every_request() {
     assert_eq!(state.agent.as_deref(), Some("copilot-cli"));
     assert_eq!(state.overlay, None);
     assert_eq!(state.sessions.selected, 0, "lists start from the top");
-    let asks = state.asks();
-    let overview = asks
-        .iter()
-        .find(|ask| ask.method == "overview")
-        .expect("the overview is asked again");
-    assert_eq!(overview.params["filters"]["agent"], "copilot-cli");
+    let request = state.overview_request().expect("the days are known");
+    assert_eq!(request.params["filters"]["agent"], "copilot-cli");
+    assert!(
+        state.overview(&request).is_some(),
+        "the agent's part, asked while usage split by agent, answers it"
+    );
 
     state.update(typed('2'));
     answer(&mut state, &fixture);
@@ -758,6 +774,90 @@ fn the_agent_picker_applies_an_agent_to_every_request() {
         !shown(&state).contains("Agent  "),
         "one agent's sessions need no agent column"
     );
+}
+
+#[test]
+fn with_both_agents_each_agents_part_is_asked_of_the_server_for_that_agent_alone() {
+    let fixture = Fixture::new(Variant::TwoAgents);
+    for section in [Section::Overview, Section::Projects, Section::Models] {
+        let mut state = State::new(dark(), WIDE, fixture.now);
+        state.section = section;
+        let mut agents: Vec<String> = Vec::new();
+        for _ in 0..10 {
+            let asks = state.asks();
+            if asks.is_empty() {
+                break;
+            }
+            for ask in asks {
+                if ask.method == "overview"
+                    && let Some(agent) = ask.params["filters"]["agent"].as_str()
+                {
+                    agents.push(agent.to_owned());
+                }
+                let result = fixture.answer(ask.method, &ask.params);
+                state.update(Event::Answer { id: ask.id, result });
+            }
+        }
+        agents.sort();
+        agents.dedup();
+        assert_eq!(agents, ["claude-code", "copilot-cli"], "{section:?}");
+    }
+
+    let (mut single, _) = ready(WIDE);
+    let asked: Vec<_> = single.asks();
+    assert!(
+        asked.is_empty(),
+        "one agent's history asks nothing more: {asked:?}"
+    );
+    assert!(!single.by_agent());
+}
+
+#[test]
+fn enter_on_an_agents_row_of_the_projects_filters_the_dashboard_to_it() {
+    let fixture = Fixture::new(Variant::TwoAgents);
+    let mut state = state(&fixture, WIDE, dark(), |state| {
+        state.section = Section::Projects;
+    });
+    let rows: Vec<String> = super::view::projects::rows(&state)
+        .iter()
+        .map(|row| match row {
+            super::view::projects::Row::Agent(agent, _) => format!("agent {agent}"),
+            super::view::projects::Row::Project(row, agent) => {
+                format!("{} of {}", row.project.name, agent.unwrap_or("every agent"))
+            }
+            super::view::projects::Row::Others(rows, agent) => {
+                format!(
+                    "{} others of {}",
+                    rows.len(),
+                    agent.unwrap_or("every agent")
+                )
+            }
+        })
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            "agent claude-code",
+            "agent-dashboard of claude-code",
+            "api-gateway of claude-code",
+            "website of claude-code",
+            "infra of claude-code",
+            "notes of claude-code",
+            "6 others of claude-code",
+            "agent copilot-cli",
+            "agent-dashboard of copilot-cli",
+            // Each agent's small projects are measured against its own cost.
+            "api-gateway of copilot-cli",
+            "notes of copilot-cli",
+        ]
+    );
+    state.projects.selected = 7;
+    answer(&mut state, &fixture);
+    assert!(shown(&state).contains("Copilot CLI · cost per day by model"));
+    state.update(key(KeyCode::Enter));
+    assert_eq!(state.agent.as_deref(), Some("copilot-cli"));
+    assert_eq!(state.project, None);
+    assert_eq!(state.section, Section::Overview);
 }
 
 #[test]

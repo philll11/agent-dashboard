@@ -117,12 +117,12 @@ pub fn request(id: &str, model: &str, timestamp: &str) -> Value {
     })
 }
 
-/// A Copilot CLI request of `model`, which Copilot CLI names `GPT-5.5`, made at `timestamp`: the
+/// A Copilot CLI request of `model`, which Copilot CLI names `name`, made at `timestamp`: the
 /// person started it, and Copilot CLI recorded it as costing 5 AI credits, $0.05.
-pub fn copilot_request(id: &str, model: &str, timestamp: &str) -> Value {
+pub fn copilot_request(id: &str, (model, name): (&str, &str), timestamp: &str) -> Value {
     json!({
         "type": "session.usage_record", "id": format!("event-{id}"), "timestamp": timestamp,
-        "data": {"usage": {"model": model, "modelDisplayName": "GPT-5.5",
+        "data": {"usage": {"model": model, "modelDisplayName": name,
             "inputTokens": 1000, "outputTokens": 200,
             "cacheReadTokens": 0, "cacheWriteTokens": 0, "reasoningTokens": 50,
             "initiator": "user", "isByok": false,

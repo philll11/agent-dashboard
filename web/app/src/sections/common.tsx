@@ -2,7 +2,9 @@
 
 import { type ReactNode, useMemo } from "react";
 
-import type { CostProvenance, Days, Totals } from "@agent-dashboard/protocol";
+import type { CostProvenance, Days, Filters, Totals } from "@agent-dashboard/protocol";
+
+import type { AgentOverview } from "../agents";
 
 import { useHost, useStatus } from "../context";
 import { useRequest } from "../data";
@@ -207,6 +209,31 @@ export function useAgents(): string[] {
   const choices = useRequest("choices", null).data;
   if (view.agent !== null) return [view.agent];
   return choices?.agents.map((agent) => agent.id) ?? [];
+}
+
+/** Each agent's figures for `days` under `filters`, in the agents' order, while the view covers
+ * more than one agent: usage is then split by agent before anything else, since each agent may be
+ * paid for by someone else. `undefined` while the view covers one agent; empty until every answer
+ * is in. */
+export function useByAgent(days: Days, filters: Filters): AgentOverview[] | undefined {
+  const agents = useAgents();
+  const split = agents.length > 1;
+  const claude = useRequest(
+    "overview",
+    { days, filters: { ...filters, agent: "claude-code" } },
+    split,
+  ).data;
+  const copilot = useRequest(
+    "overview",
+    { days, filters: { ...filters, agent: "copilot-cli" } },
+    split,
+  ).data;
+  if (!split) return undefined;
+  if (!claude || !copilot) return [];
+  return [
+    { agent: "claude-code", overview: claude },
+    { agent: "copilot-cli", overview: copilot },
+  ].filter((group) => agents.includes(group.agent));
 }
 
 /** Where the costs of `totals` come from; without any cost, where the agents in view would take

@@ -146,6 +146,7 @@ _Avoid_: client, front end, app (on its own)
 
 **Glance**:
 Plan limits and today's cost in a few words: the desktop app's item in the notification area or the menu bar, and VS Code's status bar item.
+Its figure is the person's own five-hour window; an allowance someone else pays for only marks it.
 _Avoid_: tray (on its own), widget, indicator
 
 **Export**:

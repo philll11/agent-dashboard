@@ -58,6 +58,10 @@ function model(id: string, name: string, usd: number): ModelRow {
   return { model: { id, name }, totals: totals(usd) };
 }
 
+function project(id: string, name: string, usd: number): Overview["projects"][number] {
+  return { project: { id, name }, sessions: 3, lastMs: NOW, totals: totals(usd), dailyCost: [] };
+}
+
 function overview(models: ModelRow[], projects: Overview["projects"] = []): Overview {
   return {
     days: { first: "2026-10-05", last: "2026-10-10" },
@@ -88,13 +92,6 @@ function summary(change: Partial<Status> = {}, limitsConnected = true): Summary 
     weekStart: "monday",
     ...change,
   };
-  const project = (id: string, name: string, usd: number) => ({
-    project: { id, name },
-    sessions: 3,
-    lastMs: NOW,
-    totals: totals(usd),
-    dailyCost: [],
-  });
   return {
     status,
     choices: {
@@ -115,6 +112,8 @@ function summary(change: Partial<Status> = {}, limitsConnected = true): Summary 
       [model("claude-opus-5-5", "Opus 5.5", 30)],
       ["a", "b", "c", "d", "e", "f"].map((name, index) => project(`C--${name}`, name, 10 - index)),
     ),
+    todayByAgent: [],
+    weekByAgent: [],
     limitsConnected,
   };
 }
@@ -240,6 +239,63 @@ describe("the sidebar tree", () => {
       "  d | $7.00",
       "  e | $6.00",
     ]);
+  });
+
+  it("lists each agent's usage apart once the history holds two agents", () => {
+    const copilot = (usd: number): Totals => ({
+      ...totals(usd),
+      costProvenance: "recorded",
+      chargedRequests: 10,
+      chargedUsd: usd,
+      chargedCredits: usd * 100,
+    });
+    const agentOverview = (rows: ModelRow[], usd: number, recorded: boolean): Overview => ({
+      ...overview(rows, [project("C--x", recorded ? "x" : "y", usd)]),
+      totals: recorded ? copilot(usd) : totals(usd),
+    });
+    const both = {
+      ...summary(),
+      todayByAgent: [
+        {
+          agent: "claude-code",
+          overview: agentOverview([model("claude-opus-5-5", "Opus 5.5", 2.1)], 2.1, false),
+        },
+        {
+          agent: "copilot-cli",
+          overview: agentOverview(
+            [
+              {
+                model: { id: "claude-opus-5.5", name: "Opus 5.5, Copilot CLI" },
+                totals: copilot(0.41),
+              },
+            ],
+            0.41,
+            true,
+          ),
+        },
+      ],
+      weekByAgent: [
+        { agent: "claude-code", overview: agentOverview([], 30, false) },
+        { agent: "copilot-cli", overview: agentOverview([], 13.12, true) },
+      ],
+    };
+    const [, today, , projects] = tree(both, NOW);
+    expect(today?.children.map((child) => `${child.label} | ${child.description}`)).toEqual([
+      "Claude Code | $2.10 · estimate",
+      "Copilot CLI | $0.41 · recorded",
+    ]);
+    expect(today?.children[1]?.children.map((child) => child.label)).toEqual(["Opus 5.5"]);
+    expect(today?.children[1]?.children[0]?.icon).toBeUndefined();
+    expect(today?.children.map((child) => child.icon)).toEqual([
+      { kind: "model", series: "fable" },
+      { kind: "model", series: "opus" },
+    ]);
+    expect(projects?.children.map((child) => child.label)).toEqual(["Claude Code", "Copilot CLI"]);
+    expect(projects?.children[1]?.children[0]?.show).toEqual({
+      section: "sessions",
+      project: "C--x",
+      agent: "copilot-cli",
+    });
   });
 
   it("marks a window over 70% and colours each model by its family's newest", () => {

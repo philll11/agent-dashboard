@@ -1,23 +1,26 @@
-//! `models`, `sessions` and `projects`: where the requests of a stretch of days went.
+//! `models`, `sessions` and `projects`: where the requests of a stretch of days went. While the
+//! history holds more than one agent and a report is not of one, each agent's models and projects
+//! come under its own row, never added to another's.
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
 use agent_dashboard_core::agent::Agent;
-use agent_dashboard_core::history::{History, ProjectKey, SessionKey};
+use agent_dashboard_core::history::{History, HistoryError, ProjectKey, SessionKey};
 use agent_dashboard_core::report::{self, Range};
 use jiff::Span;
 use jiff::civil::Date;
 
 use agent_dashboard_server::app::App;
 use agent_dashboard_server::fmt::short_date;
-use agent_dashboard_server::names::{model_name, project_names};
+use agent_dashboard_server::names::project_names;
 use agent_dashboard_server::protocol::Dataset;
 
 use crate::report::{
-    Given, Output, Row, added, cells, cost_note, only, provenance, ready_history, sum, table,
-    total_row,
+    Given, Output, Row, added, agent_model_rows, agent_row, cells, cost_note, model_rows,
+    models_by_agent, only, provenance, ready_history, split_agents, sum, table, total_row,
+    under_agent,
 };
 use crate::style::Paint;
 
@@ -68,20 +71,17 @@ pub fn models(app: &App, given: Given, agent: Option<Agent>, output: Output) -> 
     };
     let app = &app;
     let (since, until) = days(app, given, 30);
+    let split = split_agents(&history, agent);
     if output != Output::Table {
         drop(history);
-        return crate::export::print(
-            app,
-            &crate::export::params(Dataset::Models, output, (since, until), agent),
-        );
+        let params = crate::export::params(Dataset::Models, output, (since, until), agent);
+        return crate::export::print(app, &params);
     }
-    let models = match report::by_model(
-        &history,
-        &app.prices,
-        Range::days(since, until, &app.zone),
-        &only(agent),
-    ) {
-        Ok(models) => models,
+    let range = Range::days(since, until, &app.zone);
+    let (models, groups) = match report::by_model(&history, &app.prices, range, &only(agent))
+        .and_then(|models| Ok((models, models_by_agent(app, &history, range, &split)?)))
+    {
+        Ok(found) => found,
         Err(error) => {
             eprintln!("Cannot read the history: {error}");
             return ExitCode::FAILURE;
@@ -93,20 +93,11 @@ pub fn models(app: &App, given: Given, agent: Option<Agent>, output: Output) -> 
     if models.is_empty() {
         let _ = writeln!(out, "{}", paint.muted("No requests on these days."));
     } else {
-        let rows: Vec<Row> = models
-            .iter()
-            .map(|model| {
-                let name = model_name(app, &model.model);
-                Row {
-                    label: format!(
-                        "{} {name}",
-                        paint.paint("■", paint.palette().series(&model.model), false)
-                    ),
-                    label_len: name.chars().count() + 2,
-                    values: cells(&model.totals),
-                }
-            })
-            .collect();
+        let rows = if groups.is_empty() {
+            model_rows(app, paint, &models)
+        } else {
+            agent_model_rows(app, paint, &groups)
+        };
         out.push_str(&table(paint, "Model", &rows, &total_row(&sum(&models))));
     }
     print!("{out}");
@@ -216,20 +207,24 @@ pub fn projects(app: &App, given: Given, agent: Option<Agent>, output: Output) -
     };
     let app = &app;
     let (since, until) = days(app, given, 30);
+    let split = split_agents(&history, agent);
     if output != Output::Table {
         drop(history);
-        return crate::export::print(
-            app,
-            &crate::export::params(Dataset::Projects, output, (since, until), agent),
-        );
+        let params = crate::export::params(Dataset::Projects, output, (since, until), agent);
+        return crate::export::print(app, &params);
     }
-    let totals = match report::by_project(
-        &history,
-        &app.prices,
-        Range::days(since, until, &app.zone),
-        &only(agent),
-    ) {
-        Ok(projects) => projects,
+    let range = Range::days(since, until, &app.zone);
+    let projects_of =
+        |agent: Option<Agent>| report::by_project(&history, &app.prices, range, &only(agent));
+    let found = projects_of(agent).and_then(|totals| {
+        let groups = split
+            .iter()
+            .map(|agent| projects_of(Some(*agent)).map(|projects| (*agent, projects)))
+            .collect::<Result<Vec<_>, HistoryError>>()?;
+        Ok((totals, groups))
+    });
+    let (totals, groups) = match found {
+        Ok(found) => found,
         Err(error) => {
             eprintln!("Cannot read the history: {error}");
             return ExitCode::FAILURE;
@@ -243,7 +238,7 @@ pub fn projects(app: &App, given: Given, agent: Option<Agent>, output: Output) -
     let mut out = format!("{}\n\n", paint.muted(&heading));
     if totals.is_empty() {
         let _ = writeln!(out, "{}", paint.muted("No requests on these days."));
-    } else {
+    } else if groups.is_empty() {
         let rows: Vec<Row> = totals
             .iter()
             .map(|project| {
@@ -255,6 +250,22 @@ pub fn projects(app: &App, given: Given, agent: Option<Agent>, output: Output) -
                 }
             })
             .collect();
+        out.push_str(&table(paint, "Project", &rows, &total_row(&all)));
+    } else {
+        let mut rows = Vec::new();
+        for (agent, projects) in &groups {
+            rows.push(agent_row(
+                paint,
+                *agent,
+                &added(projects.iter().map(|project| &project.totals)),
+            ));
+            rows.extend(projects.iter().map(|project| {
+                under_agent(
+                    &shorten(&name(project.project).0, LABEL_LIMIT - 2),
+                    &project.totals,
+                )
+            }));
+        }
         out.push_str(&table(paint, "Project", &rows, &total_row(&all)));
     }
     print!("{out}");

@@ -12,18 +12,20 @@ mod session;
 mod sessions;
 
 use agent_dashboard_server::fmt::{ago, grouped};
-use agent_dashboard_server::protocol::{CostProvenance, Totals};
+use agent_dashboard_server::protocol::{CostProvenance, Overview, Totals};
 use jiff::Timestamp;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 
+use super::answers::Request;
 use super::canvas::{Canvas, fit, width};
 use super::state::{ExportNotice, Section, State, agent_name as named_agent};
+use super::theme::Series;
 
 #[cfg(test)]
 pub use overlays::HELP_KEYS;
-pub use series::series_of;
+pub use series::{agent_series, series_of};
 
 /// The key line's keys on most screens.
 pub const KEYS: [(&str, &str); 5] = [
@@ -105,6 +107,35 @@ pub fn provenance(state: &State, totals: Option<&Totals>) -> CostProvenance {
         (false, true) => CostProvenance::Recorded,
         _ => CostProvenance::Estimate,
     }
+}
+
+/// One agent's part of what the screen shows, while usage splits by agent.
+pub struct AgentPart<'a> {
+    pub id: &'a str,
+    pub name: String,
+    /// The series the agent takes in charts, and its mark beside its name.
+    pub series: Series,
+    pub overview: &'a Overview,
+}
+
+/// Each agent's part of `request`, as the server answers it for that agent alone: `None` while
+/// usage does not split by agent, and until every agent's part has come.
+pub fn agent_parts(state: &State, request: Option<Request>) -> Option<Vec<AgentPart<'_>>> {
+    if !state.by_agent() {
+        return None;
+    }
+    Some(
+        state
+            .agent_overviews(request)?
+            .into_iter()
+            .map(|(id, overview)| AgentPart {
+                id,
+                name: agent_name(state, id),
+                series: agent_series(id),
+                overview,
+            })
+            .collect(),
+    )
 }
 
 /// What a cost is called, by where it comes from.

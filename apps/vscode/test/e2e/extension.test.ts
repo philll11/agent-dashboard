@@ -129,30 +129,34 @@ describe(`${NAME}, installed from its package`, function () {
     );
   });
 
-  it("summarises the usage in the sidebar", async () => {
+  it("summarises each agent's usage apart in the sidebar", async () => {
     const section = await summary();
     const items = await driver.wait(async () => {
       const visible = await section.getVisibleItems();
       return visible.length > 4 ? visible : undefined;
     }, 30_000);
     const shown = await rows(items ?? []);
-    assert.deepEqual(shown.slice(0, 13), [
+    assert.deepEqual(shown.slice(0, 17), [
       "Plan limits | official · 2 min ago",
       "Five-hour window | 42% · resets 14:20",
       "Weekly, all models | 71% · resets Thu 09:00",
       "Weekly, Fable | 18% · resets Thu 09:00",
-      "Copilot allowance | 4% · resets 1 Nov 13:00",
+      "Copilot allowance | 4% · 1,608 of 45,000 AI credits",
       "Today | $6.84 · includes estimate",
+      "Claude Code | $5.10 · estimate",
       "Opus 5.5 | $2.10",
       "Fable 5.1 | $1.83",
-      "GPT-5.5 | $1.33",
       "Sonnet 5.5 | $1.11",
-      "Opus 5.5, Copilot CLI | $0.41",
       "Haiku 5.5 | $0.06",
+      "Copilot CLI | $1.74 · recorded",
+      "GPT-5.5 | $1.33",
+      "Opus 5.5 | $0.41",
       "This week | $82.58 + unpriced · includes estimate",
+      "Top projects | this week",
+      "Claude Code | $69.46 + unpriced",
     ]);
-    assert.equal(shown[13], "Top projects | this week");
-    assert.equal(shown.length, 19, "five projects follow");
+    assert.equal(shown[20], "Copilot CLI | $13.12");
+    assert.equal(shown.length, 24, "three projects of each agent follow");
   });
 
   it("opens the matching section of the dashboard from the sidebar", async () => {

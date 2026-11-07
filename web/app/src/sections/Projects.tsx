@@ -1,10 +1,11 @@
 // Projects: each project's cost per day, sessions, requests, tokens and share of the cost, for the
-// chosen days and model.
+// chosen days and model; each agent's projects apart while the view covers several.
 
 import type { MouseEvent } from "react";
 
 import type { ProjectRow } from "@agent-dashboard/protocol";
 
+import { type AgentOverview, agentFill, agentName } from "../agents";
 import { Sparkline } from "../charts/small";
 import { useRequest } from "../data";
 import { compact, grouped, money, percent } from "../format";
@@ -21,6 +22,7 @@ import {
   RangeMenu,
   SectionHead,
   tokensOf,
+  useByAgent,
   useDays,
   useFilters,
   useExportScope,
@@ -28,27 +30,55 @@ import {
   useRangeText,
 } from "./common";
 import { ExportMenu } from "../exports";
-import { costPerDay } from "./series";
+import { costPerDay, dailyCost } from "./series";
 
 /** Projects with a smaller share of the cost than this are grouped together. */
 const SMALL_SHARE = 0.02;
+
+/** The projects shown on rows of their own, and the small ones grouped together: those with less
+ * than 2% of `total` each, where there is more than one of them. */
+function split(rows: readonly ProjectRow[], total: number) {
+  const small = rows.filter((row) => total > 0 && row.totals.cost.total / total < SMALL_SHARE);
+  const grouped = small.length > 1;
+  return {
+    shown: grouped ? rows.filter((row) => !small.includes(row)) : rows,
+    small: grouped ? small : [],
+  };
+}
 
 export function Projects() {
   const days = useDays();
   const filters = useFilters();
   const rangeText = useRangeText();
   const overview = useRequest("overview", { days, filters: { ...filters, project: null } }).data;
+  const byAgent = useByAgent(days, { ...filters, project: null });
   const rows = overview?.projects ?? [];
   const total = overview?.totals.cost.total ?? 0;
-  const small = rows.filter((row) => total > 0 && row.totals.cost.total / total < SMALL_SHARE);
-  const shown = small.length > 1 ? rows.filter((row) => !small.includes(row)) : rows;
+  // Each agent is paid for apart, so its projects' shares, bars and small projects are of its own
+  // cost; its own row gives its share of the whole.
+  const groups = (
+    byAgent
+      ? byAgent.map((group) => ({
+          group,
+          total: group.overview.totals.cost.total,
+          ...split(group.overview.projects, group.overview.totals.cost.total),
+        }))
+      : [{ group: undefined, total, ...split(rows, total) }]
+  ).map((part) => ({
+    ...part,
+    largest: Math.max(
+      ...part.shown.map((row) => row.totals.cost.total),
+      part.small.reduce((sum, row) => sum + row.totals.cost.total, 0),
+      0,
+    ),
+  }));
+  const small = groups.flatMap((part) => part.small);
   const provenance = useProvenance(overview?.totals);
   const summary = overview
     ? `${grouped(rows.length)} ${rows.length === 1 ? "project" : "projects"} ${
         rangeText === "today" ? "today" : `in the ${rangeText}`
       } · ${money(total)} ${COST_WORDS[provenance]}`
     : undefined;
-  const largest = Math.max(...shown.map((row) => row.totals.cost.total), 0);
   const exportScope = useExportScope(rows.length, "project", "projects");
   return (
     <div className="section">
@@ -87,28 +117,43 @@ export function Projects() {
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {overview &&
-                shown.map((row) => (
-                  <Project
-                    key={row.project.id}
-                    row={row}
-                    first={overview.days.first}
-                    last={overview.days.last}
-                    total={total}
-                    largest={largest}
-                  />
-                ))}
-              {overview && small.length > 1 && (
-                <Others
-                  rows={small}
-                  first={overview.days.first}
-                  last={overview.days.last}
-                  total={total}
-                  largest={largest}
-                />
-              )}
-            </tbody>
+            {overview &&
+              groups.map((part) => (
+                <tbody
+                  key={part.group?.agent ?? "projects"}
+                  className={part.group ? "agent-group" : undefined}
+                >
+                  {part.group && (
+                    <AgentRow
+                      group={part.group}
+                      first={overview.days.first}
+                      last={overview.days.last}
+                      total={total}
+                    />
+                  )}
+                  {part.shown.map((row) => (
+                    <Project
+                      key={row.project.id}
+                      row={row}
+                      first={overview.days.first}
+                      last={overview.days.last}
+                      total={part.total}
+                      largest={part.largest}
+                      indent={part.group !== undefined}
+                    />
+                  ))}
+                  {part.small.length > 0 && (
+                    <Others
+                      rows={part.small}
+                      first={overview.days.first}
+                      last={overview.days.last}
+                      total={part.total}
+                      largest={part.largest}
+                      indent={part.group !== undefined}
+                    />
+                  )}
+                </tbody>
+              ))}
           </table>
         </TableScroll>
         {overview && rows.length === 0 && (
@@ -118,9 +163,58 @@ export function Projects() {
       <p className="footnote">
         A project is the folder a session ran in.
         {small.length > 1 &&
-          ` "Other projects" groups the ${String(small.length)} projects with less than 2% each; choose one in Sessions to see them.`}
+          (byAgent
+            ? ` "Other projects" groups an agent's projects with less than 2% of its cost each; choose one in Sessions to see them.`
+            : ` "Other projects" groups the ${String(small.length)} projects with less than 2% each; choose one in Sessions to see them.`)}
       </p>
     </div>
+  );
+}
+
+/** An agent's row, heading its projects' rows, with its subtotals and share of the cost. */
+function AgentRow({
+  group,
+  first,
+  last,
+  total,
+}: {
+  group: AgentOverview;
+  first: string;
+  last: string;
+  total: number;
+}) {
+  const { overview } = group;
+  const name = agentName(group.agent);
+  const costs = dailyCost(overview.byDay, first, last);
+  const sessions = overview.projects.reduce((sum, row) => sum + row.sessions, 0);
+  return (
+    <tr className="agent-row">
+      <th scope="rowgroup">
+        <span className="swatch-name">
+          <span className="swatch" style={{ background: agentFill(group.agent) }} />
+          <span className="project-title">{name}</span>
+        </span>
+      </th>
+      <td className="left">
+        <Sparkline
+          values={costs}
+          width={140}
+          height={28}
+          stroke="var(--bar)"
+          label={`Daily cost for ${name} over ${grouped(costs.length)} days`}
+          format={money}
+        />
+      </td>
+      <td>{grouped(sessions)}</td>
+      <td>{grouped(overview.totals.requests)}</td>
+      <td>{compact(tokensOf(overview.totals))}</td>
+      <td className="strong">{costText(overview.totals)}</td>
+      <td className="left">
+        <span className="share-text ink-2">
+          {percent(total > 0 ? (overview.totals.cost.total / total) * 100 : 0)}
+        </span>
+      </td>
+    </tr>
   );
 }
 
@@ -130,12 +224,15 @@ function Project({
   last,
   total,
   largest,
+  indent,
 }: {
   row: ProjectRow;
   first: string;
   last: string;
   total: number;
   largest: number;
+  /** Under its agent's row. */
+  indent: boolean;
 }) {
   const { change } = useView();
   const open = (event: MouseEvent) => {
@@ -151,7 +248,11 @@ function Project({
   return (
     <tr>
       <th scope="row">
-        <a href={`#project-${row.project.id}`} onClick={open} className="project-link">
+        <a
+          href={`#project-${row.project.id}`}
+          onClick={open}
+          className={indent ? "project-link nested" : "project-link"}
+        >
           <span className="mono project-title">{row.project.name}</span>
           {row.project.path && (
             <span className="mono project-path">{shortPath(row.project.path)}</span>
@@ -196,12 +297,15 @@ function Others({
   last,
   total,
   largest,
+  indent,
 }: {
   rows: readonly ProjectRow[];
   first: string;
   last: string;
   total: number;
   largest: number;
+  /** Under its agent's row. */
+  indent: boolean;
 }) {
   const cost = rows.reduce((sum, row) => sum + row.totals.cost.total, 0);
   const byDay = new Map<string, number>();
@@ -214,7 +318,7 @@ function Others({
   return (
     <tr>
       <th scope="row">
-        <span className="project-link">
+        <span className={indent ? "project-link nested" : "project-link"}>
           <span className="project-title">Other projects</span>
           <span className="mono project-path">{grouped(rows.length)} projects</span>
         </span>
