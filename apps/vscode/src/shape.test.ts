@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import type { ModelRow, Overview, Status, Totals, WindowReading } from "@claude-dashboard/protocol";
+import type { ModelRow, Overview, Status, Totals, WindowReading } from "@agent-dashboard/protocol";
 import { describe, expect, it } from "vitest";
 
 import { spoken, statusItem, type Summary, tree } from "./shape";

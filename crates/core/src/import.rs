@@ -41,7 +41,7 @@ pub enum ImportError {
         path: PathBuf,
         source: rusqlite::Error,
     },
-    #[error("another claude-dashboard is reading transcripts; try again once it has finished")]
+    #[error("another agent-dashboard is reading transcripts; try again once it has finished")]
     Busy,
     #[error(transparent)]
     History(#[from] HistoryError),

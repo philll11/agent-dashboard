@@ -1,4 +1,4 @@
-//! Starting the app: the server, the window, and the `claude-dashboard` program the app brings,
+//! Starting the app: the server, the window, and the `agent-dashboard` program the app brings,
 //! which Claude Code's status line runs a copy of.
 
 use std::error::Error;
@@ -7,8 +7,8 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use claude_dashboard_server::app::{App, DESKTOP_APP_SETTING};
-use claude_dashboard_server::{program, statusline};
+use agent_dashboard_server::app::{App, DESKTOP_APP_SETTING};
+use agent_dashboard_server::{program, statusline};
 use tauri::{AppHandle, Manager, Url, WebviewWindow, WebviewWindowBuilder};
 
 use crate::bridge::{self, Dashboard, MAIN};
@@ -51,7 +51,7 @@ pub fn app(tauri: &mut tauri::App) -> Result<(), Box<dyn Error>> {
     let product = tauri.package_info().name.clone();
     thread::spawn(move || {
         if let Err(reason) = statusline::refresh_copy(&app) {
-            log::warn!("Cannot update the status line's copy of claude-dashboard: {reason}.");
+            log::warn!("Cannot update the status line's copy of agent-dashboard: {reason}.");
         }
         record_location(&app);
         if cfg!(windows) {
@@ -66,7 +66,7 @@ pub fn app(tauri: &mut tauri::App) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// The `claude-dashboard` program the app brings, next to its own (Tauri's `externalBin`).
+/// The `agent-dashboard` program the app brings, next to its own (Tauri's `externalBin`).
 fn bundled_program() -> Result<PathBuf, Box<dyn Error>> {
     let this = std::env::current_exe()?;
     let folder = this.parent().ok_or("the app's program has no folder")?;
@@ -120,7 +120,7 @@ fn own_page(url: &Url) -> bool {
     }
 }
 
-/// Records where the app is, for `claude-dashboard app`. A history that this version cannot
+/// Records where the app is, for `agent-dashboard app`. A history that this version cannot
 /// change is left as it is.
 fn record_location(app: &App) {
     let Some(location) = location() else {

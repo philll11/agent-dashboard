@@ -4,7 +4,7 @@
 // cover the oldest VS Code the extension supports.
 //
 // VS Code, its user data and the screenshots go in the folder E2E_STORAGE names, or else in
-// claude-dashboard-e2e in the system's temporary folder: VS Code keeps its IPC socket in the user
+// agent-dashboard-e2e in the system's temporary folder: VS Code keeps its IPC socket in the user
 // data folder, and macOS limits a socket's path to 104 bytes, which a deep checkout exceeds.
 //
 //   node scripts/e2e.mjs --vsix <package>
@@ -16,7 +16,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
-import { prepare } from "@claude-dashboard/app/testing";
+import { prepare } from "@agent-dashboard/app/testing";
 import { build } from "esbuild";
 import { ExTester, ReleaseQuality } from "vscode-extension-tester";
 
@@ -39,23 +39,23 @@ await build({
 });
 if (globSync(tests).length === 0) throw new Error(`No tests match ${tests}.`);
 
-const storage = process.env.E2E_STORAGE ?? join(tmpdir(), "claude-dashboard-e2e");
+const storage = process.env.E2E_STORAGE ?? join(tmpdir(), "agent-dashboard-e2e");
 const settings = join(storage, "e2e-settings.json");
 mkdirSync(storage, { recursive: true });
 copyFileSync(join(root, "test/e2e/settings.json"), settings);
 
 // VS Code opens the project whose session is running, which the view's strip shows.
 const prepared = await prepare({ home: true });
-const project = join(prepared.home, "code", "claude-dashboard");
-for (const key of ["CLAUDE_CONFIG_DIR", "CLAUDE_DASHBOARD_HISTORY", "CLAUDE_DASHBOARD_NOW", "TZ"]) {
+const project = join(prepared.home, "code", "agent-dashboard");
+for (const key of ["CLAUDE_CONFIG_DIR", "AGENT_DASHBOARD_HISTORY", "AGENT_DASHBOARD_NOW", "TZ"]) {
   process.env[key] = prepared.env[key];
 }
 process.env.E2E_SETTINGS = join(storage, "settings", "User", "settings.json");
 process.env.E2E_SCREENSHOTS = join(storage, "screenshots");
 process.env.E2E_PROGRAM = prepared.program;
 // The extension saves exports here without its save dialog, which a test cannot answer.
-process.env.CLAUDE_DASHBOARD_EXPORT_TO = join(prepared.folder, "exports");
-mkdirSync(process.env.CLAUDE_DASHBOARD_EXPORT_TO);
+process.env.AGENT_DASHBOARD_EXPORT_TO = join(prepared.folder, "exports");
+mkdirSync(process.env.AGENT_DASHBOARD_EXPORT_TO);
 
 let code;
 try {

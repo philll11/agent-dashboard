@@ -9,6 +9,94 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "agent-dashboard"
+version = "1.1.0"
+dependencies = [
+ "agent-dashboard-core",
+ "agent-dashboard-server",
+ "anstream",
+ "anstyle",
+ "anstyle-query",
+ "assert_cmd",
+ "clap",
+ "crossbeam-channel",
+ "crossterm",
+ "dirs 7.0.0",
+ "insta",
+ "jiff",
+ "lsp-server",
+ "portable-pty",
+ "predicates",
+ "ratatui",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "signal-hook",
+ "tempfile",
+ "terminal-colorsaurus",
+ "unicode-width",
+ "vt100",
+]
+
+[[package]]
+name = "agent-dashboard-core"
+version = "1.1.0"
+dependencies = [
+ "criterion",
+ "dirs 7.0.0",
+ "jiff",
+ "proptest",
+ "ring",
+ "rusqlite",
+ "rustls",
+ "security-framework",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "ureq",
+ "walkdir",
+]
+
+[[package]]
+name = "agent-dashboard-desktop"
+version = "1.1.0"
+dependencies = [
+ "agent-dashboard-core",
+ "agent-dashboard-server",
+ "auto-launch",
+ "insta",
+ "jiff",
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-process",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tauri-plugin-window-state",
+ "tempfile",
+]
+
+[[package]]
+name = "agent-dashboard-server"
+version = "1.1.0"
+dependencies = [
+ "agent-dashboard-core",
+ "crossbeam-channel",
+ "jiff",
+ "semver",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "ts-rs",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -734,94 +822,6 @@ name = "clap_lex"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
-
-[[package]]
-name = "claude-dashboard"
-version = "1.1.0"
-dependencies = [
- "anstream",
- "anstyle",
- "anstyle-query",
- "assert_cmd",
- "clap",
- "claude-dashboard-core",
- "claude-dashboard-server",
- "crossbeam-channel",
- "crossterm",
- "dirs 7.0.0",
- "insta",
- "jiff",
- "lsp-server",
- "portable-pty",
- "predicates",
- "ratatui",
- "rusqlite",
- "serde",
- "serde_json",
- "signal-hook",
- "tempfile",
- "terminal-colorsaurus",
- "unicode-width",
- "vt100",
-]
-
-[[package]]
-name = "claude-dashboard-core"
-version = "1.1.0"
-dependencies = [
- "criterion",
- "dirs 7.0.0",
- "jiff",
- "proptest",
- "ring",
- "rusqlite",
- "rustls",
- "security-framework",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "ureq",
- "walkdir",
-]
-
-[[package]]
-name = "claude-dashboard-desktop"
-version = "1.1.0"
-dependencies = [
- "auto-launch",
- "claude-dashboard-core",
- "claude-dashboard-server",
- "insta",
- "jiff",
- "log",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-process",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tauri-plugin-window-state",
- "tempfile",
-]
-
-[[package]]
-name = "claude-dashboard-server"
-version = "1.1.0"
-dependencies = [
- "claude-dashboard-core",
- "crossbeam-channel",
- "jiff",
- "semver",
- "serde",
- "serde_json",
- "tempfile",
- "ts-rs",
-]
 
 [[package]]
 name = "colorchoice"

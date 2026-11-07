@@ -98,7 +98,7 @@ impl LoginSource {
     }
 
     /// Reads the login without changing it. On macOS the Keychain asks the person, the first
-    /// time, whether claude-dashboard may read it.
+    /// time, whether agent-dashboard may read it.
     ///
     /// # Errors
     ///
@@ -207,7 +207,7 @@ mod keychain {
                 .unwrap_or(Err(LoginError::Missing)),
             Err(error) if error.code() == NOT_FOUND => Err(LoginError::Missing),
             Err(error) if DENIED.contains(&error.code()) => Err(LoginError::Unreadable(
-                "the Keychain did not allow claude-dashboard to read it".to_owned(),
+                "the Keychain did not allow agent-dashboard to read it".to_owned(),
             )),
             Err(error) => {
                 Err(LoginError::Unreadable(error.message().unwrap_or_else(

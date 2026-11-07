@@ -1,5 +1,5 @@
 //! Reports, exports and the status line never fetch anything; only `prices update` reaches for the
-//! network, and then only claude-dashboard's repository, through the proxy the environment names.
+//! network, and then only agent-dashboard's repository, through the proxy the environment names.
 
 mod common;
 
@@ -194,7 +194,7 @@ fn reports_never_fetch_and_prices_update_asks_the_repository_through_the_proxy()
     through_the_proxy(&["prices", "update"])
         .assert()
         .failure()
-        .stderr(contains("Cannot reach claude-dashboard's repository"));
+        .stderr(contains("Cannot reach agent-dashboard's repository"));
     let lines = proxy.lines();
     assert!(!lines.is_empty(), "prices update did not use the proxy");
     for line in &lines {

@@ -9,10 +9,10 @@ import type {
   Status,
   Totals,
   WindowReading,
-} from "@claude-dashboard/protocol";
-import { ago, money, percent, when } from "@claude-dashboard/app/format";
-import { type Series, seriesOf } from "@claude-dashboard/app/models";
-import { inOrder, LEVEL_TEXT, windowName } from "@claude-dashboard/app/windows";
+} from "@agent-dashboard/protocol";
+import { ago, money, percent, when } from "@agent-dashboard/app/format";
+import { type Series, seriesOf } from "@agent-dashboard/app/models";
+import { inOrder, LEVEL_TEXT, windowName } from "@agent-dashboard/app/windows";
 
 /** The server's answers that the status bar item and the tree are made from. */
 export interface Summary {

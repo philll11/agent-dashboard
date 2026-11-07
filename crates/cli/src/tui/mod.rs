@@ -1,4 +1,4 @@
-//! The dashboard in the terminal: `claude-dashboard` without a command, in a terminal.
+//! The dashboard in the terminal: `agent-dashboard` without a command, in a terminal.
 //!
 //! It reads through the dashboard's server, run in this process on a thread of its own (ADR
 //! 0009), so it shows what the desktop app and VS Code show. A thread reads the keys. The state
@@ -27,9 +27,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use claude_dashboard_server::app::{self, App};
-use claude_dashboard_server::export;
-use claude_dashboard_server::protocol::ExportParams;
+use agent_dashboard_server::app::{self, App};
+use agent_dashboard_server::export;
+use agent_dashboard_server::protocol::ExportParams;
 use crossbeam_channel::{RecvTimeoutError, Sender, unbounded};
 
 use self::data::Data;
@@ -58,7 +58,7 @@ pub fn run(app: App) -> ExitCode {
         Err(error) => {
             let _ = ratatui::try_restore();
             eprintln!(
-                "Cannot take over this terminal: {error}. In Git Bash's own window, run claude-dashboard in Windows Terminal, or through winpty."
+                "Cannot take over this terminal: {error}. In Git Bash's own window, run agent-dashboard in Windows Terminal, or through winpty."
             );
             return ExitCode::FAILURE;
         }

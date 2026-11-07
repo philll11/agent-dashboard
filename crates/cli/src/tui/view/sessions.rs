@@ -1,7 +1,7 @@
 //! Sessions: every session in the chosen days, newest first, with search; each opens its detail.
 
-use claude_dashboard_server::fmt::{day_time, duration, grouped, money};
-use claude_dashboard_server::protocol::SessionRow;
+use agent_dashboard_server::fmt::{day_time, duration, grouped, money};
+use agent_dashboard_server::protocol::SessionRow;
 use jiff::Timestamp;
 
 use super::overview::cost_text;

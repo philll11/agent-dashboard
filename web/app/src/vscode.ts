@@ -1,5 +1,5 @@
 // The dashboard in a VS Code webview: requests and notifications travel as messages to and from
-// the extension, which passes them on to `claude-dashboard serve`.
+// the extension, which passes them on to `agent-dashboard serve`.
 
 import type {
   Backend,
@@ -11,7 +11,7 @@ import type {
   Result,
   Show,
   ToExtension,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 
 import { type Host, RequestError } from "./host";
 

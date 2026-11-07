@@ -85,7 +85,7 @@ interface Project {
 }
 
 const PROJECTS: Record<string, Project> = {
-  "claude-dashboard": { cwd: "/home/you/code/claude-dashboard", share: 0.4 },
+  "agent-dashboard": { cwd: "/home/you/code/agent-dashboard", share: 0.4 },
   "api-gateway": { cwd: "/home/you/code/api-gateway", share: 0.21 },
   website: { cwd: "/home/you/code/website", share: 0.14 },
   infra: { cwd: "/home/you/code/infra", share: 0.12 },
@@ -133,7 +133,7 @@ interface Session {
 const NAMED: Session[] = [
   {
     title: "Review the runbook",
-    project: "claude-dashboard",
+    project: "agent-dashboard",
     day: TODAY,
     start: "11:30",
     minutes: 44,
@@ -155,7 +155,7 @@ const NAMED: Session[] = [
   },
   {
     title: "Design the ingest lock",
-    project: "claude-dashboard",
+    project: "agent-dashboard",
     day: TODAY,
     start: "10:05",
     minutes: 85,
@@ -176,7 +176,7 @@ const NAMED: Session[] = [
   },
   {
     title: "Price table for Claude 5 models",
-    project: "claude-dashboard",
+    project: "agent-dashboard",
     day: TODAY,
     start: "09:20",
     minutes: 150,
@@ -237,7 +237,7 @@ const NAMED: Session[] = [
   },
   {
     title: "Investigate slow builds",
-    project: "claude-dashboard",
+    project: "agent-dashboard",
     day: "2026-10-08",
     start: "15:30",
     minutes: 55,
@@ -260,7 +260,7 @@ const NAMED: Session[] = [
   },
   {
     title: "Schema for limit snapshots",
-    project: "claude-dashboard",
+    project: "agent-dashboard",
     day: "2026-10-08",
     start: "09:05",
     minutes: 160,
@@ -779,7 +779,7 @@ export function writeClaudeFolder(root: string, options: Options = {}): Syntheti
   if (!options.noLimits) {
     writeFileSync(
       join(root, "settings.json"),
-      `${JSON.stringify({ statusLine: { type: "command", command: "claude-dashboard statusline" } }, null, 2)}\n`,
+      `${JSON.stringify({ statusLine: { type: "command", command: "agent-dashboard statusline" } }, null, 2)}\n`,
     );
   }
   const next = random(3);
@@ -836,7 +836,7 @@ function writeClaudeUsage(path: string): void {
           Math.round(200 + next() * 1500),
           Math.round(20_000 + next() * 60_000),
           Math.round(500 + next() * 4_000),
-          "/home/you/code/claude-dashboard",
+          "/home/you/code/agent-dashboard",
           `msg_july_${day}_${String(index)}`,
         );
       }

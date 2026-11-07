@@ -5,8 +5,8 @@
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::{Fault, Notify, Server};
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::{Fault, Notify, Server};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -148,13 +148,13 @@ mod tests {
     #[test]
     fn a_start_asks_for_a_section_by_name() {
         assert_eq!(
-            requested(&["claude-dashboard-desktop", "--section", "limits"]),
+            requested(&["agent-dashboard-desktop", "--section", "limits"]),
             Some(Show { section: "limits" })
         );
-        assert_eq!(requested(&["claude-dashboard-desktop"]), None);
-        assert_eq!(requested(&["claude-dashboard-desktop", "--section"]), None);
+        assert_eq!(requested(&["agent-dashboard-desktop"]), None);
+        assert_eq!(requested(&["agent-dashboard-desktop", "--section"]), None);
         assert_eq!(
-            requested(&["claude-dashboard-desktop", "--section", "elsewhere"]),
+            requested(&["agent-dashboard-desktop", "--section", "elsewhere"]),
             None
         );
     }

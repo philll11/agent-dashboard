@@ -124,7 +124,7 @@ describe("updates", () => {
 
   it("says what went wrong in plain words", () => {
     const said: Record<string, string> = {
-      "error sending request for url (https://github.com/philll11/claude-dashboard/releases/latest/download/latest.json)":
+      "error sending request for url (https://github.com/philll11/agent-dashboard/releases/latest/download/desktop-update.json)":
         "The update server could not be reached.",
       "`Download request failed with status: 503 Service Unavailable`":
         "The update server could not be reached.",

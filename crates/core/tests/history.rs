@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use claude_dashboard_core::history::{
+use agent_dashboard_core::history::{
     Access, Attribution, Counts, History, HistoryError, Identity, Request, SessionKey,
 };
-use claude_dashboard_core::tokens::Tokens;
+use agent_dashboard_core::tokens::Tokens;
 use rusqlite::{Connection, OpenFlags};
 
 fn request<'a>(
@@ -98,7 +98,7 @@ fn a_new_history_is_created_with_its_folder() {
     let path = dir
         .path()
         .join("data")
-        .join("claude-dashboard")
+        .join("agent-dashboard")
         .join("history.sqlite");
 
     let history = History::open(&path).unwrap();

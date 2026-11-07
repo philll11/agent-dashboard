@@ -1,7 +1,7 @@
 // The series of a cost chart: one per model family, in the design's fixed order, and one for every
 // other model together.
 
-import type { Day, ModelRow } from "@claude-dashboard/protocol";
+import type { Day, ModelRow } from "@agent-dashboard/protocol";
 
 import type { Column, SeriesInfo } from "../charts/columns";
 import { dayLabel, daysBetween, monthYear, shortDate, startOfWeek } from "../format";

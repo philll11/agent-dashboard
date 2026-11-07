@@ -193,7 +193,7 @@ importers:
 
   apps/desktop:
     devDependencies:
-      '@claude-dashboard/app':
+      '@agent-dashboard/app':
         specifier: workspace:*
         version: link:../../web/app
       '@tauri-apps/cli':
@@ -220,10 +220,10 @@ importers:
 
   apps/vscode:
     dependencies:
-      '@claude-dashboard/app':
+      '@agent-dashboard/app':
         specifier: workspace:*
         version: link:../../web/app
-      '@claude-dashboard/protocol':
+      '@agent-dashboard/protocol':
         specifier: workspace:*
         version: link:../../web/protocol
       vscode-jsonrpc:
@@ -260,7 +260,7 @@ importers:
 
   web/app:
     dependencies:
-      '@claude-dashboard/protocol':
+      '@agent-dashboard/protocol':
         specifier: workspace:*
         version: link:../protocol
       '@fontsource/ibm-plex-mono':

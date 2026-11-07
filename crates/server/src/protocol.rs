@@ -1,4 +1,4 @@
-//! The messages between `claude-dashboard serve` and its clients: the parameters and results of
+//! The messages between `agent-dashboard serve` and its clients: the parameters and results of
 //! each JSON-RPC request, and the notifications the server sends.
 //!
 //! ts-rs writes their TypeScript into `web/protocol/src/generated/protocol.ts` when the tests run;
@@ -158,7 +158,7 @@ pub struct Progress {
 #[ts(export, export_to = "protocol.ts")]
 pub enum Access {
     ReadWrite,
-    /// A newer claude-dashboard has upgraded the history, so this one only reads it.
+    /// A newer agent-dashboard has upgraded the history, so this one only reads it.
     ReadOnly,
 }
 
@@ -453,6 +453,13 @@ pub struct FiveHourWindow {
 #[ts(export, export_to = "protocol.ts")]
 pub enum StatusLine {
     Connected {
+        /// The person's own status line command, which agent-dashboard's runs.
+        #[ts(optional = nullable)]
+        wrapping: Option<String>,
+    },
+    /// claude-dashboard, as agent-dashboard was called before version 2, is the status line, and
+    /// records the plan limits into its own history until connecting agent-dashboard replaces it.
+    Predecessor {
         /// The person's own status line command, which claude-dashboard's runs.
         #[ts(optional = nullable)]
         wrapping: Option<String>,
@@ -568,7 +575,7 @@ pub struct Prices {
     pub sessions_compared: u64,
     /// The models whose prices may be out of date.
     pub out_of_line: Vec<PriceDrift>,
-    /// When the table in use was downloaded from claude-dashboard's repository; `None` for the
+    /// When the table in use was downloaded from agent-dashboard's repository; `None` for the
     /// table this version ships with.
     #[ts(optional = nullable)]
     pub downloaded_ms: Option<i64>,
@@ -576,7 +583,7 @@ pub struct Prices {
     pub refresh: PriceRefresh,
 }
 
-/// The daily check for a newer price table in claude-dashboard's repository.
+/// The daily check for a newer price table in agent-dashboard's repository.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "protocol.ts")]
@@ -630,7 +637,7 @@ pub struct Health {
     /// How many days Claude Code keeps transcripts for.
     pub cleanup_days: u32,
     pub access: Access,
-    /// The schema of the newer claude-dashboard that upgraded the history: this one can only read
+    /// The schema of the newer agent-dashboard that upgraded the history: this one can only read
     /// it, or, without `history`, cannot read it at all.
     #[ts(optional = nullable)]
     pub newer_schema: Option<u32>,
@@ -766,7 +773,7 @@ pub struct EndpointParams {
     pub enabled: bool,
 }
 
-/// `statusLine/plan` parameters: connecting claude-dashboard's status line, or disconnecting it.
+/// `statusLine/plan` parameters: connecting agent-dashboard's status line, or disconnecting it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "protocol.ts")]

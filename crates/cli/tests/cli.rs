@@ -77,7 +77,7 @@ fn today_shows_each_model_and_the_total() {
             "  Total              3        2K             5K          126K    $0.08",
         ))
         .stdout(contains(
-            "Plan limits: not recorded yet. To record them, run claude-dashboard statusline connect",
+            "Plan limits: not recorded yet. To record them, run agent-dashboard statusline connect",
         ));
 }
 
@@ -241,7 +241,7 @@ fn the_status_line_starts_with_the_sessions_title() {
 }
 
 fn program() -> String {
-    let exe = PathBuf::from(env!("CARGO_BIN_EXE_claude-dashboard"));
+    let exe = PathBuf::from(env!("CARGO_BIN_EXE_agent-dashboard"));
     let path = fs::canonicalize(exe).unwrap().display().to_string();
     path.strip_prefix(r"\\?\")
         .unwrap_or(&path)
@@ -279,7 +279,7 @@ fn connecting_adds_the_status_line_and_disconnecting_removes_it() {
     assert!(
         fixture
             .root()
-            .join("settings.claude-dashboard-backup.json")
+            .join("settings.agent-dashboard-backup.json")
             .is_file()
     );
 
@@ -330,6 +330,35 @@ fn connecting_wraps_your_own_status_line_and_disconnecting_restores_it() {
     assert_eq!(
         fixture.settings()["statusLine"],
         json!({"type": "command", "command": own, "padding": 2})
+    );
+}
+
+#[test]
+fn connecting_replaces_claude_dashboards_status_line_and_keeps_your_own() {
+    let fixture = Fixture::new();
+    fs::create_dir_all(fixture.root()).unwrap();
+    let own = r#"jq -r '"[\(.model.display_name)]"'"#;
+    let old = format!(
+        r"C:\Users\ada\AppData\Local\claude-dashboard\bin\claude-dashboard.exe statusline --then {own}"
+    );
+    fs::write(
+        fixture.root().join("settings.json"),
+        json!({"statusLine": {"type": "command", "command": old, "padding": 2}}).to_string(),
+    )
+    .unwrap();
+
+    fixture
+        .cli_without_path(&["doctor"])
+        .assert()
+        .stdout(contains("the status line runs claude-dashboard"));
+    fixture
+        .cli_without_path(&["statusline", "connect", "--yes"])
+        .assert()
+        .success()
+        .stdout(contains("runs agent-dashboard instead of claude-dashboard"));
+    assert_eq!(
+        fixture.settings()["statusLine"],
+        json!({"type": "command", "command": format!("{} statusline --then {own}", program()), "padding": 2})
     );
 }
 
@@ -475,7 +504,7 @@ fn sign_in(fixture: &Fixture, expires_ms: i64) {
     .unwrap();
 }
 
-const LOGIN_EXPIRED: &str = "Claude Code's login on this computer has expired, so the usage endpoint can't be asked. Open Claude Code once to sign in again; claude-dashboard never refreshes the login itself.";
+const LOGIN_EXPIRED: &str = "Claude Code's login on this computer has expired, so the usage endpoint can't be asked. Open Claude Code once to sign in again; agent-dashboard never refreshes the login itself.";
 
 #[test]
 fn turning_the_usage_endpoint_on_asks_first() {
@@ -516,7 +545,7 @@ fn an_expired_login_is_never_sent_and_the_reports_say_to_sign_in_again() {
         .assert()
         .success()
         .stdout(contains(
-            "The usage endpoint is on. Turn it off with claude-dashboard limits endpoint off.",
+            "The usage endpoint is on. Turn it off with agent-dashboard limits endpoint off.",
         ))
         .stdout(contains(LOGIN_EXPIRED));
     fixture
@@ -570,7 +599,7 @@ fn app_says_where_to_get_the_desktop_app_until_it_has_run() {
         .assert()
         .failure()
         .stderr(contains(
-            "The desktop app has not run on this computer yet. Install it from https://github.com/philll11/claude-dashboard/releases/latest",
+            "The desktop app has not run on this computer yet. Install it from https://github.com/philll11/agent-dashboard/releases/latest",
         ));
     assert!(!fixture.history().exists(), "asking creates no history");
 }
@@ -582,7 +611,7 @@ fn without_a_command_or_a_terminal_it_prints_its_help() {
         .cli(&[])
         .assert()
         .code(2)
-        .stderr(contains("Usage: claude-dashboard"))
+        .stderr(contains("Usage: agent-dashboard"))
         .stderr(contains("weekly"));
 }
 
@@ -660,7 +689,7 @@ fn limits_shows_each_window_and_the_recent_five_hour_windows() {
         &[request("1", "claude-opus-5-5", &today_at("10:30:00"))],
     );
     fixture.cli(&["limits"]).assert().success().stdout(contains(
-        "Plan limits: not recorded yet. To record them, run claude-dashboard statusline connect",
+        "Plan limits: not recorded yet. To record them, run agent-dashboard statusline connect",
     ));
 
     let resets = NOW.parse::<jiff::Timestamp>().unwrap().as_second() + 2 * 3600;
@@ -716,7 +745,7 @@ fn limits_shows_each_window_and_the_recent_five_hour_windows() {
         .stdout(contains("The usage endpoint is already off."));
 }
 
-/// Makes the fixture's history one that a newer claude-dashboard has upgraded to schema 999,
+/// Makes the fixture's history one that a newer agent-dashboard has upgraded to schema 999,
 /// which this version can still read when `readable` is set, and cannot otherwise.
 fn upgraded_by_a_newer_version(fixture: &Fixture, readable: bool) {
     fixture.cli(&["today"]).assert().success();
@@ -744,7 +773,7 @@ fn reports_read_a_history_a_newer_version_upgraded_and_say_to_update() {
         .success()
         .stdout(contains("Opus 5.5"))
         .stderr(contains(
-            "a newer claude-dashboard has upgraded the history (schema 999); update claude-dashboard to keep recording",
+            "a newer agent-dashboard has upgraded the history (schema 999); update agent-dashboard to keep recording",
         ));
 }
 
@@ -759,7 +788,7 @@ fn reports_on_a_history_too_new_to_read_say_to_update_and_fail() {
         .failure()
         .stdout("")
         .stderr(contains(
-            "a newer claude-dashboard has upgraded the history (schema 999); update claude-dashboard to read it",
+            "a newer agent-dashboard has upgraded the history (schema 999); update agent-dashboard to read it",
         ));
 }
 
@@ -782,7 +811,7 @@ fn doctor_names_a_history_a_newer_version_upgraded_once() {
     assert!(
         history[0].starts_with('✗')
             && history[0].contains(
-                "upgraded by a newer claude-dashboard (schema 999): update claude-dashboard to keep recording"
+                "upgraded by a newer agent-dashboard (schema 999): update agent-dashboard to keep recording"
             ),
         "{stdout}"
     );

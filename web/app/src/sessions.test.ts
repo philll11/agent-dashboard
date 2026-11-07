@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SessionRow, Totals } from "@claude-dashboard/protocol";
+import type { SessionRow, Totals } from "@agent-dashboard/protocol";
 
 import { isRunning, latestSession, relation, RUNNING_MS } from "./sessions";
 

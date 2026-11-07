@@ -3,15 +3,15 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use claude_dashboard_core::history::{self, History, HistoryError, ProjectKey};
-use claude_dashboard_core::import;
-use claude_dashboard_core::limits::{self, LimitSnapshot, Source};
-use claude_dashboard_core::price_refresh;
-use claude_dashboard_core::pricing::{self, PriceTable};
-use claude_dashboard_core::reconcile;
-use claude_dashboard_core::report::{self, Filter, Range};
-use claude_dashboard_core::roots::{self, RootSource, RootStatus};
-use claude_dashboard_core::tokens;
+use agent_dashboard_core::history::{self, History, HistoryError, ProjectKey};
+use agent_dashboard_core::import;
+use agent_dashboard_core::limits::{self, LimitSnapshot, Source};
+use agent_dashboard_core::price_refresh;
+use agent_dashboard_core::pricing::{self, PriceTable};
+use agent_dashboard_core::reconcile;
+use agent_dashboard_core::report::{self, Filter, Range};
+use agent_dashboard_core::roots::{self, RootSource, RootStatus};
+use agent_dashboard_core::tokens;
 use jiff::Timestamp;
 use jiff::civil::Date;
 use jiff::tz::TimeZone;
@@ -53,7 +53,7 @@ impl Fault {
     /// The Language Server Protocol's code for a request that was cancelled, which JSON-RPC
     /// leaves to the application.
     pub const REQUEST_CANCELLED: i32 = -32800;
-    /// The code for a history that a newer claude-dashboard upgraded beyond what this one reads,
+    /// The code for a history that a newer agent-dashboard upgraded beyond what this one reads,
     /// which a dashboard shows as a state of its own; JSON-RPC leaves -32000 to -32099 to servers.
     pub const HISTORY_TOO_NEW: i32 = -32001;
 
@@ -134,6 +134,12 @@ impl Answers {
                 .and_then(json),
             "statusLine/apply" => parse(params)
                 .and_then(|p| apply_status_line(&app, &p))
+                .map(|replaced_predecessor| {
+                    if replaced_predecessor {
+                        self.bring_in_predecessor_limits();
+                    }
+                    Value::Null
+                })
                 .and_then(json),
             "settings" => self.settings(&app).and_then(json),
             "settings/set" => parse(params)
@@ -153,7 +159,7 @@ impl Answers {
                 .and_then(|name| json(crate::protocol::ExportName { name })),
             other => Err(Fault {
                 code: Fault::METHOD_NOT_FOUND,
-                message: format!("claude-dashboard has no method {other}"),
+                message: format!("agent-dashboard has no method {other}"),
             }),
         }
     }
@@ -186,12 +192,24 @@ impl Answers {
         }
     }
 
-    /// The schema of the newer claude-dashboard that upgraded the history, when that is why it
+    /// The schema of the newer agent-dashboard that upgraded the history, when that is why it
     /// cannot be opened.
     fn too_new(&self) -> Option<u32> {
         match History::open(self.app.history_path.as_ref()?) {
             Err(HistoryError::TooNew { schema }) => Some(schema),
             _ => None,
+        }
+    }
+
+    /// Brings in the plan limits claude-dashboard's status line recorded since the history was
+    /// adopted from it. The status line already runs agent-dashboard by then, so a failure leaves
+    /// a gap in the readings rather than undoing the change.
+    fn bring_in_predecessor_limits(&mut self) {
+        let Some(predecessor) = history::predecessor_path() else {
+            return;
+        };
+        if let Ok(history) = self.history_mut() {
+            let _ = history.bring_in_limits(&predecessor);
         }
     }
 
@@ -783,8 +801,9 @@ fn plan_status_line(app: &App, params: &StatusLineParams) -> StatusLinePlan {
     }
 }
 
-/// Makes the change the person saw, as long as Claude Code's settings still call for it.
-fn apply_status_line(app: &App, params: &StatusLineApply) -> Result<Value, Fault> {
+/// Makes the change the person saw, as long as Claude Code's settings still call for it, and says
+/// whether it replaced claude-dashboard's status line.
+fn apply_status_line(app: &App, params: &StatusLineApply) -> Result<bool, Fault> {
     let statusline::Plan::Change(change) = status_line_plan(app, params.connect) else {
         return Err(Fault::invalid(
             "Claude Code's settings changed since the change was shown; look at it again."
@@ -800,7 +819,7 @@ fn apply_status_line(app: &App, params: &StatusLineApply) -> Result<Value, Fault
     change
         .make()
         .map_err(|reason| Fault::internal(format!("Cannot save the change: {reason}.")))?;
-    Ok(Value::Null)
+    Ok(change.replaces_predecessor)
 }
 
 /// A session that matches, with what its row leaves out.

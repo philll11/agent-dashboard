@@ -1,14 +1,14 @@
 // The dashboard in an editor tab. It is restored after a restart, and keeps its section and filters
 // itself, through the webview's state.
 
-import type { Show } from "@claude-dashboard/protocol";
+import type { Show } from "@agent-dashboard/protocol";
 import * as vscode from "vscode";
 
 import type { Channel, Channels } from "./channel";
 import { page, pageOptions, TITLE } from "./page";
 
 /** The webview type, which `onWebviewPanel:` activation and the serializer name. */
-export const PANEL_TYPE = "claudeDashboard.dashboard";
+export const PANEL_TYPE = "agentDashboard.dashboard";
 
 export class Dashboard implements vscode.WebviewPanelSerializer, vscode.Disposable {
   #panel: vscode.WebviewPanel | undefined;

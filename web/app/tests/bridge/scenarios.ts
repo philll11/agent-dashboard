@@ -79,9 +79,9 @@ export const SCENARIOS: Record<string, Scenario> = {
   "login-expired": { options: { staleLimits: true, loginExpired: true } },
   /** A data folder the person added cannot be read. */
   "unreadable-folder": { options: { unreadableFolder: true } },
-  /** A newer version of claude-dashboard has upgraded the history. */
+  /** A newer version of agent-dashboard has upgraded the history. */
   "newer-schema": { options: { newerSchema: true } },
-  /** A newer version of claude-dashboard has upgraded the history beyond what this one reads. */
+  /** A newer version of agent-dashboard has upgraded the history beyond what this one reads. */
   "too-new-schema": { options: { tooNewSchema: true }, unreadable: true },
   /** The claude-usage dashboard's database holds July, which no transcript does. */
   "claude-usage": { options: { claudeUsage: true } },

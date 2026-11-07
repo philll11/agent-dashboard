@@ -1,14 +1,14 @@
-// Builds the desktop app's installers for one target, with the claude-dashboard program it brings
+// Builds the desktop app's installers for one target, with the agent-dashboard program it brings
 // next to it (Tauri's externalBin, which src-tauri/tauri.bundle.json adds to the configuration),
 // and copies them to out/bundles under names that say the version and the platform, such as
-// claude-dashboard-desktop-0.2.0-windows-x64-setup.exe.
+// agent-dashboard-desktop-0.2.0-windows-x64-setup.exe.
 //
 // With --updater it also writes the signed update bundles, with their signatures beside them, which
 // need the signing key in TAURI_SIGNING_PRIVATE_KEY and its password in
 // TAURI_SIGNING_PRIVATE_KEY_PASSWORD. Without it, as for the tests, the app it builds has nowhere to
 // look for updates, so that it never installs a release over itself.
 //
-//   node scripts/bundle.mjs --target x86_64-pc-windows-msvc --program <claude-dashboard.exe>
+//   node scripts/bundle.mjs --target x86_64-pc-windows-msvc --program <agent-dashboard.exe>
 //     [--bundles nsis] [--updater]
 
 import { execFileSync } from "node:child_process";
@@ -55,7 +55,7 @@ if (!platform) throw new Error(`The desktop app is not built for ${target}.`);
 const binaries = join(root, "src-tauri/binaries");
 mkdirSync(binaries, { recursive: true });
 const extension = target.includes("-windows-") ? ".exe" : "";
-const program = join(binaries, `claude-dashboard-${target}${extension}`);
+const program = join(binaries, `agent-dashboard-${target}${extension}`);
 copyFileSync(resolve(values.program), program);
 chmodSync(program, 0o755);
 
@@ -105,7 +105,7 @@ mkdirSync(out, { recursive: true });
 for (const { pattern, suffix } of KINDS) {
   // Glob patterns take forward slashes on every system.
   for (const file of globSync(`${built}/${pattern}`.replaceAll("\\", "/"))) {
-    const name = `claude-dashboard-desktop-${version}-${platform}${suffix}`;
+    const name = `agent-dashboard-desktop-${version}-${platform}${suffix}`;
     copyFileSync(file, join(out, name));
     if (existsSync(`${file}.sig`)) copyFileSync(`${file}.sig`, join(out, `${name}.sig`));
     console.log(join(out, name));

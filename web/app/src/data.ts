@@ -3,7 +3,7 @@
 
 import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
 
-import type { Backend, Method, Params, Progress, Result } from "@claude-dashboard/protocol";
+import type { Backend, Method, Params, Progress, Result } from "@agent-dashboard/protocol";
 
 export interface Answer<T> {
   /** The latest answer; kept while a newer one is asked for. */

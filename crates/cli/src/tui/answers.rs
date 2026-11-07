@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use claude_dashboard_server::protocol::{
+use agent_dashboard_server::protocol::{
     Choices, Health, ImportOffer, Limits, Overview, Prices, SessionDetail, SessionsPage, Status,
 };
 use serde::de::DeserializeOwned;

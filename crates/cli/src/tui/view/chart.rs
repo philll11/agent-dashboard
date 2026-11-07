@@ -3,9 +3,9 @@
 
 use std::collections::HashMap;
 
-use claude_dashboard_core::report::Bucket;
-use claude_dashboard_server::fmt::{day_label, money, month_year};
-use claude_dashboard_server::protocol::{Day, ModelRow};
+use agent_dashboard_core::report::Bucket;
+use agent_dashboard_server::fmt::{day_label, money, month_year};
+use agent_dashboard_server::protocol::{Day, ModelRow};
 use jiff::ToSpan;
 use jiff::civil::{Date, Weekday};
 

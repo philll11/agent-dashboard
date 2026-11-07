@@ -1,6 +1,6 @@
-# Claude Dashboard
+# Agent Dashboard
 
-Claude Dashboard shows a person how they use Claude Code: what it would cost at API prices, where the usage goes, and how close they are to their plan limits.
+Agent Dashboard shows a person how they use Claude Code: what it would cost at API prices, where the usage goes, and how close they are to their plan limits.
 It keeps that history after Claude Code deletes its own transcripts.
 
 ## Language

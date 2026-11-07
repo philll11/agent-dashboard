@@ -1,4 +1,4 @@
-//! The one way claude-dashboard talks to the network: HTTPS only, through the proxy the
+//! The one way agent-dashboard talks to the network: HTTPS only, through the proxy the
 //! environment names (or on Windows the system's), checked against the operating system's
 //! certificates, within a time limit, and reading at most a megabyte.
 
@@ -50,9 +50,9 @@ pub fn get(request: &Get<'_>) -> Result<Answer, String> {
         .http_status_as_error(false)
         .timeout_global(Some(TIMEOUT))
         .user_agent(concat!(
-            "claude-dashboard/",
+            "agent-dashboard/",
             env!("CARGO_PKG_VERSION"),
-            " (+https://github.com/philll11/claude-dashboard)"
+            " (+https://github.com/philll11/agent-dashboard)"
         ))
         .tls_config(
             TlsConfig::builder()

@@ -31,7 +31,7 @@ await build({
   outfile: join(root, "dist/extension.js"),
 });
 
-const app = dirname(createRequire(import.meta.url).resolve("@claude-dashboard/app/package.json"));
+const app = dirname(createRequire(import.meta.url).resolve("@agent-dashboard/app/package.json"));
 const webview = join(root, "dist/webview");
 rmSync(webview, { recursive: true, force: true });
 mkdirSync(webview, { recursive: true });

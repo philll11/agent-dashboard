@@ -2,7 +2,7 @@
 // server says the history or the plan limits changed, and shown again each minute so that ages and
 // reset times stay true, without asking the server.
 
-import { local, startOfWeek } from "@claude-dashboard/app/format";
+import { local, startOfWeek } from "@agent-dashboard/app/format";
 import * as vscode from "vscode";
 
 import { now } from "./clock";

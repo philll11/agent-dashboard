@@ -2,7 +2,7 @@
 //! a session's detail and plan limits, shaped like the design's terminal boards, and the states the
 //! boards draw.
 
-use claude_dashboard_server::protocol::{
+use agent_dashboard_server::protocol::{
     Access, Choices, Cost, CostPoint, Credit, Day, DayCost, Days, Endpoint, FastPrices,
     FiveHourWindow, Folder, FolderState, Health, HistoryFacts, ImportOffer, Level, Limits,
     LongPrompt, Model, ModelDay, ModelRow, Overview, Pace, PriceDrift, PriceRefresh, PriceRow,
@@ -55,7 +55,7 @@ const OLDER: [(&str, &str, f64); 4] = [
 
 /// The projects and their share of the cost; those under 2% end up together.
 const PROJECTS: [(&str, &str, f64, u64); 11] = [
-    ("C--code-claude-dashboard", "claude-dashboard", 0.38, 96),
+    ("C--code-agent-dashboard", "agent-dashboard", 0.38, 96),
     ("C--code-api-gateway", "api-gateway", 0.22, 41),
     ("C--code-website", "website", 0.15, 28),
     ("C--code-infra", "infra", 0.12, 22),
@@ -298,7 +298,7 @@ impl Fixture {
     fn status(&self) -> Result<Value, String> {
         match self.variant {
             Variant::TooNew => {
-                return Err("a newer claude-dashboard has upgraded the history (schema 5); update claude-dashboard to read it".to_owned());
+                return Err("a newer agent-dashboard has upgraded the history (schema 5); update agent-dashboard to read it".to_owned());
             }
             Variant::Error => {
                 return Err(r#"SQLite cannot keep a write-ahead log for \\nas\you\history.sqlite (journal mode "delete"); the history must be on a local disk"#.to_owned());
@@ -376,7 +376,7 @@ impl Fixture {
         Health {
             folders,
             history_path: Some(
-                r"C:\Users\you\AppData\Local\claude-dashboard\history.sqlite".to_owned(),
+                r"C:\Users\you\AppData\Local\agent-dashboard\history.sqlite".to_owned(),
             ),
             history: (!unreadable).then_some(HistoryFacts {
                 bytes: 310_000_000,

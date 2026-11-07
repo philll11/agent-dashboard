@@ -69,7 +69,7 @@ export class SummaryTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
     if (icon) item.iconPath = icon;
     item.accessibilityInformation = { label: spoken(node) };
     item.command = {
-      command: "claudeDashboard.show",
+      command: "agentDashboard.show",
       title: "Show in the dashboard",
       arguments: [node.show],
     };

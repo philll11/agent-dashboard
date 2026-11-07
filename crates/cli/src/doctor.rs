@@ -1,22 +1,22 @@
-//! `claude-dashboard doctor`: what claude-dashboard can find, read and check.
+//! `agent-dashboard doctor`: what agent-dashboard can find, read and check.
 
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
-use claude_dashboard_core::history::{Access, History};
-use claude_dashboard_core::import::{self, CLAUDE_USAGE};
-use claude_dashboard_core::limits::Source;
-use claude_dashboard_core::price_refresh::{self, Outcome};
-use claude_dashboard_core::pricing::PriceTable;
-use claude_dashboard_core::reconcile;
-use claude_dashboard_core::report::{self, Range};
-use claude_dashboard_core::roots::{self, CONFIG_DIR_ENV, RootSource, RootStatus};
+use agent_dashboard_core::history::{Access, History};
+use agent_dashboard_core::import::{self, CLAUDE_USAGE};
+use agent_dashboard_core::limits::Source;
+use agent_dashboard_core::price_refresh::{self, Outcome};
+use agent_dashboard_core::pricing::PriceTable;
+use agent_dashboard_core::reconcile;
+use agent_dashboard_core::report::{self, Range};
+use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, RootSource, RootStatus};
 use jiff::Timestamp;
 
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::fmt::{ago, grouped, short_date};
-use claude_dashboard_server::names::model_name;
-use claude_dashboard_server::statusline::{self, Connection};
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::fmt::{ago, grouped, short_date};
+use agent_dashboard_server::names::model_name;
+use agent_dashboard_server::statusline::{self, Connection};
 
 use crate::limits;
 use crate::prices;
@@ -157,7 +157,7 @@ fn history_line(app: &App, history: &History) -> Line {
                 label: "History",
                 path: None,
                 detail: format!(
-                    "{size}upgraded by a newer claude-dashboard (schema {schema}): update claude-dashboard to keep recording"
+                    "{size}upgraded by a newer agent-dashboard (schema {schema}): update agent-dashboard to keep recording"
                 ),
             },
         },
@@ -178,7 +178,7 @@ fn prices_line(app: &App, history: &History) -> Line {
         format!("table of {}", short_date(app.prices.checked()))
     } else {
         format!(
-            "table of {} from claude-dashboard's repository",
+            "table of {} from agent-dashboard's repository",
             short_date(app.prices.checked())
         )
     };
@@ -249,7 +249,7 @@ fn prices_line(app: &App, history: &History) -> Line {
         let _ = write!(detail, "; the table is {age_days} days old");
     }
     if mark == Mark::Warning {
-        detail.push_str("; claude-dashboard prices update looks for newer prices");
+        detail.push_str("; agent-dashboard prices update looks for newer prices");
     }
     Line {
         mark,
@@ -276,7 +276,7 @@ fn price_check_line(app: &App, history: &History) -> Line {
     } else {
         (
             Mark::Off,
-            "off; claude-dashboard prices refresh on checks once a day".to_owned(),
+            "off; agent-dashboard prices refresh on checks once a day".to_owned(),
         )
     };
     Line {
@@ -312,11 +312,17 @@ fn limits_lines(app: &App, history: &History) -> Vec<Line> {
                 detail: "status line connected, no reading yet: Claude Code passes plan limits after its first response on a Pro or Max plan".to_owned(),
             },
         },
+        Connection::Predecessor { .. } => Line {
+            mark: Mark::Warning,
+            label: "Limits",
+            path: None,
+            detail: "the status line runs claude-dashboard, which records plan limits into its own history; to switch it, run agent-dashboard statusline connect".to_owned(),
+        },
         Connection::NotConnected { .. } => Line {
             mark: Mark::Off,
             label: "Limits",
             path: None,
-            detail: "status line not connected; to record plan limits, run claude-dashboard statusline connect".to_owned(),
+            detail: "status line not connected; to record plan limits, run agent-dashboard statusline connect".to_owned(),
         },
         Connection::Unknown(reason) => Line {
             mark: Mark::Warning,
@@ -370,7 +376,7 @@ fn import_line(app: &App, history: &History) -> Option<Line> {
         label: "Old history",
         path: None,
         detail: format!(
-            "claude-usage's database at {} can be imported: run claude-dashboard import claude-usage",
+            "claude-usage's database at {} can be imported: run agent-dashboard import claude-usage",
             database.display()
         ),
     })

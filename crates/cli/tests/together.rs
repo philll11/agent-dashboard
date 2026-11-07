@@ -32,11 +32,11 @@ struct Server {
 
 impl Server {
     fn start(fixture: &Fixture) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_claude-dashboard"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_agent-dashboard"))
             .args(["serve", "--stdio"])
             .env("CLAUDE_CONFIG_DIR", fixture.root())
-            .env("CLAUDE_DASHBOARD_HISTORY", fixture.history())
-            .env("CLAUDE_DASHBOARD_NOW", NOW)
+            .env("AGENT_DASHBOARD_HISTORY", fixture.history())
+            .env("AGENT_DASHBOARD_NOW", NOW)
             .env("TZ", "UTC")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -141,7 +141,7 @@ impl Writer {
 fn report(fixture: &Fixture, history: &Path, name: &str) -> Value {
     let output = fixture
         .cli(&[name, "--json"])
-        .env("CLAUDE_DASHBOARD_HISTORY", history)
+        .env("AGENT_DASHBOARD_HISTORY", history)
         .assert()
         .success()
         .get_output()

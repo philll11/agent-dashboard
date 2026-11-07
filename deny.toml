@@ -1,6 +1,6 @@
 [graph]
 all-features = true
-# The targets claude-dashboard ships for: the command line's, and the desktop app's, which on Linux
+# The targets agent-dashboard ships for: the command line's, and the desktop app's, which on Linux
 # is built for glibc. Dependencies that only other targets use, such as Android's, never ship.
 targets = [
   "x86_64-pc-windows-msvc",

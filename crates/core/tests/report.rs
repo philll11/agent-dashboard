@@ -1,7 +1,7 @@
-use claude_dashboard_core::history::{Attribution, History, Identity, Request, SessionKey};
-use claude_dashboard_core::pricing::PriceTable;
-use claude_dashboard_core::report::{self, Bucket, Filter, Range};
-use claude_dashboard_core::tokens::Tokens;
+use agent_dashboard_core::history::{Attribution, History, Identity, Request, SessionKey};
+use agent_dashboard_core::pricing::PriceTable;
+use agent_dashboard_core::report::{self, Bucket, Filter, Range};
+use agent_dashboard_core::tokens::Tokens;
 use jiff::civil::{Date, Weekday, date};
 use jiff::tz::TimeZone;
 use serde_json::Value;
@@ -111,7 +111,7 @@ impl Fixture {
 /// One request of the fixture's shape on `model`, in dollars.
 fn cost_of(model: &str, fast: bool) -> f64 {
     Fixture::table()
-        .cost(&claude_dashboard_core::pricing::Request {
+        .cost(&agent_dashboard_core::pricing::Request {
             model,
             timestamp_ms: EVENING,
             tokens: Tokens {
@@ -208,7 +208,7 @@ fn a_summary_adds_up_days_models_and_projects_in_one_pass() {
     );
 }
 
-fn project_of(fixture: &Fixture, session_id: &str) -> claude_dashboard_core::history::ProjectKey {
+fn project_of(fixture: &Fixture, session_id: &str) -> agent_dashboard_core::history::ProjectKey {
     fixture
         .history
         .sessions()
@@ -219,11 +219,11 @@ fn project_of(fixture: &Fixture, session_id: &str) -> claude_dashboard_core::his
         .project
 }
 
-fn app_project(fixture: &Fixture) -> claude_dashboard_core::history::ProjectKey {
+fn app_project(fixture: &Fixture) -> agent_dashboard_core::history::ProjectKey {
     project_of(fixture, "session-app")
 }
 
-fn site_project(fixture: &Fixture) -> claude_dashboard_core::history::ProjectKey {
+fn site_project(fixture: &Fixture) -> agent_dashboard_core::history::ProjectKey {
     project_of(fixture, "session-site")
 }
 

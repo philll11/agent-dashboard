@@ -30,7 +30,7 @@ export interface Open {
 }
 
 /** The project the design's running session is in, which the view's tests have open. */
-export const PROJECT_FOLDER = "/home/you/code/claude-dashboard";
+export const PROJECT_FOLDER = "/home/you/code/agent-dashboard";
 
 export class Dashboard {
   constructor(readonly page: Page) {}
@@ -50,7 +50,7 @@ export class Dashboard {
     await this.page.addInitScript(applyTheme, { theme, vscode: themes[theme], placement });
     await this.page.addInitScript(
       (settings) => {
-        window.claudeDashboardBridge = settings;
+        window.agentDashboardBridge = settings;
       },
       {
         scenario,
@@ -81,7 +81,7 @@ export class Dashboard {
 
   /** Waits until no request is on its way and the page has drawn what came back. */
   async settled() {
-    await this.page.waitForFunction(() => window.claudeDashboardBridge?.pending === 0);
+    await this.page.waitForFunction(() => window.agentDashboardBridge?.pending === 0);
     await this.page.evaluate(
       () =>
         new Promise<void>((resolve) => {
@@ -92,7 +92,7 @@ export class Dashboard {
           });
         }),
     );
-    await this.page.waitForFunction(() => window.claudeDashboardBridge?.pending === 0);
+    await this.page.waitForFunction(() => window.agentDashboardBridge?.pending === 0);
   }
 
   /**

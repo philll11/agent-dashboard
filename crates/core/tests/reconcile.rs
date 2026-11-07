@@ -1,10 +1,10 @@
-use claude_dashboard_core::history::{
+use agent_dashboard_core::history::{
     Attribution, History, Identity, ReportedCost, Request, SessionKey,
 };
-use claude_dashboard_core::pricing::PriceTable;
-use claude_dashboard_core::reconcile::{self, Reconciliation};
-use claude_dashboard_core::report;
-use claude_dashboard_core::tokens::Tokens;
+use agent_dashboard_core::pricing::PriceTable;
+use agent_dashboard_core::reconcile::{self, Reconciliation};
+use agent_dashboard_core::report;
+use agent_dashboard_core::tokens::Tokens;
 
 /// 2026-10-10T06:16:27.123Z.
 const REQUEST_MS: i64 = 1_791_612_987_123;

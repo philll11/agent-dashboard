@@ -9,13 +9,13 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use claude_dashboard_core::history::{Attribution, History, Identity, Request};
-use claude_dashboard_core::limits::{LimitSnapshot, Source};
-use claude_dashboard_core::tokens::Tokens;
-use claude_dashboard_server::Server;
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::export::{self, ExportError};
-use claude_dashboard_server::protocol::{Dataset, Days, ExportFormat, ExportParams, Filters};
+use agent_dashboard_core::history::{Attribution, History, Identity, Request};
+use agent_dashboard_core::limits::{LimitSnapshot, Source};
+use agent_dashboard_core::tokens::Tokens;
+use agent_dashboard_server::Server;
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::export::{self, ExportError};
+use agent_dashboard_server::protocol::{Dataset, Days, ExportFormat, ExportParams, Filters};
 use jiff::tz::TimeZone;
 use serde_json::Value;
 
@@ -159,7 +159,7 @@ fn a_cancelled_export_leaves_no_file() {
     assert_eq!(
         names(&setup.exports),
         Vec::<String>::new(),
-        "neither the file nor a .claude-dashboard-*.part file is left"
+        "neither the file nor a .agent-dashboard-*.part file is left"
     );
 }
 
@@ -204,7 +204,7 @@ fn a_failed_export_leaves_no_partial_file() {
     assert_eq!(
         names(&setup.exports),
         ["history.csv"],
-        "no .claude-dashboard-*.part file is left beside the folder in the way"
+        "no .agent-dashboard-*.part file is left beside the folder in the way"
     );
 }
 

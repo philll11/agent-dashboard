@@ -1,4 +1,4 @@
-// The messages between the dashboard and `claude-dashboard serve`. The types come from the Rust
+// The messages between the dashboard and `agent-dashboard serve`. The types come from the Rust
 // server (src/generated/protocol.ts, written by ts-rs); this file says which request takes and
 // returns which, and how a surface carries them. webview.ts holds the messages a VS Code webview
 // and its extension exchange.

@@ -20,7 +20,7 @@
           - /url: "#sessions"
       - listitem: Price table for Claude 5 models
   - heading "Price table for Claude 5 models" [level=1]
-  - text: /claude-dashboard Sat \d+ Oct, \d+:\d+ to \d+:\d+ 2 h \d+ min Claude Code 2\.\d+\.\d+ · terminal/
+  - text: /agent-dashboard Sat \d+ Oct, \d+:\d+ to \d+:\d+ 2 h \d+ min Claude Code 2\.\d+\.\d+ · terminal/
   - button "Copy session ID"
   - button "Show transcript folder"
   - button "Export"

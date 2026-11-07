@@ -180,9 +180,9 @@ describe("the desktop host", () => {
     const tauri = fakeTauri();
     const host = await desktopHost(tauri.api);
     await expect(host.pickFolder?.()).resolves.toBe("/home/you/work/.claude");
-    host.reveal?.("/home/you/.local/share/claude-dashboard/history.sqlite");
+    host.reveal?.("/home/you/.local/share/agent-dashboard/history.sqlite");
     expect(tauri.api.reveal).toHaveBeenCalledWith(
-      "/home/you/.local/share/claude-dashboard/history.sqlite",
+      "/home/you/.local/share/agent-dashboard/history.sqlite",
     );
   });
 });

@@ -1,9 +1,9 @@
 //! Overview: the plan limits, today, this week and this month, cost per day by model, the top
 //! projects and the models, for the chosen days and filters.
 
-use claude_dashboard_core::report::Bucket;
-use claude_dashboard_server::fmt::{compact, day_label, grouped, money, percent, short_date};
-use claude_dashboard_server::protocol::{Access, Day, FolderState, ModelRow, Overview, Totals};
+use agent_dashboard_core::report::Bucket;
+use agent_dashboard_server::fmt::{compact, day_label, grouped, money, percent, short_date};
+use agent_dashboard_server::protocol::{Access, Day, FolderState, ModelRow, Overview, Totals};
 use jiff::ToSpan;
 use jiff::civil::Date;
 
@@ -141,7 +141,7 @@ fn notice_text(state: &State) -> Option<(String, bool)> {
 
 fn read_only(state: &State) -> Option<Notice> {
     (state.status()?.access == Access::ReadOnly).then(|| Notice {
-        wide: "A newer claude-dashboard upgraded the history: this one shows it but records nothing new. Update it from the releases page.".to_owned(),
+        wide: "A newer agent-dashboard upgraded the history: this one shows it but records nothing new. Update it from the releases page.".to_owned(),
         narrow: "A newer version upgraded the history: this one only shows it. Update it.".to_owned(),
         warning: true,
     })
@@ -156,11 +156,11 @@ fn unreadable_folder(state: &State) -> Option<Notice> {
         };
         Some(Notice {
             wide: format!(
-                "{} cannot be read: {}. claude-dashboard doctor says more.",
+                "{} cannot be read: {}. agent-dashboard doctor says more.",
                 clean(&folder.path),
                 clean(reason)
             ),
-            narrow: "A Claude Code folder cannot be read: claude-dashboard doctor says which"
+            narrow: "A Claude Code folder cannot be read: agent-dashboard doctor says which"
                 .to_owned(),
             warning: true,
         })
@@ -213,7 +213,7 @@ fn price_drift(state: &State) -> Option<Notice> {
     let off = format!("{:.1}%", drift * 100.0);
     Some(Notice {
         wide: format!(
-            "Prices may be out of date: estimates are {off} off Claude Code's own session costs. claude-dashboard prices update looks for newer ones."
+            "Prices may be out of date: estimates are {off} off Claude Code's own session costs. agent-dashboard prices update looks for newer ones."
         ),
         narrow: format!("Prices may be out of date: {off} off Claude Code's own session costs"),
         warning: true,
@@ -227,7 +227,7 @@ fn import_offer(state: &State) -> Option<Notice> {
     }
     Some(Notice {
         wide: format!(
-            "A claude-usage history holds {} {} this one does not. Bring them in: claude-dashboard import claude-usage",
+            "A claude-usage history holds {} {} this one does not. Bring them in: agent-dashboard import claude-usage",
             grouped(offer.requests),
             if offer.requests == 1 {
                 "request"
@@ -235,7 +235,7 @@ fn import_offer(state: &State) -> Option<Notice> {
                 "requests"
             }
         ),
-        narrow: "A claude-usage history was found: claude-dashboard import claude-usage".to_owned(),
+        narrow: "A claude-usage history was found: agent-dashboard import claude-usage".to_owned(),
         warning: false,
     })
 }

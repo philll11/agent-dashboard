@@ -1,4 +1,4 @@
-// Which claude-dashboard program the extension runs: the one `claudeDashboard.server.path` names,
+// Which agent-dashboard program the extension runs: the one `agentDashboard.server.path` names,
 // or else the one that comes with the extension for this platform.
 
 import { constants, promises as fs } from "node:fs";
@@ -16,12 +16,12 @@ export type Found =
     }
   | { kind: "missing"; reason: string };
 
-const FILE_NAME = process.platform === "win32" ? "claude-dashboard.exe" : "claude-dashboard";
+const FILE_NAME = process.platform === "win32" ? "agent-dashboard.exe" : "agent-dashboard";
 
 /** The program to run, or why there is none. */
 export async function findProgram(extensionPath: string): Promise<Found> {
   const configured = vscode.workspace
-    .getConfiguration("claudeDashboard")
+    .getConfiguration("agentDashboard")
     .get<string>("server.path", "")
     .trim();
   if (configured) {
@@ -32,7 +32,7 @@ export async function findProgram(extensionPath: string): Promise<Found> {
       ? { kind: "found", path: named, bundled: false }
       : {
           kind: "missing",
-          reason: `claudeDashboard.server.path names ${configured}, which is not a program that can run.`,
+          reason: `agentDashboard.server.path names ${configured}, which is not a program that can run.`,
         };
   }
   const bundled = path.join(extensionPath, "server", FILE_NAME);
@@ -40,7 +40,7 @@ export async function findProgram(extensionPath: string): Promise<Found> {
     ? { kind: "found", path: bundled, bundled: true }
     : {
         kind: "missing",
-        reason: `The extension has no claude-dashboard program for ${process.platform}-${process.arch}.`,
+        reason: `The extension has no agent-dashboard program for ${process.platform}-${process.arch}.`,
       };
 }
 

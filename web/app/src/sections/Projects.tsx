@@ -3,7 +3,7 @@
 
 import type { MouseEvent } from "react";
 
-import type { ProjectRow } from "@claude-dashboard/protocol";
+import type { ProjectRow } from "@agent-dashboard/protocol";
 
 import { Sparkline } from "../charts/small";
 import { useRequest } from "../data";

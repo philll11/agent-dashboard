@@ -4,21 +4,21 @@
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_core::limits::{FIVE_HOUR, Level, LimitSnapshot, SEVEN_DAY, Source};
-use claude_dashboard_core::report::{self, Bucket, DayTotals, ModelTotals, Range, Totals};
+use agent_dashboard_core::history::History;
+use agent_dashboard_core::limits::{FIVE_HOUR, Level, LimitSnapshot, SEVEN_DAY, Source};
+use agent_dashboard_core::report::{self, Bucket, DayTotals, ModelTotals, Range, Totals};
 use jiff::civil::Date;
 use jiff::{Timestamp, ToSpan};
 use serde::Serialize;
 
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::export::{self, DayRow};
-use claude_dashboard_server::fmt::{
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::export::{self, DayRow};
+use agent_dashboard_server::fmt::{
     ago, compact, grouped, long_day, money, month_year, short_date, weekday_name, when,
 };
-use claude_dashboard_server::limits::login_note;
-use claude_dashboard_server::names::model_name;
-use claude_dashboard_server::protocol::{Dataset, ExportFormat};
+use agent_dashboard_server::limits::login_note;
+use agent_dashboard_server::names::model_name;
+use agent_dashboard_server::protocol::{Dataset, ExportFormat};
 
 use crate::limits;
 use crate::progress;
@@ -429,7 +429,7 @@ fn window_name(window: &str) -> String {
     match window {
         FIVE_HOUR => "five-hour".to_owned(),
         SEVEN_DAY => "weekly".to_owned(),
-        other => claude_dashboard_core::limits::weekly_model(other).map_or_else(
+        other => agent_dashboard_core::limits::weekly_model(other).map_or_else(
             || other.replace('_', " "),
             |model| format!("weekly {model}"),
         ),
@@ -448,7 +448,7 @@ pub fn limits_line(app: &App, paint: Paint, limits: &[LimitSnapshot]) -> String 
             format!(
                 "{} {}",
                 paint.muted("Plan limits: not recorded yet. To record them, run"),
-                paint.strong("claude-dashboard statusline connect")
+                paint.strong("agent-dashboard statusline connect")
             )
         } else {
             paint.muted("Plan limits: the windows have reset since the last reading.")

@@ -1,4 +1,4 @@
-//! `claude-dashboard export`, and the reports' JSON and CSV, which come from the same export as
+//! `agent-dashboard export`, and the reports' JSON and CSV, which come from the same export as
 //! the dashboard's files.
 
 use std::io::{self, BufWriter, IsTerminal, Write};
@@ -7,10 +7,10 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::export;
-use claude_dashboard_server::fmt::grouped;
-use claude_dashboard_server::protocol::{Dataset, Days, ExportFormat, ExportParams, Filters};
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::export;
+use agent_dashboard_server::fmt::grouped;
+use agent_dashboard_server::protocol::{Dataset, Days, ExportFormat, ExportParams, Filters};
 use jiff::Timestamp;
 use jiff::civil::Date;
 
@@ -69,7 +69,7 @@ pub fn print(app: &App, params: &ExportParams) -> ExitCode {
     }
 }
 
-/// `claude-dashboard export`: every request, or those of the days given, as CSV or JSON, to
+/// `agent-dashboard export`: every request, or those of the days given, as CSV or JSON, to
 /// standard output or to a file saved for a spreadsheet.
 pub fn run(
     app: &App,

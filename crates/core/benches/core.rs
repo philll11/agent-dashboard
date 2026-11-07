@@ -1,7 +1,7 @@
 //! Benchmarks for reading transcripts, ingesting them into the history and reporting from it.
 //!
 //! They run on made-up transcripts shaped like Claude Code's, so their numbers compare across
-//! machines and changes. With `CLAUDE_DASHBOARD_BENCH_ROOT` set to a data root, such as
+//! machines and changes. With `AGENT_DASHBOARD_BENCH_ROOT` set to a data root, such as
 //! `~/.claude`, they also time ingesting its real transcripts: a first ingest of all of them, a
 //! first ingest of the last 7 days alone, which a first ingest reads first, and an ingest that
 //! finds nothing new.
@@ -14,19 +14,19 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_core::ingest;
-use claude_dashboard_core::pricing::PriceTable;
-use claude_dashboard_core::reconcile;
-use claude_dashboard_core::report::{self, Range};
-use claude_dashboard_core::transcript::{self, Transcript};
+use agent_dashboard_core::history::History;
+use agent_dashboard_core::ingest;
+use agent_dashboard_core::pricing::PriceTable;
+use agent_dashboard_core::reconcile;
+use agent_dashboard_core::report::{self, Range};
+use agent_dashboard_core::transcript::{self, Transcript};
 use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, ToSpan};
 use serde_json::{Value, json};
 
 /// The data root whose real transcripts the benchmarks also ingest.
-const REAL_ROOT_ENV: &str = "CLAUDE_DASHBOARD_BENCH_ROOT";
+const REAL_ROOT_ENV: &str = "AGENT_DASHBOARD_BENCH_ROOT";
 
 const CWD: &str = r"C:\code\app";
 const MODELS: [&str; 3] = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];

@@ -1,6 +1,6 @@
 # Product brief
 
-claude-dashboard shows a person how they use Claude Code: how close they are to their plan limits, what their usage would cost at API prices, and where it goes.
+agent-dashboard shows a person how they use Claude Code: how close they are to their plan limits, what their usage would cost at API prices, and where it goes.
 It does so in three surfaces, VS Code, a desktop app and the terminal, from one shared history that outlives Claude Code's own transcripts.
 This brief is the input for the design; the words it uses are defined in [`CONTEXT.md`](../CONTEXT.md).
 
@@ -11,7 +11,7 @@ This brief is the input for the design; the words it uses are defined in [`CONTE
 - **Heavy users** of subagents, skills and MCP servers who want to know which of them drive their usage.
 
 Claude Code's own `/usage` screen covers the current session, plan usage bars and the last 7 days on one machine.
-claude-dashboard adds months of history, comparisons across projects, sessions and time, a cost model that checks itself, and a presence where people already work.
+agent-dashboard adds months of history, comparisons across projects, sessions and time, a cost model that checks itself, and a presence where people already work.
 
 ## Jobs, most frequent first
 
@@ -73,10 +73,10 @@ Every section filters by date range (today, 7 days, 30 days, this month, all tim
 
 ### Terminal
 
-- `claude-dashboard`, or `cld` where the installers put that short name beside it, opens the terminal UI with the same sections, driven entirely by the keyboard and usable at 80 by 24.
+- `agent-dashboard`, or `agd` where the installers put that short name beside it, opens the terminal UI with the same sections, driven entirely by the keyboard and usable at 80 by 24.
 - Reports: `today`, `daily`, `weekly`, `monthly`, `sessions`, `projects`, `models` and `limits`, each with `--json` and `--csv`.
-- `claude-dashboard statusline` prints a compact line for Claude Code's status bar, such as `5h 42% · week 18% · $3.20 today`.
-- `claude-dashboard doctor` explains what was found and what is wrong.
+- `agent-dashboard statusline` prints a compact line for Claude Code's status bar, such as `5h 42% · week 18% · $3.20 today`.
+- `agent-dashboard doctor` explains what was found and what is wrong.
 
 ## States to design
 

@@ -41,7 +41,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - run: corepack enable
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       # The programs as this run built them for the release. dist attests them as it publishes the
@@ -55,23 +55,23 @@ jobs:
         run: |
           set -euo pipefail
           cd release
-          sha256sum --check claude-dashboard-*.sha256
+          sha256sum --check agent-dashboard-*.sha256
       - name: Package for each platform, and for the rest
         run: |
           set -euo pipefail
           package() {
             local target="$1" rust="$2" program
             mkdir -p "programs/$rust"
-            if [ -f "release/claude-dashboard-$rust.zip" ]; then
-              unzip -o -q "release/claude-dashboard-$rust.zip" claude-dashboard.exe -d "programs/$rust"
-              program="programs/$rust/claude-dashboard.exe"
+            if [ -f "release/agent-dashboard-$rust.zip" ]; then
+              unzip -o -q "release/agent-dashboard-$rust.zip" agent-dashboard.exe -d "programs/$rust"
+              program="programs/$rust/agent-dashboard.exe"
             else
-              tar -xJf "release/claude-dashboard-$rust.tar.xz" -C "programs/$rust" --strip-components 1 \
-                "claude-dashboard-$rust/claude-dashboard"
-              program="programs/$rust/claude-dashboard"
+              tar -xJf "release/agent-dashboard-$rust.tar.xz" -C "programs/$rust" --strip-components 1 \
+                "agent-dashboard-$rust/agent-dashboard"
+              program="programs/$rust/agent-dashboard"
             fi
             node apps/vscode/scripts/package.mjs --target "$target" --program "$program" \
-              --out "packages/claude-dashboard-$target-$VERSION.vsix"
+              --out "packages/agent-dashboard-$target-$VERSION.vsix"
           }
           mkdir packages
           package win32-x64 x86_64-pc-windows-msvc
@@ -83,7 +83,7 @@ jobs:
           package linux-arm64 aarch64-unknown-linux-musl
           package alpine-x64 x86_64-unknown-linux-musl
           package alpine-arm64 aarch64-unknown-linux-musl
-          node apps/vscode/scripts/package.mjs --out "packages/claude-dashboard-$VERSION.vsix"
+          node apps/vscode/scripts/package.mjs --out "packages/agent-dashboard-$VERSION.vsix"
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: packages/*.vsix

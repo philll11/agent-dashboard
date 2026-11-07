@@ -12,12 +12,12 @@ use std::process::{Child, Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use claude_dashboard_core::history::{Attribution, History, Identity, Request};
-use claude_dashboard_core::tokens::Tokens;
+use agent_dashboard_core::history::{Attribution, History, Identity, Request};
+use agent_dashboard_core::tokens::Tokens;
 use rusqlite::{Connection, OpenFlags};
 
-const ROLE: &str = "CLAUDE_DASHBOARD_TEST_ROLE";
-const FOLDER: &str = "CLAUDE_DASHBOARD_TEST_FOLDER";
+const ROLE: &str = "AGENT_DASHBOARD_TEST_ROLE";
+const FOLDER: &str = "AGENT_DASHBOARD_TEST_FOLDER";
 const HELPER_DEADLINE: Duration = Duration::from_secs(120);
 
 const SESSIONS: usize = 6;

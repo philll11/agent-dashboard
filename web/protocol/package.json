@@ -1,5 +1,5 @@
 {
-  "name": "@claude-dashboard/protocol",
+  "name": "@agent-dashboard/protocol",
   "private": true,
   "type": "module",
   "exports": {

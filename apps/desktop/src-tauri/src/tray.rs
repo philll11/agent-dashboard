@@ -12,9 +12,9 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_server::app::{self, App};
-use claude_dashboard_server::glance::{self, Glance, NAME};
+use agent_dashboard_core::history::History;
+use agent_dashboard_server::app::{self, App};
+use agent_dashboard_server::glance::{self, Glance, NAME};
 use tauri::image::Image;
 use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};

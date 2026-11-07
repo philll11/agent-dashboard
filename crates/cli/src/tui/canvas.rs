@@ -280,7 +280,7 @@ pub fn nice_scale(max: f64, intervals: u32) -> (f64, f64) {
 
 /// An axis label in US dollars: whole dollars where every step is one, cents otherwise.
 pub fn money_tick(value: f64, step: f64) -> String {
-    use claude_dashboard_server::fmt::{grouped, money};
+    use agent_dashboard_server::fmt::{grouped, money};
     if value == 0.0 {
         "$0".to_owned()
     } else if step.fract() == 0.0 {

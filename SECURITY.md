@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately through GitHub: [open a security advisory](https://github.com/philll11/claude-dashboard/security/advisories/new).
+Please report vulnerabilities privately through GitHub: [open a security advisory](https://github.com/philll11/agent-dashboard/security/advisories/new).
 Do not open a public issue for a security problem.
 
 Include what you found, how to reproduce it, and which version and operating system you used.
@@ -15,7 +15,7 @@ Security fixes go into the latest release only.
 ## Verifying a download
 
 Every file a release publishes carries a build provenance attestation from this repository's release workflow.
-With the GitHub CLI, `gh attestation verify <file> --repo philll11/claude-dashboard` checks one.
+With the GitHub CLI, `gh attestation verify <file> --repo philll11/agent-dashboard` checks one.
 
 ## Areas that matter most
 

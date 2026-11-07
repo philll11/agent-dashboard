@@ -11,7 +11,7 @@ mod series;
 mod session;
 mod sessions;
 
-use claude_dashboard_server::fmt::{ago, grouped};
+use agent_dashboard_server::fmt::{ago, grouped};
 use jiff::Timestamp;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -119,7 +119,7 @@ pub fn reading(state: &State) -> Option<(u64, u64)> {
 /// the range and filters.
 pub fn header(c: &mut Canvas, state: &State, selected: Option<Section>) {
     let theme = c.theme;
-    let mut x = c.text(1, 0, "Dashboard for Claude Code", theme.strong()) + 3;
+    let mut x = c.text(1, 0, brand(c.w), theme.strong()) + 3;
     for section in Section::ALL {
         let style = if Some(section) == selected {
             theme.selected()
@@ -131,6 +131,21 @@ pub fn header(c: &mut Canvas, state: &State, selected: Option<Section>) {
     let filters = filters(state);
     if state.wide() {
         c.right(c.w - 1, 0, &filters, theme.muted());
+    }
+}
+
+/// The product's name for a header `columns` wide: in full where it leaves room for the sections
+/// beside it, and otherwise its first word, as the desktop app's sidebar sets it apart.
+fn brand(columns: i32) -> &'static str {
+    const FULL: &str = "Dashboard for Coding Agents";
+    let sections: i32 = Section::ALL
+        .iter()
+        .map(|section| width(section.name()) + 3)
+        .sum();
+    if 1 + width(FULL) + 3 + sections <= columns {
+        FULL
+    } else {
+        "Dashboard"
     }
 }
 
@@ -387,23 +402,23 @@ fn empty(c: &mut Canvas, state: &State) {
     );
 }
 
-/// A history that a newer claude-dashboard upgraded beyond what this one reads: nothing else
+/// A history that a newer agent-dashboard upgraded beyond what this one reads: nothing else
 /// shows.
 fn too_new(c: &mut Canvas, schema: u32) {
     let theme = c.theme;
-    c.text(1, 0, "Dashboard for Claude Code", theme.strong());
+    c.text(1, 0, brand(c.w), theme.strong());
     let upgraded =
         format!("A newer version upgraded it (schema {schema}), and this one cannot read it.");
     let lines = [
         (
-            "This history is newer than this claude-dashboard",
+            "This history is newer than this agent-dashboard",
             theme.strong(),
         ),
         ("", theme.text()),
         (upgraded.as_str(), theme.text()),
-        ("Update claude-dashboard to see it:", theme.text()),
+        ("Update agent-dashboard to see it:", theme.text()),
         (
-            "github.com/philll11/claude-dashboard/releases/latest",
+            "github.com/philll11/agent-dashboard/releases/latest",
             theme.accent(),
         ),
     ];
@@ -438,7 +453,7 @@ fn cannot_open(c: &mut Canvas, state: &State, error: &str) {
     );
     lines.push((String::new(), theme.text()));
     lines.push((
-        "claude-dashboard doctor checks what it can find.".to_owned(),
+        "agent-dashboard doctor checks what it can find.".to_owned(),
         theme.muted(),
     ));
     let lines: Vec<(&str, Style)> = lines

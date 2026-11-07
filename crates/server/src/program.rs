@@ -1,4 +1,4 @@
-//! Where claude-dashboard's program is, the copy of it that a status line can run, and how a
+//! Where agent-dashboard's program is, the copy of it that a status line can run, and how a
 //! command that Claude Code runs names it.
 
 use std::fs;
@@ -12,13 +12,13 @@ use crate::app::App;
 
 /// The program's file name.
 pub const FILE_NAME: &str = if cfg!(windows) {
-    "claude-dashboard.exe"
+    "agent-dashboard.exe"
 } else {
-    "claude-dashboard"
+    "agent-dashboard"
 };
 
 /// The short name that the installers give the program beside its own: a link to the same file.
-pub const ALIAS: &str = "cld";
+pub const ALIAS: &str = "agd";
 
 /// How old a half-made copy must be before it counts as abandoned rather than under way.
 const ABANDONED: Duration = Duration::from_hours(1);
@@ -32,10 +32,10 @@ pub fn this() -> Result<PathBuf, String> {
     std::env::current_exe()
         .and_then(fs::canonicalize)
         .map(in_full)
-        .map_err(|error| format!("cannot tell where claude-dashboard is: {error}"))
+        .map_err(|error| format!("cannot tell where agent-dashboard is: {error}"))
 }
 
-/// `program`, or the `claude-dashboard` beside it when `program` is its short name. On Windows the
+/// `program`, or the `agent-dashboard` beside it when `program` is its short name. On Windows the
 /// short name is a hardlink, which keeps the name it was started by where a symlink resolves to
 /// the program's own.
 fn in_full(program: PathBuf) -> PathBuf {
@@ -77,7 +77,7 @@ pub fn keep_copy(program: &Path, copy: &Path) -> Result<(), String> {
     }
     let folder = copy
         .parent()
-        .ok_or("the copy of claude-dashboard has no folder")?;
+        .ok_or("the copy of agent-dashboard has no folder")?;
     fs::create_dir_all(folder)
         .map_err(|error| format!("cannot create {}: {error}", folder.display()))?;
     remove_leftovers(folder);
@@ -85,7 +85,7 @@ pub fn keep_copy(program: &Path, copy: &Path) -> Result<(), String> {
     let new = folder.join(format!("{FILE_NAME}.{id}.new"));
     fs::copy(&program, &new).map_err(|error| {
         format!(
-            "cannot copy claude-dashboard to {}: {error}",
+            "cannot copy agent-dashboard to {}: {error}",
             folder.display()
         )
     })?;
@@ -153,10 +153,10 @@ fn version_at(path: &Path) -> Option<Version> {
         .output()
         .ok()?;
     let text = String::from_utf8(output.stdout).ok()?;
-    Version::parse(text.trim().strip_prefix("claude-dashboard ")?).ok()
+    Version::parse(text.trim().strip_prefix("agent-dashboard ")?).ok()
 }
 
-/// How a command that Claude Code runs names `program`: `claude-dashboard` when that name on the
+/// How a command that Claude Code runs names `program`: `agent-dashboard` when that name on the
 /// `PATH` is `program`, and otherwise its path.
 ///
 /// # Errors
@@ -169,7 +169,7 @@ pub fn command_name(program: &Path) -> Result<String, String> {
         })
     });
     if on_path {
-        return Ok("claude-dashboard".to_owned());
+        return Ok("agent-dashboard".to_owned());
     }
     let home = shell_home().map(|home| slashed(&home));
     spelled(&slashed(program), home.as_deref(), cfg!(windows))
@@ -223,7 +223,7 @@ fn spelled(path: &str, home: Option<&str>, windows: bool) -> Result<String, Stri
     match within_home {
         Some(rest) if plain(rest, false) => Ok(format!("~/{rest}")),
         _ => Err(format!(
-            "claude-dashboard is at {path}, and a status line command cannot name a program whose path has spaces or other special characters outside your home folder; put claude-dashboard on your PATH and try again"
+            "agent-dashboard is at {path}, and a status line command cannot name a program whose path has spaces or other special characters outside your home folder; put agent-dashboard on your PATH and try again"
         )),
     }
 }
@@ -247,27 +247,27 @@ mod tests {
     fn a_plain_path_stands_as_it_is() {
         assert_eq!(
             spelled(
-                "C:/Users/ada/.cargo/bin/claude-dashboard.exe",
+                "C:/Users/ada/.cargo/bin/agent-dashboard.exe",
                 Some("C:/Users/ada"),
                 true
             ),
-            Ok("C:/Users/ada/.cargo/bin/claude-dashboard.exe".to_owned())
+            Ok("C:/Users/ada/.cargo/bin/agent-dashboard.exe".to_owned())
         );
         assert_eq!(
             spelled(
-                "/home/ada/.local/bin/claude-dashboard",
+                "/home/ada/.local/bin/agent-dashboard",
                 Some("/home/ada"),
                 false
             ),
-            Ok("/home/ada/.local/bin/claude-dashboard".to_owned())
+            Ok("/home/ada/.local/bin/agent-dashboard".to_owned())
         );
         assert_eq!(
             spelled(
-                "C:/Users/ADA~1/AppData/Local/claude-dashboard.exe",
+                "C:/Users/ADA~1/AppData/Local/agent-dashboard.exe",
                 None,
                 true
             ),
-            Ok("C:/Users/ADA~1/AppData/Local/claude-dashboard.exe".to_owned())
+            Ok("C:/Users/ADA~1/AppData/Local/agent-dashboard.exe".to_owned())
         );
     }
 
@@ -275,11 +275,11 @@ mod tests {
     fn on_windows_a_home_folder_with_spaces_is_written_as_a_tilde() {
         assert_eq!(
             spelled(
-                "C:/Users/Ada Lovelace/AppData/Local/claude-dashboard/bin/claude-dashboard.exe",
+                "C:/Users/Ada Lovelace/AppData/Local/agent-dashboard/bin/agent-dashboard.exe",
                 Some("c:/users/ada lovelace/"),
                 true
             ),
-            Ok("~/AppData/Local/claude-dashboard/bin/claude-dashboard.exe".to_owned())
+            Ok("~/AppData/Local/agent-dashboard/bin/agent-dashboard.exe".to_owned())
         );
     }
 
@@ -287,23 +287,23 @@ mod tests {
     fn on_windows_other_paths_that_need_quoting_cannot_be_written() {
         for (path, home) in [
             (
-                "C:/Program Files/claude-dashboard/claude-dashboard.exe",
+                "C:/Program Files/agent-dashboard/agent-dashboard.exe",
                 Some("C:/Users/ada"),
             ),
             (
-                "C:/Users/Ada Lovelace/My Tools/claude-dashboard.exe",
+                "C:/Users/Ada Lovelace/My Tools/agent-dashboard.exe",
                 Some("C:/Users/Ada Lovelace"),
             ),
             (
-                "C:/Users/Ada Lovelace/AppData/Local/claude-dashboard.exe",
+                "C:/Users/Ada Lovelace/AppData/Local/agent-dashboard.exe",
                 None,
             ),
             (
-                "C:/Users/Ada Lovelace2/claude-dashboard.exe",
+                "C:/Users/Ada Lovelace2/agent-dashboard.exe",
                 Some("C:/Users/Ada Lovelace"),
             ),
-            ("C:/tools/a,b/claude-dashboard.exe", Some("C:/Users/ada")),
-            ("C:/tools/a:b/claude-dashboard.exe", Some("C:/Users/ada")),
+            ("C:/tools/a,b/agent-dashboard.exe", Some("C:/Users/ada")),
+            ("C:/tools/a:b/agent-dashboard.exe", Some("C:/Users/ada")),
         ] {
             assert!(spelled(path, home, true).is_err(), "{path}");
         }
@@ -313,18 +313,18 @@ mod tests {
     fn on_macos_and_linux_a_path_that_needs_quoting_is_quoted() {
         assert_eq!(
             spelled(
-                "/Users/ada/Library/Application Support/claude-dashboard/bin/claude-dashboard",
+                "/Users/ada/Library/Application Support/agent-dashboard/bin/agent-dashboard",
                 Some("/Users/ada"),
                 false
             ),
             Ok(
-                "'/Users/ada/Library/Application Support/claude-dashboard/bin/claude-dashboard'"
+                "'/Users/ada/Library/Application Support/agent-dashboard/bin/agent-dashboard'"
                     .to_owned()
             )
         );
         assert_eq!(
-            spelled("/opt/ada's tools/claude-dashboard", None, false),
-            Ok(r"'/opt/ada'\''s tools/claude-dashboard'".to_owned())
+            spelled("/opt/ada's tools/agent-dashboard", None, false),
+            Ok(r"'/opt/ada'\''s tools/agent-dashboard'".to_owned())
         );
     }
 
@@ -349,12 +349,12 @@ mod tests {
     #[test]
     fn the_copy_lives_next_to_the_history() {
         let app = App {
-            history_path: Some(PathBuf::from("/data/claude-dashboard/history.sqlite")),
+            history_path: Some(PathBuf::from("/data/agent-dashboard/history.sqlite")),
             ..App::new()
         };
         assert_eq!(
             copy_path(&app),
-            Some(PathBuf::from("/data/claude-dashboard/bin").join(FILE_NAME))
+            Some(PathBuf::from("/data/agent-dashboard/bin").join(FILE_NAME))
         );
     }
 }

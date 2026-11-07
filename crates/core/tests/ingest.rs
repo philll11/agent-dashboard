@@ -3,9 +3,9 @@ use std::io::Write;
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 
-use claude_dashboard_core::history::{History, HistoryError};
-use claude_dashboard_core::ingest::{self, Progress, Report};
-use claude_dashboard_core::transcript;
+use agent_dashboard_core::history::{History, HistoryError};
+use agent_dashboard_core::ingest::{self, Progress, Report};
+use agent_dashboard_core::transcript;
 use proptest::prelude::*;
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{Value, json};
@@ -528,7 +528,7 @@ fn an_ingest_asked_to_stop_at_once_reads_nothing() {
 fn an_ingest_that_cannot_write_stops_reading_and_says_why() {
     let mut fixture = Fixture::new();
     forty_sessions(&fixture);
-    // A newer claude-dashboard upgrades the history while this one has it open.
+    // A newer agent-dashboard upgrades the history while this one has it open.
     let conn = Connection::open(fixture.history.path()).unwrap();
     conn.pragma_update(None, "user_version", 999).unwrap();
     conn.execute("UPDATE compatibility SET readable_from = 1", [])

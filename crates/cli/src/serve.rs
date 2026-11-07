@@ -1,4 +1,4 @@
-//! `claude-dashboard serve --stdio`: carries the dashboard server's requests, answers and
+//! `agent-dashboard serve --stdio`: carries the dashboard server's requests, answers and
 //! notifications between a client, such as the VS Code extension, and the server, in JSON-RPC
 //! over standard input and output (ADR 0006). It ends when its standard input closes, so it never
 //! outlives its client.
@@ -14,10 +14,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use claude_dashboard_server::app::App;
-use claude_dashboard_server::export::{self, ExportError};
-use claude_dashboard_server::protocol::{ExportParams, ExportProgress, ExportSave, Exported};
-use claude_dashboard_server::{Fault, Server, statusline};
+use agent_dashboard_server::app::App;
+use agent_dashboard_server::export::{self, ExportError};
+use agent_dashboard_server::protocol::{ExportParams, ExportProgress, ExportSave, Exported};
+use agent_dashboard_server::{Fault, Server, statusline};
 use crossbeam_channel::Sender;
 use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
 use serde::de::DeserializeOwned;
@@ -228,7 +228,7 @@ fn update_status_line_copy(app: &App) {
     let app = app.clone();
     thread::spawn(move || {
         if let Err(reason) = statusline::refresh_copy(&app) {
-            eprintln!("Cannot update the status line's copy of claude-dashboard: {reason}.");
+            eprintln!("Cannot update the status line's copy of agent-dashboard: {reason}.");
         }
     });
 }

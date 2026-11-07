@@ -55,12 +55,12 @@ jobs:
         shell: bash
         run: >-
           curl --proto '=https' --tlsv1.2 -LsSf
-          "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/claude-dashboard-installer.sh"
+          "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/agent-dashboard-installer.sh"
           | sh
       - name: Install with the PowerShell installer
         if: runner.os == 'Windows'
         shell: pwsh
-        run: irm "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:TAG/claude-dashboard-installer.ps1" | iex
+        run: irm "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:TAG/agent-dashboard-installer.ps1" | iex
 
       - name: Run it on a made-up Claude Code folder
         shell: bash
@@ -68,13 +68,13 @@ jobs:
           set -euo pipefail
           home="${CARGO_HOME:-$HOME/.cargo}"
           if command -v cygpath > /dev/null; then home="$(cygpath -u "$home")"; fi
-          bin="$home/bin/claude-dashboard"
+          bin="$home/bin/agent-dashboard"
 
           "$bin" --version | tee version.txt
-          grep -qx "claude-dashboard ${TAG#v}" version.txt
+          grep -qx "agent-dashboard ${TAG#v}" version.txt
 
           export CLAUDE_CONFIG_DIR="$RUNNER_TEMP/claude-config"
-          export CLAUDE_DASHBOARD_HISTORY="$RUNNER_TEMP/history.sqlite"
+          export AGENT_DASHBOARD_HISTORY="$RUNNER_TEMP/history.sqlite"
           export NO_COLOR=1 TZ=UTC
           project="$CLAUDE_CONFIG_DIR/projects/C--code-app"
           mkdir -p "$project"
@@ -96,14 +96,15 @@ jobs:
             | "$bin" statusline | tee line.txt
           grep -q "5h 42%" line.txt
 
-          # From 1.1.0 the installers also put cld, the program's short name, beside it. Connecting
-          # Claude Code's status line through it writes claude-dashboard, as the full name does.
-          if printf '%s\n' 1.1.0 "${TAG#v}" | sort -V -C; then
-            "$home/bin/cld" --version | tee short.txt
-            grep -qx "claude-dashboard ${TAG#v}" short.txt
-            "$home/bin/cld" statusline connect --yes
-            grep -Eq '"command": ?"([^"]*/)?claude-dashboard(\.exe)? statusline"' "$CLAUDE_CONFIG_DIR/settings.json"
-            "$home/bin/cld" statusline connect --yes | tee again.txt
+          # The installers also put agd, the program's short name, beside it; releases before 2.0.0
+          # name it differently, so it is checked from 2.0.0. Connecting Claude Code's status line
+          # through it writes agent-dashboard, as the full name does.
+          if printf '%s\n' 2.0.0 "${TAG#v}" | sort -V -C; then
+            "$home/bin/agd" --version | tee short.txt
+            grep -qx "agent-dashboard ${TAG#v}" short.txt
+            "$home/bin/agd" statusline connect --yes
+            grep -Eq '"command": ?"([^"]*/)?agent-dashboard(\.exe)? statusline"' "$CLAUDE_CONFIG_DIR/settings.json"
+            "$home/bin/agd" statusline connect --yes | tee again.txt
             grep -q "already connected" again.txt
           fi
 
@@ -112,7 +113,7 @@ jobs:
           # leaves the alternate screen. It writes only the cells that change, so the words of a
           # line can arrive apart, and each is looked for on its own.
           if [ "$RUNNER_OS" = Linux ]; then
-            export TERM=xterm-256color CLAUDE_DASHBOARD_THEME=dark
+            export TERM=xterm-256color AGENT_DASHBOARD_THEME=dark
             (sleep 5; printf q) \
               | script --quiet --flush --return --command "stty cols 120 rows 36; exec \"$bin\"" /dev/null \
               > interface.txt

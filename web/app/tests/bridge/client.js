@@ -1,7 +1,7 @@
 // Gives the page a dashboard host that reaches the bridge's server over HTTP. A browser test adds
-// it as an init script after setting `window.claudeDashboardBridge`; a preview imports it.
+// it as an init script after setting `window.agentDashboardBridge`; a preview imports it.
 (() => {
-  const settings = (window.claudeDashboardBridge ??= {});
+  const settings = (window.agentDashboardBridge ??= {});
   const scenario = encodeURIComponent(settings.scenario ?? "default");
   const listeners = new Map();
   const events = new EventSource(`/__bridge/events?scenario=${scenario}`);
@@ -19,7 +19,7 @@
     settings.folders = folders;
     for (const listener of folderListeners) listener();
   };
-  window.claudeDashboardHost = {
+  window.agentDashboardHost = {
     surface: settings.surface ?? "vscode",
     placement: settings.placement ?? "tab",
     folders: {
@@ -98,14 +98,14 @@
       void fetch(`/__bridge/cancel?scenario=${scenario}`, { method: "POST" });
     },
   };
-  if (window.claudeDashboardHost.surface === "desktop") {
+  if (window.agentDashboardHost.surface === "desktop") {
     // The desktop app's item in the notification area, and its question when the window first
     // closes, which a test asks with `askClose`.
     const closeAsked = new Set();
     settings.askClose = () => {
       for (const listener of closeAsked) listener();
     };
-    window.claudeDashboardHost.desktop = {
+    window.agentDashboardHost.desktop = {
       tray: true,
       trayPlace: "notification area",
       autostart: () => Promise.resolve(settings.autostart ?? false),
@@ -124,7 +124,7 @@
     // The desktop app's updates, standing where the test puts them.
     const update = settings.update ?? { kind: "current" };
     let automatic = true;
-    window.claudeDashboardHost.updates = {
+    window.agentDashboardHost.updates = {
       state: () => update,
       subscribe: () => () => undefined,
       automatic: () => automatic,

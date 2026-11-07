@@ -4,7 +4,7 @@
 
 import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } from "react";
 
-import type { StatusLinePlan } from "@claude-dashboard/protocol";
+import type { StatusLinePlan } from "@agent-dashboard/protocol";
 
 import { useStore } from "../data";
 import type { Desktop } from "../host";
@@ -271,7 +271,7 @@ export function KeepRunningNotice({ desktop }: { desktop: Desktop }) {
   };
   return (
     <Dialog
-      title="Dashboard for Claude Code keeps running"
+      title="Dashboard for Coding Agents keeps running"
       className="dialog notice"
       initialFocus={keepRunning}
       describedBy={textId}

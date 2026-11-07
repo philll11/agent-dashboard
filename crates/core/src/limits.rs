@@ -118,7 +118,7 @@ impl LimitSnapshot {
     }
 }
 
-/// What claude-dashboard takes from the JSON that Claude Code passes to a status line command.
+/// What agent-dashboard takes from the JSON that Claude Code passes to a status line command.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StatusLineInput {
     pub session_id: Option<String>,

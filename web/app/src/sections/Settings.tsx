@@ -10,7 +10,7 @@ import type {
   PriceRefresh,
   Prices,
   Settings as SettingsAnswer,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 
 import { useHost, useStatus } from "../context";
 import { useRequest, useStore } from "../data";
@@ -285,7 +285,9 @@ function PlanLimits({ limits }: { limits: LimitsAnswer }) {
                 }.`
               : statusLine.state === "notConnected"
                 ? "Official. Not connected: connecting changes one setting in Claude Code's settings.json, shown before it is made."
-                : `claude-dashboard can't tell whether it is connected: ${statusLine.reason}.`}
+                : statusLine.state === "predecessor"
+                  ? "Official. Runs Dashboard for Claude Code, which records the plan limits in its own history: switching changes one setting in Claude Code's settings.json, shown before it is made."
+                  : `agent-dashboard can't tell whether it is connected: ${statusLine.reason}.`}
           </span>
         </span>
         <span className="actions">
@@ -299,7 +301,7 @@ function PlanLimits({ limits }: { limits: LimitsAnswer }) {
             >
               Disconnect
             </button>
-          ) : statusLine.state === "notConnected" ? (
+          ) : statusLine.state === "notConnected" || statusLine.state === "predecessor" ? (
             <button
               type="button"
               className="button compact raised"
@@ -307,7 +309,7 @@ function PlanLimits({ limits }: { limits: LimitsAnswer }) {
                 setDialog("connect");
               }}
             >
-              Connect…
+              {statusLine.state === "predecessor" ? "Switch…" : "Connect…"}
             </button>
           ) : null}
         </span>
@@ -405,7 +407,7 @@ function outcomeWords(refresh: PriceRefresh): string | undefined {
     case "unreachable":
       return `cannot reach this project's repository${refresh.detail ? ` (${refresh.detail})` : ""}`;
     case "newer-format":
-      return "the newest price table needs a newer version of claude-dashboard";
+      return "the newest price table needs a newer version of agent-dashboard";
     case "refused":
       return `the newest price table cannot be used${refresh.detail ? `: ${refresh.detail}` : ""}`;
     default:
@@ -626,7 +628,7 @@ function Privacy() {
         </p>
       )}
       <p className="note">
-        claude-dashboard collects no telemetry. It never stores prompt or code content, and it only
+        agent-dashboard collects no telemetry. It never stores prompt or code content, and it only
         uses the network for the features switched on above.
       </p>
     </Panel>

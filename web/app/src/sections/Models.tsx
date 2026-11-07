@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 
-import type { ModelRow, PriceRow } from "@claude-dashboard/protocol";
+import type { ModelRow, PriceRow } from "@agent-dashboard/protocol";
 
 import { LineChart } from "../charts/lines";
 import { moneyTick, niceScale } from "../charts/scale";

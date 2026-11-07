@@ -1,6 +1,6 @@
 // The marks plan windows carry: a window's level, and where its reading comes from.
 
-import type { Level, WindowReading } from "@claude-dashboard/protocol";
+import type { Level, WindowReading } from "@agent-dashboard/protocol";
 
 import { ago } from "../format";
 import { CheckCircle, Clock, Warning } from "../ui/icons";

@@ -1,7 +1,7 @@
 //! What shows above a section, dimming it: the keys, the range, project and model pickers, and
 //! the export box.
 
-use claude_dashboard_server::protocol::ExportFormat;
+use agent_dashboard_server::protocol::ExportFormat;
 
 use super::{footer, tail};
 use crate::tui::canvas::{Canvas, clean, fit};

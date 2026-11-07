@@ -140,18 +140,18 @@ pub enum PriceTableError {
     Json(#[from] serde_json::Error),
     #[error("the price table is invalid: {0}")]
     Invalid(String),
-    #[error("the price table is in format {0}, which needs a newer claude-dashboard")]
+    #[error("the price table is in format {0}, which needs a newer agent-dashboard")]
     NewerFormat(u32),
 }
 
 impl PriceTable {
-    /// The price table this version of claude-dashboard ships with.
+    /// The price table this version of agent-dashboard ships with.
     #[must_use]
     pub fn bundled() -> &'static Self {
         &BUNDLED
     }
 
-    /// The price table this version of claude-dashboard ships with, to share.
+    /// The price table this version of agent-dashboard ships with, to share.
     #[must_use]
     pub fn bundled_shared() -> Arc<Self> {
         Arc::clone(&BUNDLED)

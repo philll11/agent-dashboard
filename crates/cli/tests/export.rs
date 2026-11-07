@@ -778,7 +778,7 @@ fn part_files(folder: &Path) -> Vec<String> {
         .unwrap()
         .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
         .filter(|name| {
-            name.starts_with(".claude-dashboard-")
+            name.starts_with(".agent-dashboard-")
                 && Path::new(name)
                     .extension()
                     .is_some_and(|extension| extension == "part")

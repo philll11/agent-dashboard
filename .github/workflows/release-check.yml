@@ -147,16 +147,16 @@ jobs:
           # Node reads a Windows path from the environment, not Git Bash's own form of it.
           here=$(pwd -W 2>/dev/null || pwd)
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern "claude-dashboard-desktop-$version-$PLATFORM$INSTALLER" \
-            --pattern "claude-dashboard-$PROGRAM.zip" --pattern "claude-dashboard-$PROGRAM.tar.xz"
-          echo "APP_FILE=$here/$(ls claude-dashboard-desktop-*)" >> "$GITHUB_ENV"
+            --pattern "agent-dashboard-desktop-$version-$PLATFORM$INSTALLER" \
+            --pattern "agent-dashboard-$PROGRAM.zip" --pattern "agent-dashboard-$PROGRAM.tar.xz"
+          echo "APP_FILE=$here/$(ls agent-dashboard-desktop-*)" >> "$GITHUB_ENV"
           # The program the tests read their synthetic Claude Code folder with.
-          if [ -f "claude-dashboard-$PROGRAM.zip" ]; then
-            unzip -o -q "claude-dashboard-$PROGRAM.zip" claude-dashboard.exe
-            echo "CLAUDE_DASHBOARD_BIN=$here/claude-dashboard.exe" >> "$GITHUB_ENV"
+          if [ -f "agent-dashboard-$PROGRAM.zip" ]; then
+            unzip -o -q "agent-dashboard-$PROGRAM.zip" agent-dashboard.exe
+            echo "AGENT_DASHBOARD_BIN=$here/agent-dashboard.exe" >> "$GITHUB_ENV"
           else
-            tar -xJf "claude-dashboard-$PROGRAM.tar.xz" --strip-components 1 "claude-dashboard-$PROGRAM/claude-dashboard"
-            echo "CLAUDE_DASHBOARD_BIN=$here/claude-dashboard" >> "$GITHUB_ENV"
+            tar -xJf "agent-dashboard-$PROGRAM.tar.xz" --strip-components 1 "agent-dashboard-$PROGRAM/agent-dashboard"
+            echo "AGENT_DASHBOARD_BIN=$here/agent-dashboard" >> "$GITHUB_ENV"
           fi
       # The tests install the package with dpkg, which leaves its dependencies to apt.
       - name: Install what the package needs, and what the tests drive it with, on Linux
@@ -175,7 +175,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - run: corepack enable
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm install --frozen-lockfile
       - name: End-to-end tests on the installer
         if: matrix.check == 'e2e'
@@ -187,7 +187,7 @@ jobs:
           if [ "$RUNNER_OS" = macOS ]; then
             mkdir app
             tar -xzf "$APP_FILE" -C app
-            node apps/desktop/scripts/start.mjs --app "$PWD/app/Dashboard for Claude Code.app"
+            node apps/desktop/scripts/start.mjs --app "$PWD/app/Dashboard for Coding Agents.app"
           else
             node apps/desktop/scripts/start.mjs --installer "$APP_FILE"
           fi
@@ -251,21 +251,21 @@ jobs:
           # Node reads a Windows path from the environment, not Git Bash's own form of it.
           here=$(pwd -W 2>/dev/null || pwd)
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern "claude-dashboard-$TARGET-$version.vsix" \
-            --pattern "claude-dashboard-$PROGRAM.zip" --pattern "claude-dashboard-$PROGRAM.tar.xz"
-          echo "VSIX=$here/claude-dashboard-$TARGET-$version.vsix" >> "$GITHUB_ENV"
+            --pattern "agent-dashboard-$TARGET-$version.vsix" \
+            --pattern "agent-dashboard-$PROGRAM.zip" --pattern "agent-dashboard-$PROGRAM.tar.xz"
+          echo "VSIX=$here/agent-dashboard-$TARGET-$version.vsix" >> "$GITHUB_ENV"
           # The program the tests read their synthetic Claude Code folder with.
-          if [ -f "claude-dashboard-$PROGRAM.zip" ]; then
-            unzip -o -q "claude-dashboard-$PROGRAM.zip" claude-dashboard.exe
-            echo "CLAUDE_DASHBOARD_BIN=$here/claude-dashboard.exe" >> "$GITHUB_ENV"
+          if [ -f "agent-dashboard-$PROGRAM.zip" ]; then
+            unzip -o -q "agent-dashboard-$PROGRAM.zip" agent-dashboard.exe
+            echo "AGENT_DASHBOARD_BIN=$here/agent-dashboard.exe" >> "$GITHUB_ENV"
           else
-            tar -xJf "claude-dashboard-$PROGRAM.tar.xz" --strip-components 1 "claude-dashboard-$PROGRAM/claude-dashboard"
-            echo "CLAUDE_DASHBOARD_BIN=$here/claude-dashboard" >> "$GITHUB_ENV"
+            tar -xJf "agent-dashboard-$PROGRAM.tar.xz" --strip-components 1 "agent-dashboard-$PROGRAM/agent-dashboard"
+            echo "AGENT_DASHBOARD_BIN=$here/agent-dashboard" >> "$GITHUB_ENV"
           fi
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - run: corepack enable
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: End-to-end tests on the package

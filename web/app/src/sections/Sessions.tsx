@@ -3,7 +3,7 @@
 
 import type { MouseEvent } from "react";
 
-import type { Model, SessionRow } from "@claude-dashboard/protocol";
+import type { Model, SessionRow } from "@agent-dashboard/protocol";
 
 import { useStatus } from "../context";
 import { useRequest } from "../data";

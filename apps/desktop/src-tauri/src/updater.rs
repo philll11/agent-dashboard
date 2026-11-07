@@ -39,28 +39,28 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let download = temp
             .path()
-            .join("Dashboard for Claude Code-0.4.0-updater-StW6Ih");
+            .join("Dashboard for Coding Agents-0.4.0-updater-StW6Ih");
         fs::create_dir(&download).unwrap();
         fs::write(
-            download.join("Dashboard for Claude Code-0.4.0-installer.exe"),
+            download.join("Dashboard for Coding Agents-0.4.0-installer.exe"),
             b"MZ",
         )
         .unwrap();
         let kept = [
-            "Dashboard for Claude Code-notes",
+            "Dashboard for Coding Agents-notes",
             "Another app-1.0.0-updater-AbC123",
-            "Dashboard for Claude Codes-0.4.0-updater-AbC123",
+            "Dashboard for Coding Agentss-0.4.0-updater-AbC123",
         ];
         for name in kept {
             fs::create_dir(temp.path().join(name)).unwrap();
         }
         let file = temp
             .path()
-            .join("Dashboard for Claude Code-0.4.0-updater-file");
+            .join("Dashboard for Coding Agents-0.4.0-updater-file");
         fs::write(&file, b"").unwrap();
 
         assert_eq!(
-            remove_downloads(temp.path(), "Dashboard for Claude Code"),
+            remove_downloads(temp.path(), "Dashboard for Coding Agents"),
             1
         );
         assert!(!download.exists());
@@ -74,7 +74,7 @@ mod tests {
     fn a_missing_temporary_folder_removes_nothing() {
         let temp = tempfile::tempdir().unwrap();
         assert_eq!(
-            remove_downloads(&temp.path().join("gone"), "Dashboard for Claude Code"),
+            remove_downloads(&temp.path().join("gone"), "Dashboard for Coding Agents"),
             0
         );
     }

@@ -6,7 +6,7 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { prepare } from "@claude-dashboard/app/testing";
+import { prepare } from "@agent-dashboard/app/testing";
 import { defineConfig } from "@vscode/test-cli";
 
 const prepared = await prepare();
@@ -31,8 +31,8 @@ export default defineConfig({
   ],
   env: {
     CLAUDE_CONFIG_DIR: prepared.env.CLAUDE_CONFIG_DIR,
-    CLAUDE_DASHBOARD_HISTORY: prepared.env.CLAUDE_DASHBOARD_HISTORY,
-    CLAUDE_DASHBOARD_NOW: prepared.env.CLAUDE_DASHBOARD_NOW,
+    AGENT_DASHBOARD_HISTORY: prepared.env.AGENT_DASHBOARD_HISTORY,
+    AGENT_DASHBOARD_NOW: prepared.env.AGENT_DASHBOARD_NOW,
     TZ: prepared.env.TZ,
   },
   mocha: { ui: "bdd", timeout: 60_000 },

@@ -2,8 +2,8 @@
 //! notification area or the menu bar. VS Code's status bar says the same; `design/glance.json`
 //! holds the examples both are tested against.
 
-use claude_dashboard_core::history::{History, HistoryError};
-use claude_dashboard_core::report::{self, Filter, Range};
+use agent_dashboard_core::history::{History, HistoryError};
+use agent_dashboard_core::report::{self, Filter, Range};
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 
@@ -13,7 +13,7 @@ use crate::protocol::{Level, Provenance, WindowReading};
 use crate::requests::window_reading;
 
 /// What the app is called in the notification area, the menu bar and its menu.
-pub const NAME: &str = "Dashboard for Claude Code";
+pub const NAME: &str = "Dashboard for Coding Agents";
 
 /// What a window is called: `Five-hour window`, `Weekly, all models`, `Weekly, Fable`.
 #[must_use]
@@ -85,7 +85,7 @@ pub struct Glance {
     pub lines: Vec<Line>,
     /// Where the newest reading comes from and how old it is: `Official, status line, 2 min ago`.
     pub source: Option<String>,
-    /// The tooltip, in Microsoft's "name - status" form: `Dashboard for Claude Code - 5h 42% ·
+    /// The tooltip, in Microsoft's "name - status" form: `Dashboard for Coding Agents - 5h 42% ·
     /// resets 14:20`.
     pub tooltip: String,
     /// The title beside the menu bar symbol on macOS: `42%`, `71% ▲`, or `$5.05`.

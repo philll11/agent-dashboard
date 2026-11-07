@@ -3,8 +3,8 @@ use std::io::Write;
 use std::path::Path;
 use std::time::{Duration, SystemTime};
 
-use claude_dashboard_core::tokens::Tokens;
-use claude_dashboard_core::transcript::{
+use agent_dashboard_core::tokens::Tokens;
+use agent_dashboard_core::transcript::{
     self, ModelUsage, Record, RequestRecord, parse_line, read_from,
 };
 use proptest::prelude::*;
@@ -243,7 +243,7 @@ fn a_field_of_an_unexpected_type_costs_only_that_field() {
 
 #[test]
 fn lines_that_cannot_be_read_are_reported() {
-    use claude_dashboard_core::transcript::Unreadable;
+    use agent_dashboard_core::transcript::Unreadable;
 
     let mut without_time = assistant();
     without_time.as_object_mut().unwrap().remove("timestamp");
@@ -397,7 +397,7 @@ fn record_ids(records: &[Record]) -> Vec<String> {
 
 #[test]
 fn reads_claude_codes_running_cost() {
-    use claude_dashboard_core::transcript::{CostState, ReportedModelCost};
+    use agent_dashboard_core::transcript::{CostState, ReportedModelCost};
 
     let line = br#"{"type":"cost-state","sessionId":"s","totalCostUSD":1.75,"startTime":1791600000000,
         "totalDuration":5000,"hasUnknownModelCost":false,"modelUsage":{
@@ -433,7 +433,7 @@ fn reads_claude_codes_running_cost() {
     );
     assert_eq!(
         parse_line(br#"{"type":"cost-state","totalCostUSD":1.75}"#),
-        Err(claude_dashboard_core::transcript::Unreadable::Incomplete)
+        Err(agent_dashboard_core::transcript::Unreadable::Incomplete)
     );
 }
 

@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use claude_dashboard_server::protocol::ModelRow;
+use agent_dashboard_server::protocol::ModelRow;
 
 use crate::tui::theme::Series;
 

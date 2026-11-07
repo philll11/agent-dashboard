@@ -6,24 +6,24 @@ use std::hash::BuildHasher;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
-use claude_dashboard_core::history::{self, History};
-use claude_dashboard_core::price_refresh;
-use claude_dashboard_core::pricing::PriceTable;
-use claude_dashboard_core::report::Bucket;
-use claude_dashboard_core::roots::{self, CONFIG_DIR_ENV, DataRoot};
-use claude_dashboard_core::usage_endpoint::LoginSource;
+use agent_dashboard_core::history::{self, History};
+use agent_dashboard_core::price_refresh;
+use agent_dashboard_core::pricing::PriceTable;
+use agent_dashboard_core::report::Bucket;
+use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, DataRoot};
+use agent_dashboard_core::usage_endpoint::LoginSource;
 use jiff::civil::{Date, Weekday};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
 
 /// The environment variable that moves the history to another file, for a portable setup or a
 /// test.
-pub const HISTORY_ENV: &str = "CLAUDE_DASHBOARD_HISTORY";
+pub const HISTORY_ENV: &str = "AGENT_DASHBOARD_HISTORY";
 
 /// The environment variable that fixes the time every command sees, as an RFC 3339 timestamp such
 /// as `2026-10-10T12:15:00+13:00`, so that tests and the web UI's screenshots do not depend on
 /// when they run.
-pub const NOW_ENV: &str = "CLAUDE_DASHBOARD_NOW";
+pub const NOW_ENV: &str = "AGENT_DASHBOARD_NOW";
 
 /// The current time, or the time [`NOW_ENV`] fixes.
 pub fn now() -> Timestamp {
@@ -59,7 +59,7 @@ pub const TIME_ZONE_SETTING: &str = "time_zone";
 /// The shared setting that holds the first day of the week, such as `monday`.
 pub const WEEK_START_SETTING: &str = "week_start";
 
-/// The shared setting that holds where the desktop app last ran, which `claude-dashboard app`
+/// The shared setting that holds where the desktop app last ran, which `agent-dashboard app`
 /// opens.
 pub const DESKTOP_APP_SETTING: &str = "desktop_app";
 
@@ -105,7 +105,7 @@ pub struct App {
     /// The price table in use: the one this version ships with, or a newer one from the
     /// repository.
     pub prices: Arc<PriceTable>,
-    /// The `claude-dashboard` program that a status line connected from here runs a copy of,
+    /// The `agent-dashboard` program that a status line connected from here runs a copy of,
     /// kept next to the history, because an update moves the program itself: this program for
     /// `serve --status-line-copy`, and the desktop app's bundled one. Without it, the status line
     /// runs this program where it is.

@@ -8,10 +8,10 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_core::ingest;
-use claude_dashboard_core::price_refresh::{self, Check, When};
-use claude_dashboard_core::usage_endpoint::{self, Refresh};
+use agent_dashboard_core::history::History;
+use agent_dashboard_core::ingest;
+use agent_dashboard_core::price_refresh::{self, Check, When};
+use agent_dashboard_core::usage_endpoint::{self, Refresh};
 use crossbeam_channel::{Receiver, Sender, TryRecvError, bounded, select, unbounded};
 use jiff::Timestamp;
 use serde::Serialize;

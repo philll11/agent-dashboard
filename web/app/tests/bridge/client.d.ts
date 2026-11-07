@@ -1,2 +1,2 @@
-// client.js only sets `window.claudeDashboardHost`.
+// client.js only sets `window.agentDashboardHost`.
 export {};

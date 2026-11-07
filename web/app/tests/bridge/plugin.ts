@@ -119,7 +119,7 @@ export function bridge(): Plugin {
   };
 
   return {
-    name: "claude-dashboard-bridge",
+    name: "agent-dashboard-bridge",
     configureServer(server) {
       server.middlewares.use(handle);
       server.httpServer?.once("close", () => void stopAll());

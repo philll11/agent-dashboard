@@ -4,11 +4,11 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use claude_dashboard_core::report::Bucket;
-use claude_dashboard_server::app::weekday;
-use claude_dashboard_server::export;
-use claude_dashboard_server::fmt::grouped;
-use claude_dashboard_server::protocol::{
+use agent_dashboard_core::report::Bucket;
+use agent_dashboard_server::app::weekday;
+use agent_dashboard_server::export;
+use agent_dashboard_server::fmt::grouped;
+use agent_dashboard_server::protocol::{
     Choices, Dataset, Days, ExportFormat, ExportParams, Exported, Filters, Health, ImportOffer,
     Limits, Overview, Prices, Progress, SessionDetail, SessionsPage, Status,
 };

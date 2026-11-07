@@ -1,6 +1,6 @@
 // A synthetic Claude Code folder read into a new history, in a temporary folder of its own, for
-// whatever runs claude-dashboard on it: the dashboard's previews and browser tests, and the VS Code
-// extension's tests. claude-dashboard runs at a fixed moment (CLAUDE_DASHBOARD_NOW) in a fixed time
+// whatever runs agent-dashboard on it: the dashboard's previews and browser tests, and the VS Code
+// extension's tests. agent-dashboard runs at a fixed moment (AGENT_DASHBOARD_NOW) in a fixed time
 // zone, so it never reads or changes the person's Claude Code folder or history.
 //
 // Node loads this file as it is, so it keeps to TypeScript that only needs its types removed.
@@ -30,20 +30,20 @@ export interface Prepared {
   folder: string;
   /** The Claude Code folder. */
   root: string;
-  /** With `home`, the folder that stands for `/home/you`, whose `code/claude-dashboard` holds the
+  /** With `home`, the folder that stands for `/home/you`, whose `code/agent-dashboard` holds the
    * session that is running. */
   home?: string;
   history: string;
-  /** This process's copy of claude-dashboard, which a build can replace the original of
+  /** This process's copy of agent-dashboard, which a build can replace the original of
    * meanwhile. */
   program: string;
   synthetic: Synthetic;
-  /** The environment claude-dashboard runs in. */
+  /** The environment agent-dashboard runs in. */
   env: NodeJS.ProcessEnv;
 }
 
 /** The start of every such folder's name; the process id that follows says whose it is. */
-const FOLDER_PREFIX = "claude-dashboard-bridge-";
+const FOLDER_PREFIX = "agent-dashboard-bridge-";
 
 function running(pid: number): boolean {
   try {
@@ -69,15 +69,15 @@ function sweep(): void {
   }
 }
 
-/** The claude-dashboard program that `CLAUDE_DASHBOARD_BIN` names, or the debug build. */
+/** The agent-dashboard program that `AGENT_DASHBOARD_BIN` names, or the debug build. */
 export function binary(): string {
-  const fromEnvironment = process.env.CLAUDE_DASHBOARD_BIN;
+  const fromEnvironment = process.env.AGENT_DASHBOARD_BIN;
   if (fromEnvironment) return fromEnvironment;
-  const name = process.platform === "win32" ? "claude-dashboard.exe" : "claude-dashboard";
+  const name = process.platform === "win32" ? "agent-dashboard.exe" : "agent-dashboard";
   const built = fileURLToPath(new URL(`../../../../target/debug/${name}`, import.meta.url));
   if (!existsSync(built)) {
     throw new Error(
-      `${built} does not exist: build it with \`cargo build -p claude-dashboard\`, or set CLAUDE_DASHBOARD_BIN`,
+      `${built} does not exist: build it with \`cargo build -p agent-dashboard\`, or set AGENT_DASHBOARD_BIN`,
     );
   }
   return built;
@@ -143,7 +143,7 @@ function writeFolder(root: string, options: Options | undefined): Promise<Synthe
   });
 }
 
-/** This process's copy of claude-dashboard, made by the first folder prepared and removed as the
+/** This process's copy of agent-dashboard, made by the first folder prepared and removed as the
  * process ends. */
 let copied: Promise<string> | undefined;
 function programCopy(): Promise<string> {
@@ -177,8 +177,8 @@ export async function prepare(setup: Setup = {}): Promise<Prepared> {
   const env = {
     ...process.env,
     CLAUDE_CONFIG_DIR: root,
-    CLAUDE_DASHBOARD_HISTORY: history,
-    CLAUDE_DASHBOARD_NOW: new Date(NOW_MS).toISOString(),
+    AGENT_DASHBOARD_HISTORY: history,
+    AGENT_DASHBOARD_NOW: new Date(NOW_MS).toISOString(),
     TZ: TIME_ZONE,
     NO_COLOR: "1",
   };
@@ -188,7 +188,7 @@ export async function prepare(setup: Setup = {}): Promise<Prepared> {
   } catch (error) {
     const { stderr } = error as { stderr?: unknown };
     throw new Error(
-      `claude-dashboard could not read the synthetic folder: ${typeof stderr === "string" && stderr ? stderr : String(error)}`,
+      `agent-dashboard could not read the synthetic folder: ${typeof stderr === "string" && stderr ? stderr : String(error)}`,
       { cause: error },
     );
   }

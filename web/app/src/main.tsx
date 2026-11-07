@@ -12,7 +12,7 @@ import { tauriHost } from "./tauri";
 import { vscodeHost } from "./vscode";
 
 async function findHost(): Promise<Host | undefined> {
-  const host = vscodeHost() ?? (await tauriHost()) ?? window.claudeDashboardHost;
+  const host = vscodeHost() ?? (await tauriHost()) ?? window.agentDashboardHost;
   if (host || !import.meta.env.DEV) return host;
   const { previewHost } = await import("./preview");
   return previewHost();
@@ -29,7 +29,7 @@ if (root) {
           <App host={host} />
         ) : (
           <p className="no-host">
-            This is the dashboard of claude-dashboard. Open it from VS Code or the desktop app.
+            This is the dashboard of agent-dashboard. Open it from VS Code or the desktop app.
           </p>
         )}
       </StrictMode>,

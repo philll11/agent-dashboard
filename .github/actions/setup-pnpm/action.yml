@@ -1,0 +1,13 @@
+name: Set up pnpm
+description: Enables Corepack and fetches the pnpm that package.json names, trying again when the npm registry is slow to answer.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        corepack enable
+        for attempt in 1 2 3; do
+          corepack install && exit 0
+          sleep $((attempt * 15))
+        done
+        exit 1

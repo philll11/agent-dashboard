@@ -30,12 +30,12 @@
           - columnheader "API-equivalent cost"
           - columnheader "Share"
       - rowgroup:
-        - 'row /claude-dashboard ~\/code\/claude-dashboard Daily cost for claude-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ \d+ \d+,\d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \+ unpriced \d+%/':
-          - rowheader "claude-dashboard ~/code/claude-dashboard":
-            - link "claude-dashboard ~/code/claude-dashboard":
-              - /url: "#project--home-you-code-claude-dashboard"
-          - 'cell /Daily cost for claude-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
-            - 'img /Daily cost for claude-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+        - 'row /agent-dashboard ~\/code\/agent-dashboard Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ \d+ \d+,\d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \+ unpriced \d+%/':
+          - rowheader "agent-dashboard ~/code/agent-dashboard":
+            - link "agent-dashboard ~/code/agent-dashboard":
+              - /url: "#project--home-you-code-agent-dashboard"
+          - 'cell /Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
           - cell /\d+/
           - cell /\d+,\d+/
           - cell /[\d,.]+[bkmBKM]+/

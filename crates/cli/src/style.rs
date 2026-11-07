@@ -8,7 +8,7 @@ use anstyle::{Ansi256Color, Color, Effects, RgbColor, Style};
 
 /// The environment variable that says whether the terminal's background is `light` or `dark`,
 /// instead of asking the terminal.
-pub const THEME_ENV: &str = "CLAUDE_DASHBOARD_THEME";
+pub const THEME_ENV: &str = "AGENT_DASHBOARD_THEME";
 
 /// A colour, by its red, green and blue values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,7 +120,7 @@ impl Palette {
     }
 }
 
-/// Whether the terminal has a light background: as `CLAUDE_DASHBOARD_THEME` says, or else as the
+/// Whether the terminal has a light background: as `AGENT_DASHBOARD_THEME` says, or else as the
 /// terminal answers when asked. A terminal that does not answer counts as dark. The terminal is
 /// asked once at most, and only by a command whose output is that terminal.
 pub fn light_background() -> bool {
@@ -134,7 +134,7 @@ pub fn light_background() -> bool {
     })
 }
 
-/// The background `CLAUDE_DASHBOARD_THEME` names: `Some(true)` for light, `Some(false)` for dark.
+/// The background `AGENT_DASHBOARD_THEME` names: `Some(true)` for light, `Some(false)` for dark.
 pub fn chosen_theme() -> Option<bool> {
     theme_named(&std::env::var(THEME_ENV).ok()?)
 }

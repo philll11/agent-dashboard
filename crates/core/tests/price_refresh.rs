@@ -1,9 +1,9 @@
-use claude_dashboard_core::history::History;
-use claude_dashboard_core::http::Answer;
-use claude_dashboard_core::price_refresh::{
+use agent_dashboard_core::history::History;
+use agent_dashboard_core::http::Answer;
+use agent_dashboard_core::price_refresh::{
     self, Check, EVERY_MS, Outcome, RETRY_MS, TABLE_SETTING, When,
 };
-use claude_dashboard_core::pricing::PriceTable;
+use agent_dashboard_core::pricing::PriceTable;
 use serde_json::{Value, json};
 
 const NOW: i64 = 1_791_640_800_000;
@@ -252,7 +252,7 @@ fn a_table_that_cannot_replace_this_versions_is_refused_and_the_last_good_one_st
 }
 
 #[test]
-fn a_table_in_a_newer_format_asks_for_a_newer_claude_dashboard() {
+fn a_table_in_a_newer_format_asks_for_a_newer_agent_dashboard() {
     let mut fixture = Fixture::switched_on();
     let body = r#"{ "format": 2, "anything": ["a later version may hold"] }"#;
 

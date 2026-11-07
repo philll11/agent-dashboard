@@ -1,6 +1,6 @@
 [package]
-name = "claude-dashboard-desktop"
-description = "The desktop app of claude-dashboard: the dashboard in a window of its own."
+name = "agent-dashboard-desktop"
+description = "The desktop app of agent-dashboard: the dashboard in a window of its own."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,8 +13,8 @@ tauri-build = { version = "2.7.0", features = [] }
 
 [dependencies]
 auto-launch = "0.6.0"
-claude-dashboard-core = { path = "../../../crates/core" }
-claude-dashboard-server = { path = "../../../crates/server" }
+agent-dashboard-core = { path = "../../../crates/core" }
+agent-dashboard-server = { path = "../../../crates/server" }
 jiff = "0.2.37"
 log = "0.4.34"
 serde = { version = "1.0.229", features = ["derive"] }

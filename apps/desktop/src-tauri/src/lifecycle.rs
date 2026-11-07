@@ -7,8 +7,8 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use claude_dashboard_server::Fault;
-use claude_dashboard_server::app::{self, App, KEEP_RUNNING_SETTING};
+use agent_dashboard_server::Fault;
+use agent_dashboard_server::app::{self, App, KEEP_RUNNING_SETTING};
 use serde::Serialize;
 use tauri::{AppHandle, CloseRequestApi, Emitter, Manager, State};
 use tauri_plugin_window_state::{AppHandleExt as _, StateFlags};

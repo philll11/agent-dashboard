@@ -1,7 +1,7 @@
 // Sessions wherever the dashboard shows them: whether one is running, and, for the strip in VS
 // Code's view, the latest session in the project VS Code has open.
 
-import type { OpenFolders, SessionRow } from "@claude-dashboard/protocol";
+import type { OpenFolders, SessionRow } from "@agent-dashboard/protocol";
 
 /** How recently a session that Claude Code's own figure does not cover made a request, to count
  * as running. */

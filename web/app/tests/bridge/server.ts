@@ -1,7 +1,7 @@
-// Runs `claude-dashboard serve --stdio` over a synthetic Claude Code folder for the dashboard's
+// Runs `agent-dashboard serve --stdio` over a synthetic Claude Code folder for the dashboard's
 // previews and browser tests, speaking JSON-RPC to it the way the VS Code extension does.
 //
-// The server runs at a fixed moment (CLAUDE_DASHBOARD_NOW) in a fixed time zone, on a history of
+// The server runs at a fixed moment (AGENT_DASHBOARD_NOW) in a fixed time zone, on a history of
 // its own and a Claude Code folder of its own, so it never reads or changes the person's.
 
 import { spawn } from "node:child_process";
@@ -21,8 +21,8 @@ import type { Options } from "./synthetic.ts";
 
 /** Where the dashboard is shown the folders and the history, whatever the machine. */
 export const SHOWN_ROOT = "/home/you/.claude";
-export const SHOWN_HISTORY = "/home/you/.local/share/claude-dashboard/history.sqlite";
-export const SHOWN_PROGRAM = "/home/you/.local/bin/claude-dashboard";
+export const SHOWN_HISTORY = "/home/you/.local/share/agent-dashboard/history.sqlite";
+export const SHOWN_PROGRAM = "/home/you/.local/bin/agent-dashboard";
 export const SHOWN_ADDED_FOLDER = "//wsl.localhost/Ubuntu/home/you/.claude";
 export const SHOWN_DOWNLOADS = "/home/you/Downloads";
 /** The version the dashboard is shown, whatever the program's, so that screenshots stay the same

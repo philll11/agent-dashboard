@@ -1,4 +1,4 @@
-// `claude-dashboard serve --stdio` as a child process, spoken to in JSON-RPC (ADR 0006). The
+// `agent-dashboard serve --stdio` as a child process, spoken to in JSON-RPC (ADR 0006). The
 // server does the reading and the work, so the extension host stays idle. It is restarted after
 // a crash unless it keeps crashing, and ends with the extension, since it stops once its standard
 // input closes.
@@ -14,7 +14,7 @@ import type {
   Notifications,
   Params,
   Result,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 import * as vscode from "vscode";
 import {
   createMessageConnection,
@@ -111,21 +111,21 @@ export class Server implements vscode.Disposable {
       });
     }
     connection.onError(([error]) => {
-      this.log.error(`The connection to claude-dashboard failed: ${error.message}`);
+      this.log.error(`The connection to agent-dashboard failed: ${error.message}`);
     });
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (text: string) => {
       for (const line of text.split(/\r?\n/)) if (line.trim()) this.log.warn(line);
     });
     child.on("error", (error) => {
-      this.#ended(child, `claude-dashboard could not start: ${error.message}`);
+      this.#ended(child, `agent-dashboard could not start: ${error.message}`);
     });
     child.on("exit", (code, signal) => {
       this.#ended(
         child,
         signal
-          ? `claude-dashboard ended on ${signal}`
-          : `claude-dashboard ended with code ${String(code)}`,
+          ? `agent-dashboard ended on ${signal}`
+          : `agent-dashboard ended with code ${String(code)}`,
       );
     });
     connection.listen();
@@ -156,7 +156,7 @@ export class Server implements vscode.Disposable {
   #send<R>(method: string, params: unknown): Promise<R> {
     const connection = this.#connection;
     if (!connection || this.#state.kind !== "running") {
-      return Promise.reject(new Unreachable("claude-dashboard is not running."));
+      return Promise.reject(new Unreachable("agent-dashboard is not running."));
     }
     return connection.sendRequest<R>(method, params);
   }

@@ -1,13 +1,13 @@
-//! `claude-dashboard app`: opens the desktop app where it last ran, as the history records it.
+//! `agent-dashboard app`: opens the desktop app where it last ran, as the history records it.
 
 use std::path::PathBuf;
 use std::process::{Command, ExitCode, Stdio};
 
-use claude_dashboard_core::history::History;
-use claude_dashboard_server::app::{App, DESKTOP_APP_SETTING};
+use agent_dashboard_core::history::History;
+use agent_dashboard_server::app::{App, DESKTOP_APP_SETTING};
 
 /// Where the desktop app's installers are.
-const RELEASES: &str = "https://github.com/philll11/claude-dashboard/releases/latest";
+const RELEASES: &str = "https://github.com/philll11/agent-dashboard/releases/latest";
 
 pub fn open(app: &App, section: Option<&str>) -> ExitCode {
     let Some(location) = recorded(app).filter(|location| location.exists()) else {

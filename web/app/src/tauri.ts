@@ -12,7 +12,7 @@ import type {
   Params,
   Result,
   Show,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -25,7 +25,7 @@ import { type Host, RequestError } from "./host";
 import { createUpdates, type UpdateApi } from "./updates";
 
 /** Where the section and filters are kept between runs of the app. */
-export const VIEW_KEY = "claude-dashboard.view";
+export const VIEW_KEY = "agent-dashboard.view";
 
 type Theme = "light" | "dark";
 

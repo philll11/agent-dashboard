@@ -9,7 +9,7 @@ import type {
   Overview as OverviewAnswer,
   ProjectRow,
   Status,
-} from "@claude-dashboard/protocol";
+} from "@agent-dashboard/protocol";
 
 import { StackedColumns } from "../charts/columns";
 import { Meter, ShareBar, Sparkline } from "../charts/small";
@@ -156,7 +156,7 @@ function StaleNote({ limits, status }: { limits: Limits | undefined; status: Sta
     return (
       <p className="note">
         Claude Code's login on this computer has expired, so the usage endpoint can't be asked. Open
-        Claude Code once to sign in again; claude-dashboard never refreshes the login itself.
+        Claude Code once to sign in again; agent-dashboard never refreshes the login itself.
       </p>
     );
   }

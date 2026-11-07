@@ -1,6 +1,6 @@
 [package]
-name = "claude-dashboard-server"
-description = "The dashboard's requests and background work, for every graphical surface of claude-dashboard."
+name = "agent-dashboard-server"
+description = "The dashboard's requests and background work, for every graphical surface of agent-dashboard."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-claude-dashboard-core = { path = "../core" }
+agent-dashboard-core = { path = "../core" }
 crossbeam-channel = "0.5.17"
 jiff = "0.2.37"
 semver = "1.0.28"

@@ -17,7 +17,7 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
-import { prepare } from "@claude-dashboard/app/testing";
+import { prepare } from "@agent-dashboard/app/testing";
 import { build } from "esbuild";
 import Mocha from "mocha";
 
@@ -118,7 +118,7 @@ try {
     {
       env: {
         ...prepared.env,
-        CLAUDE_DASHBOARD_EXPORT_TO: exportFolder,
+        AGENT_DASHBOARD_EXPORT_TO: exportFolder,
         TEMP: temporary,
         TMP: temporary,
         TMPDIR: temporary,

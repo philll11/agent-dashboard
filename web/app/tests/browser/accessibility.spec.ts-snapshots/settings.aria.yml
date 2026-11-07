@@ -23,7 +23,7 @@
   - region "History":
     - heading "History" [level=2]
     - term: Stored in
-    - definition: /home/you/.local/share/claude-dashboard/history.sqlite
+    - definition: /home/you/.local/share/agent-dashboard/history.sqlite
     - term: Covers
     - definition: /\d+ July \d+ to today · \d+,\d+ requests in \d+ sessions · 7 MB/
     - term: Claude Code clean-up
@@ -480,6 +480,6 @@
     - paragraph:
       - text: Version 0.1.0-alpha.1. New versions are on the
       - link "releases page":
-        - /url: https://github.com/philll11/claude-dashboard/releases
+        - /url: https://github.com/philll11/agent-dashboard/releases
       - text: .
-    - paragraph: claude-dashboard collects no telemetry. It never stores prompt or code content, and it only uses the network for the features switched on above.
+    - paragraph: agent-dashboard collects no telemetry. It never stores prompt or code content, and it only uses the network for the features switched on above.

@@ -2,8 +2,8 @@
 //! who did the work, and the skills and MCP tools its requests are credited to. A page that
 //! scrolls when it does not fit.
 
-use claude_dashboard_server::fmt::{clock, compact, day_label, duration, grouped, money};
-use claude_dashboard_server::protocol::{Credit, SessionDetail, Totals, WhoRow};
+use agent_dashboard_server::fmt::{clock, compact, day_label, duration, grouped, money};
+use agent_dashboard_server::protocol::{Credit, SessionDetail, Totals, WhoRow};
 use jiff::{Timestamp, Zoned};
 
 use super::overview::{cost_text, tokens_of};

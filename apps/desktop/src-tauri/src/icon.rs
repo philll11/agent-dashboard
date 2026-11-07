@@ -11,7 +11,7 @@
     )
 )]
 
-use claude_dashboard_server::protocol::Level;
+use agent_dashboard_server::protocol::Level;
 
 /// An image: rows of red, green, blue and alpha bytes, top first.
 #[derive(Debug, Clone, PartialEq, Eq)]

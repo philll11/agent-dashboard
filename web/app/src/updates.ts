@@ -15,7 +15,7 @@ export const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
 export const RETRY_AFTER_MS = 60 * 60 * 1000;
 
 /** Where the person's choice is kept, as `on` or `off`. */
-export const AUTOMATIC_KEY = "claude-dashboard.updates.automatic";
+export const AUTOMATIC_KEY = "agent-dashboard.updates.automatic";
 
 /** A newer version, as Tauri's updater offers it. */
 export interface Update {
