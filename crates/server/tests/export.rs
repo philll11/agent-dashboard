@@ -9,6 +9,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{Attribution, History, Identity, Request};
 use agent_dashboard_core::limits::{LimitSnapshot, Source};
 use agent_dashboard_core::tokens::Tokens;
@@ -47,7 +48,7 @@ fn setup() -> Setup {
     history
         .write(|w| {
             let project = w.project("C--code-app", Some(r"C:\code\app"))?;
-            let session = w.session("session-1", project)?;
+            let session = w.session("session-1", project, Agent::ClaudeCode)?;
             for index in 0..REQUESTS {
                 let message = format!("msg_{index}");
                 let request = format!("req_{index}");
@@ -73,7 +74,10 @@ fn setup() -> Setup {
                     inference_geo: None,
                     attribution: Attribution::default(),
                     entrypoint: Some("cli"),
-                    claude_code_version: Some("2.1.296"),
+                    agent_version: Some("2.1.296"),
+                    reasoning_tokens: 0,
+                    initiator: None,
+                    charge: None,
                     imported_from: None,
                 })?;
             }
@@ -83,6 +87,8 @@ fn setup() -> Setup {
                 observed_ms: FIRST_REQUEST_MS + 5 * 60 * 1_000,
                 used_percentage: 12.5,
                 resets_at_ms: Some(FIRST_REQUEST_MS + 4 * 60 * 60 * 1_000),
+                used: None,
+                entitlement: None,
             })?;
             Ok(())
         })
@@ -269,7 +275,7 @@ fn the_dashboard_keeps_answering_while_an_export_writes() {
     );
 
     let csv = fs::read_to_string(&destination).unwrap();
-    assert!(csv.starts_with("\u{feff}at,session_id,title,"));
+    assert!(csv.starts_with("\u{feff}at,agent,session_id,title,"));
     assert_eq!(csv.lines().count(), 1 + usize::try_from(REQUESTS).unwrap());
     assert_eq!(names(&setup.exports), ["history.csv"]);
 }

@@ -3,6 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{self, History, HistoryError, ProjectKey};
 use agent_dashboard_core::import;
 use agent_dashboard_core::limits::{self, LimitSnapshot, Source};
@@ -22,12 +23,13 @@ use serde_json::Value;
 use crate::app::{self, App};
 use crate::names::{model_name, project_names};
 use crate::protocol::{
-    Access, Choices, Cost, CostPoint, Credit, Day, DayCost, Days, EndpointParams, FastPrices,
-    Folder, FolderParams, FolderState, Health, HistoryFacts, ImportDone, ImportOffer, Imported,
-    Level, LongPrompt, Model, ModelDay, ModelRow, Overview, OverviewParams, PriceDrift,
-    PriceRefresh, PriceRow, Prices, PricesParams, Project, ProjectRow, Provenance, SessionDetail,
-    SessionParams, SessionRow, SessionsPage, SessionsParams, Settings, SettingsChange, Status,
-    StatusLineApply, StatusLineParams, StatusLinePlan, Tokens, Totals, WhoRow, WindowReading,
+    Access, AgentChoice, Choices, Cost, CostPoint, CostProvenance, Credit, Day, DayCost, Days,
+    EndpointParams, FastPrices, Folder, FolderParams, FolderState, Health, HistoryFacts,
+    ImportDone, ImportOffer, Imported, Level, LongPrompt, Model, ModelDay, ModelRow, Overview,
+    OverviewParams, PriceDrift, PriceRefresh, PriceRow, Prices, PricesParams, Project, ProjectRow,
+    Provenance, SessionDetail, SessionParams, SessionRow, SessionsPage, SessionsParams, Settings,
+    SettingsChange, Status, StatusLineApply, StatusLineParams, StatusLinePlan, Tokens, Totals,
+    WhoRow, WindowReading,
 };
 use crate::statusline;
 use crate::workers::Triggers;
@@ -401,7 +403,8 @@ impl Answers {
             transcript,
             first_ms: detail.first_ms,
             last_ms: detail.last_ms,
-            claude_code_version: detail.claude_code_version.clone(),
+            agent_version: detail.agent_version.clone(),
+            agent: stored.agent.as_str().to_owned(),
             entrypoint: detail.entrypoint.clone(),
             totals: totals(&detail.totals),
             own: totals(&detail.own),
@@ -508,8 +511,9 @@ impl Answers {
         }
         let now_ms = app.now.as_millisecond();
         let path = path.display().to_string();
+        let agent = agent_named(params.agent.as_deref())?.unwrap_or(Agent::ClaudeCode);
         self.history_mut()?
-            .write(|w| w.add_data_folder(&path, now_ms))
+            .write(|w| w.add_data_folder(&path, agent, now_ms))
             .map_err(Fault::from)?;
         let _ = self.triggers.read.send(());
         Ok(Value::Null)
@@ -586,7 +590,19 @@ impl Answers {
             .map(|model| model_of(app, model))
             .collect();
         models.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)));
-        Ok(Choices { projects, models })
+        let agents = history
+            .agents()?
+            .into_iter()
+            .map(|agent| AgentChoice {
+                id: agent.as_str().to_owned(),
+                name: agent.display_name().to_owned(),
+            })
+            .collect();
+        Ok(Choices {
+            agents,
+            projects,
+            models,
+        })
     }
 
     fn prices(&mut self, app: &App, params: &PricesParams) -> Result<Prices, Fault> {
@@ -669,13 +685,14 @@ impl Answers {
             .iter()
             .map(|root| Folder {
                 path: root.path.display().to_string(),
+                agent: root.agent.as_str().to_owned(),
                 source: match root.source {
                     RootSource::Default => "default",
                     RootSource::Environment => "environment",
                     RootSource::Added => "added",
                 }
                 .to_owned(),
-                state: match roots::inspect(&root.path) {
+                state: match roots::inspect(&root.path, root.agent) {
                     RootStatus::Found { transcripts, bytes } => {
                         FolderState::Found { transcripts, bytes }
                     }
@@ -764,9 +781,18 @@ pub(crate) fn filter(names: &Names, filters: &crate::protocol::Filters) -> Resul
         ),
     };
     Ok(Filter {
+        agent: agent_named(filters.agent.as_deref())?,
         project,
         model: filters.model.clone(),
     })
+}
+
+/// The agent a filter or a request names, by its id.
+fn agent_named(id: Option<&str>) -> Result<Option<Agent>, Fault> {
+    id.map(|id| {
+        Agent::from_name(id).ok_or_else(|| Fault::invalid(format!("There is no agent {id}")))
+    })
+    .transpose()
 }
 
 /// The shared setting that records an import the person chose not to make.
@@ -843,7 +869,12 @@ pub(crate) fn matching_sessions(
     let stored: HashMap<_, _> = history
         .sessions()?
         .into_iter()
-        .map(|session| (session.key, (session.session_id, session.title)))
+        .map(|session| {
+            (
+                session.key,
+                (session.session_id, session.title, session.agent),
+            )
+        })
         .collect();
     let reported = reconcile::reported(history)?;
     let search = search
@@ -854,7 +885,7 @@ pub(crate) fn matching_sessions(
         report::sessions_matching(history, &app.prices, range, &filter)?
             .into_iter()
             .filter_map(|session| {
-                let (id, title) = stored.get(&session.session)?.clone();
+                let (id, title, agent) = stored.get(&session.session)?.clone();
                 let project = project_of(&names, session.project);
                 let found = search.as_deref().is_none_or(|search| {
                     [
@@ -871,6 +902,7 @@ pub(crate) fn matching_sessions(
                 found.then(|| Matching {
                     row: SessionRow {
                         id,
+                        agent: agent.as_str().to_owned(),
                         title,
                         project,
                         first_ms: session.first_ms,
@@ -938,6 +970,15 @@ pub(crate) fn totals(totals: &report::Totals) -> Totals {
     } = totals.cost;
     Totals {
         requests: totals.requests,
+        reasoning_tokens: totals.reasoning_tokens,
+        cost_provenance: totals.cost_provenance().map(|provenance| match provenance {
+            report::CostProvenance::Estimate => CostProvenance::Estimate,
+            report::CostProvenance::Recorded => CostProvenance::Recorded,
+            report::CostProvenance::Mixed => CostProvenance::Mixed,
+        }),
+        charged_requests: totals.charged_requests,
+        charged_usd: totals.charge.cost().total(),
+        charged_credits: totals.charge.credits(),
         tokens: Tokens {
             input,
             output,
@@ -963,6 +1004,7 @@ pub(crate) fn totals(totals: &report::Totals) -> Totals {
 pub(crate) fn window_reading(app: &App, reading: &LimitSnapshot) -> WindowReading {
     let now_ms = app.now.as_millisecond();
     WindowReading {
+        agent: reading.source.agent().as_str().to_owned(),
         window: reading.window.clone(),
         model: limits::weekly_model(&reading.window).map(str::to_owned),
         used_percentage: reading.used_percentage,
@@ -970,8 +1012,11 @@ pub(crate) fn window_reading(app: &App, reading: &LimitSnapshot) -> WindowReadin
         observed_ms: reading.observed_ms,
         provenance: match reading.source {
             Source::StatusLine => Provenance::Official,
+            Source::CopilotSessionFiles => Provenance::Recorded,
             Source::UsageEndpoint => Provenance::Experimental,
         },
+        used: reading.used,
+        entitlement: reading.entitlement,
         level: match reading.level() {
             limits::Level::Normal => Level::Normal,
             limits::Level::Warning => Level::Warning,

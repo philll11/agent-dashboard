@@ -6,9 +6,26 @@
 export type Access = "readWrite" | "readOnly";
 
 /**
+ * An agent the dashboard can filter by.
+ */
+export type AgentChoice = { 
+/**
+ * `claude-code` or `copilot-cli`.
+ */
+id: string, 
+/**
+ * Such as `Copilot CLI`.
+ */
+name: string, };
+
+/**
  * `choices`: every project and model the history holds, for the filters.
  */
 export type Choices = { 
+/**
+ * The agents the history holds sessions of, in a fixed order.
+ */
+agents: Array<AgentChoice>, 
 /**
  * By name.
  */
@@ -27,6 +44,11 @@ export type Cost = { total: number, input: number, output: number, cacheRead: nu
  * The running API-equivalent cost at one moment.
  */
 export type CostPoint = { ms: number, usd: number, };
+
+/**
+ * Where a cost comes from.
+ */
+export type CostProvenance = "estimate" | "recorded" | "mixed";
 
 /**
  * Requests credited to a skill, or to an MCP server and tool.
@@ -152,11 +174,15 @@ export type FastPrices = { input: number, output: number, };
  */
 export type Filters = { 
 /**
+ * An agent: `claude-code` or `copilot-cli`.
+ */
+agent?: string | null, 
+/**
  * A project's id.
  */
 project?: string | null, 
 /**
- * A model id, as Claude Code records it.
+ * A model id, as the agent records it.
  */
 model?: string | null, };
 
@@ -174,6 +200,10 @@ highest: number, totals: Totals, };
  */
 export type Folder = { path: string, 
 /**
+ * The agent whose data the folder holds: `claude-code` or `copilot-cli`.
+ */
+agent: string, 
+/**
  * `default`, `environment` or `added`.
  */
 source: string, state: FolderState, };
@@ -181,7 +211,11 @@ source: string, state: FolderState, };
 /**
  * `folders/add` and `folders/remove` parameters.
  */
-export type FolderParams = { path: string, };
+export type FolderParams = { path: string, 
+/**
+ * The agent whose data the folder holds; Claude Code's when absent.
+ */
+agent?: string | null, };
 
 /**
  * Something the person needs to know about the data folders or the history.
@@ -440,7 +474,7 @@ dailyCost: Array<DayCost>, };
 /**
  * Where a number comes from (ADR 0005).
  */
-export type Provenance = "official" | "experimental";
+export type Provenance = "official" | "recorded" | "experimental";
 
 /**
  * `session`: everything about one session.
@@ -449,9 +483,13 @@ export type SessionDetail = { id: string, title?: string | null, project: Projec
 /**
  * The session's transcript, while Claude Code keeps it.
  */
-transcript?: string | null, firstMs: number, lastMs: number, claudeCodeVersion?: string | null, 
+transcript?: string | null, firstMs: number, lastMs: number, agentVersion?: string | null, 
 /**
- * How Claude Code was started, such as `cli` or `claude-vscode`.
+ * `claude-code` or `copilot-cli`.
+ */
+agent: string, 
+/**
+ * How the agent was started, such as Claude Code's `cli` or Copilot CLI's `github/cli`.
  */
 entrypoint?: string | null, totals: Totals, 
 /**
@@ -486,9 +524,13 @@ id: string, };
  */
 export type SessionRow = { 
 /**
- * Claude Code's session id.
+ * The agent's session id.
  */
-id: string, title?: string | null, project: Project, firstMs: number, lastMs: number, 
+id: string, 
+/**
+ * `claude-code` or `copilot-cli`.
+ */
+agent: string, title?: string | null, project: Project, firstMs: number, lastMs: number, 
 /**
  * Highest cost first.
  */
@@ -649,11 +691,32 @@ export type Tokens = { input: number, output: number, cacheRead: number, cacheWr
  */
 export type Totals = { requests: number, tokens: Tokens, 
 /**
- * The API-equivalent cost of the priced requests.
+ * Reasoning tokens, which the output tokens already count.
+ */
+reasoningTokens: number, 
+/**
+ * The cost of the priced requests in US dollars: Claude Code's API-equivalent cost and the
+ * charges Copilot CLI recorded.
  */
 cost: Cost, 
 /**
- * Requests to models the price table does not list, whose cost is unknown.
+ * Where the cost comes from; absent when no request is priced.
+ */
+costProvenance?: CostProvenance | null, 
+/**
+ * Requests whose cost is a recorded charge.
+ */
+chargedRequests: number, 
+/**
+ * The recorded charges that `cost` includes, in US dollars.
+ */
+chargedUsd: number, 
+/**
+ * The same charges in AI credits, at $0.01 each.
+ */
+chargedCredits: number, 
+/**
+ * Requests with neither a price nor a recorded charge, whose cost is unknown.
  */
 unpricedRequests: number, webSearchRequests: number, fastRequests: number, };
 
@@ -680,8 +743,12 @@ agentType?: string | null, model: Model, firstMs: number, lastMs: number, totals
  */
 export type WindowReading = { 
 /**
- * `five_hour`, `seven_day`, `seven_day:<model>` for one model's weekly window, or another
- * window Claude Code reports, such as `spend_limit`.
+ * The agent whose plan the window is of: `claude-code` or `copilot-cli`.
+ */
+agent: string, 
+/**
+ * `five_hour`, `seven_day`, `seven_day:<model>` for one model's weekly window, another
+ * window Claude Code reports, such as `spend_limit`, or Copilot CLI's `monthly` allowance.
  */
 window: string, 
 /**
@@ -689,7 +756,15 @@ window: string,
  */
 model?: string | null, usedPercentage: number, resetsAtMs?: number | null, observedMs: number, provenance: Provenance, level: Level, 
 /**
- * Older than an hour.
+ * How much of an allowance is used, in AI credits, where the agent records it.
+ */
+used?: number | null, 
+/**
+ * How large the allowance is, in AI credits, where the agent records it.
+ */
+entitlement?: number | null, 
+/**
+ * Older than an hour, or a day for a monthly window.
  */
 stale: boolean, 
 /**

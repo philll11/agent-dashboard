@@ -1,17 +1,20 @@
-//! Claude Code's transcripts: finding them, and reading what was added since the last read.
+//! Transcripts: finding Claude Code's, and reading what any agent's transcript added since the
+//! last read.
 //!
-//! The format is internal to Claude Code and changes between versions, so reading is tolerant:
+//! The formats are internal to the agents and change between versions, so reading is tolerant:
 //! unknown fields and record types are ignored, and a line that cannot be read is counted and
 //! skipped.
 
 mod record;
 
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufRead, BufReader, Seek, SeekFrom};
+use std::io::{self, BufRead, BufReader, Read as _, Seek, SeekFrom};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
 use walkdir::WalkDir;
+
+use crate::agent::Agent;
 
 pub use record::{
     CostState, ModelUsage, Record, ReportedModelCost, RequestRecord, Unreadable, parse_line,
@@ -21,13 +24,16 @@ pub use record::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transcript {
     pub path: PathBuf,
-    /// The folder in the data root's projects folder that holds the project's transcripts.
+    pub agent: Agent,
+    /// For Claude Code, the folder in the data root's projects folder that holds the project's
+    /// transcripts; empty for Copilot CLI, whose sessions name their working folder instead.
     pub project_folder: String,
     /// The session the transcript belongs to.
     pub session_id: String,
     /// The subagent whose transcript this is; `None` for the session's own transcript.
     pub subagent_id: Option<String>,
     pub len: u64,
+    /// When the transcript last changed; for Copilot CLI, also when its session's details did.
     pub modified: SystemTime,
 }
 
@@ -53,6 +59,7 @@ pub fn find(root: &Path) -> Vec<Transcript> {
             let metadata = entry.metadata().ok()?;
             classify(relative).map(|(project_folder, session_id, subagent_id)| Transcript {
                 path: entry.path().to_owned(),
+                agent: Agent::ClaudeCode,
                 project_folder,
                 session_id,
                 subagent_id,
@@ -100,6 +107,7 @@ pub fn for_session(session_transcript: &Path) -> Vec<Transcript> {
             let metadata = std::fs::metadata(&path).ok()?;
             Some(Transcript {
                 path,
+                agent: Agent::ClaudeCode,
                 project_folder,
                 session_id,
                 subagent_id,
@@ -172,31 +180,53 @@ pub struct Read {
     pub unreadable: u64,
     /// Where the next read starts: just after the last complete line read.
     pub end: u64,
-    /// Whether the read started again from the beginning, because the transcript is shorter
-    /// than where the previous read ended.
+    /// Whether the read started again from the beginning, because the transcript was written
+    /// again from the start since the previous read.
     pub restarted: bool,
+    /// A hash of the transcript's first line, once it holds a whole one, which the next read
+    /// compares with.
+    pub first_line: Option<i64>,
 }
 
+/// Reads one line of an agent's transcript, as [`parse_line`] does Claude Code's.
+pub type Parser = fn(&[u8]) -> Result<Option<Record>, Unreadable>;
+
+/// How much of a transcript's first line its hash covers.
+const FIRST_LINE_BYTES: u64 = 4096;
+
 /// Reads the complete lines that follow byte `offset`, stopping after the first line that
-/// reaches `limit` bytes.
+/// reaches `limit` bytes, with `parse` reading each line.
 ///
-/// A last line without its newline is left for the next read, because Claude Code may still be
-/// writing it.
+/// A last line without its newline is left for the next read, because the agent may still be
+/// writing it. The read starts again from the beginning when the transcript was written again
+/// from the start since the previous read: it is shorter than `offset`, `offset` no longer
+/// follows a line end, or its first line no longer matches `first_line`, the previous read's.
 ///
 /// # Errors
 ///
-/// Errors opening or reading the file, such as when Claude Code has deleted it.
-pub fn read_from(path: &Path, offset: u64, limit: u64) -> io::Result<Read> {
-    let mut file = open_shared(path)?;
+/// Errors opening or reading the file, such as when the agent has deleted it.
+pub fn read_from(
+    path: &Path,
+    offset: u64,
+    limit: u64,
+    parse: Parser,
+    first_line: Option<i64>,
+) -> io::Result<Read> {
+    let file = open_shared(path)?;
     let len = file.metadata()?.len();
-    let restarted = len < offset;
-    let start = if restarted { 0 } else { offset };
-    file.seek(SeekFrom::Start(start))?;
-
     let mut reader = BufReader::with_capacity(1 << 20, file);
+    let first = first_line_hash(&mut reader)?;
+    let restarted = offset > 0
+        && (len < offset
+            || matches!((first_line, first), (Some(known), Some(now)) if known != now)
+            || !follows_line_end(&mut reader, offset)?);
+    let start = if restarted { 0 } else { offset };
+    reader.seek(SeekFrom::Start(start))?;
+
     let mut read = Read {
         end: start,
         restarted,
+        first_line: first,
         ..Read::default()
     };
     let mut line = Vec::new();
@@ -207,7 +237,7 @@ pub fn read_from(path: &Path, offset: u64, limit: u64) -> io::Result<Read> {
             break;
         }
         read.end += bytes as u64;
-        match parse_line(&line) {
+        match parse(&line) {
             Ok(Some(record)) => read.records.push(record),
             Ok(None) => {}
             Err(_) => read.unreadable += 1,
@@ -216,8 +246,38 @@ pub fn read_from(path: &Path, offset: u64, limit: u64) -> io::Result<Read> {
     Ok(read)
 }
 
-/// Opens a transcript so that Claude Code can keep writing to it and delete it meanwhile.
-fn open_shared(path: &Path) -> io::Result<File> {
+/// A hash of the first line's first [`FIRST_LINE_BYTES`], or `None` while the transcript holds
+/// neither a whole first line nor that many bytes of it.
+fn first_line_hash(reader: &mut BufReader<File>) -> io::Result<Option<i64>> {
+    reader.seek(SeekFrom::Start(0))?;
+    let mut line = Vec::new();
+    reader
+        .by_ref()
+        .take(FIRST_LINE_BYTES)
+        .read_until(b'\n', &mut line)?;
+    let whole = line.last() == Some(&b'\n') || line.len() as u64 == FIRST_LINE_BYTES;
+    Ok(whole.then(|| fnv1a(&line)))
+}
+
+/// Whether the byte before `offset` ends a line.
+fn follows_line_end(reader: &mut BufReader<File>, offset: u64) -> io::Result<bool> {
+    reader.seek(SeekFrom::Start(offset - 1))?;
+    let mut byte = [0];
+    reader.read_exact(&mut byte)?;
+    Ok(byte == *b"\n")
+}
+
+/// The 64-bit FNV-1a hash of `bytes`, which stays the same across versions of Rust and of this
+/// program, unlike the standard library's hashers.
+fn fnv1a(bytes: &[u8]) -> i64 {
+    let hash = bytes.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3)
+    });
+    i64::from_ne_bytes(hash.to_ne_bytes())
+}
+
+/// Opens a transcript so that its agent can keep writing to it and delete it meanwhile.
+pub(crate) fn open_shared(path: &Path) -> io::Result<File> {
     let mut options = OpenOptions::new();
     options.read(true);
     #[cfg(windows)]
@@ -231,6 +291,16 @@ fn open_shared(path: &Path) -> io::Result<File> {
     options.open(path)
 }
 
+/// The folder Claude Code keeps a working folder's transcripts in: the path with every character
+/// other than an ASCII letter or digit replaced by `-`. A project is known by it, whichever agent
+/// worked in the folder.
+#[must_use]
+pub fn project_folder(cwd: &str) -> String {
+    cwd.chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
+}
+
 /// Whether a file, given relative to a data root's projects folder, is a transcript.
 pub(crate) fn is_transcript(relative_to_projects: &Path) -> bool {
     classify(relative_to_projects).is_some()
@@ -238,9 +308,21 @@ pub(crate) fn is_transcript(relative_to_projects: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{classify, open_shared};
+    use super::{classify, open_shared, project_folder};
     use std::fs;
     use std::path::Path;
+
+    #[test]
+    fn working_folders_map_to_claude_codes_transcript_folders() {
+        assert_eq!(
+            project_folder(r"C:\Users\ada\Documents\Development\ClaudeDashboard"),
+            "C--Users-ada-Documents-Development-ClaudeDashboard"
+        );
+        assert_eq!(
+            project_folder("/home/ada/code/my_app.v2"),
+            "-home-ada-code-my-app-v2"
+        );
+    }
 
     #[test]
     fn claude_code_can_delete_a_transcript_while_it_is_open() {

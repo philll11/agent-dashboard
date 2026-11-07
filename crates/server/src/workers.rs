@@ -168,7 +168,7 @@ fn read_once(
     // Request records that a `history/changed` notification has already covered.
     let mut announced = 0;
     let mut total = 0;
-    let result = ingest::ingest_with_progress(history, &app.root_paths(), |progress| {
+    let result = ingest::ingest_with_progress(history, &app.roots, |progress| {
         let shown = Progress {
             done: progress.done as u64,
             total: progress.total as u64,

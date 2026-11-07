@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::roots::{RootStatus, inspect};
 
 fn write(path: &Path, contents: &str) {
@@ -11,7 +12,10 @@ fn write(path: &Path, contents: &str) {
 #[test]
 fn a_missing_folder_is_missing() {
     let dir = tempfile::tempdir().unwrap();
-    assert_eq!(inspect(&dir.path().join("absent")), RootStatus::Missing);
+    assert_eq!(
+        inspect(&dir.path().join("absent"), Agent::ClaudeCode),
+        RootStatus::Missing
+    );
 }
 
 #[test]
@@ -19,14 +23,17 @@ fn a_file_is_not_a_data_root() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("settings.json");
     write(&file, "{}");
-    assert!(matches!(inspect(&file), RootStatus::Unreadable { .. }));
+    assert!(matches!(
+        inspect(&file, Agent::ClaudeCode),
+        RootStatus::Unreadable { .. }
+    ));
 }
 
 #[test]
 fn a_root_without_projects_holds_no_transcripts() {
     let dir = tempfile::tempdir().unwrap();
     assert_eq!(
-        inspect(dir.path()),
+        inspect(dir.path(), Agent::ClaudeCode),
         RootStatus::Found {
             transcripts: 0,
             bytes: 0
@@ -60,7 +67,7 @@ fn counts_session_and_subagent_transcripts_only() {
     write(&dir.path().join("history.jsonl"), "outside projects");
 
     assert_eq!(
-        inspect(dir.path()),
+        inspect(dir.path(), Agent::ClaudeCode),
         RootStatus::Found {
             transcripts: 3,
             bytes: 16 + 6 + 3
@@ -79,7 +86,7 @@ fn an_unlistable_projects_folder_is_unreadable() {
     fs::set_permissions(&projects, fs::Permissions::from_mode(0o000)).unwrap();
     let readable_anyway = fs::read_dir(&projects).is_ok();
 
-    let status = inspect(dir.path());
+    let status = inspect(dir.path(), Agent::ClaudeCode);
     fs::set_permissions(&projects, fs::Permissions::from_mode(0o755)).unwrap();
 
     // Running as root ignores permissions, so the check only applies when they take effect.

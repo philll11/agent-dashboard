@@ -101,7 +101,8 @@ pub struct Request<'a> {
     pub web_search_requests: u64,
 }
 
-/// API-equivalent cost in US dollars, by what it pays for.
+/// Cost in US dollars, by what it pays for: a Claude Code request's API-equivalent cost, or a
+/// Copilot CLI request's charge.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Cost {
     pub input: f64,
@@ -130,6 +131,60 @@ impl Cost {
         self.cache_write_5m += other.cache_write_5m;
         self.cache_write_1h += other.cache_write_1h;
         self.web_search += other.web_search;
+    }
+}
+
+/// What a request cost as its agent recorded it from its provider's billing, by kind of token,
+/// in nano AI credits: 10⁹ to an AI credit, which is worth $0.01. Copilot CLI records the charge
+/// itself, including any uplift such as data residency's, so it needs no price table (ADR 0015).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Charge {
+    pub input: u64,
+    pub output: u64,
+    pub cache_read: u64,
+    pub cache_write: u64,
+}
+
+impl Charge {
+    /// Nano AI credits in an AI credit.
+    pub const NANO_PER_CREDIT: f64 = 1e9;
+    /// US dollars an AI credit is worth.
+    pub const USD_PER_CREDIT: f64 = 0.01;
+
+    /// The charge in nano AI credits.
+    #[must_use]
+    pub fn total(self) -> u64 {
+        self.input + self.output + self.cache_read + self.cache_write
+    }
+
+    pub fn add(&mut self, other: Self) {
+        self.input += other.input;
+        self.output += other.output;
+        self.cache_read += other.cache_read;
+        self.cache_write += other.cache_write;
+    }
+
+    /// The charge in AI credits.
+    #[must_use]
+    #[allow(clippy::cast_precision_loss)]
+    pub fn credits(self) -> f64 {
+        self.total() as f64 / Self::NANO_PER_CREDIT
+    }
+
+    /// The charge as a cost in US dollars; GitHub charges one rate for cache writes, which the
+    /// five-minute part holds.
+    #[must_use]
+    #[allow(clippy::cast_precision_loss)]
+    pub fn cost(self) -> Cost {
+        let usd = |nano: u64| nano as f64 / Self::NANO_PER_CREDIT * Self::USD_PER_CREDIT;
+        Cost {
+            input: usd(self.input),
+            output: usd(self.output),
+            cache_read: usd(self.cache_read),
+            cache_write_5m: usd(self.cache_write),
+            cache_write_1h: 0.0,
+            web_search: 0.0,
+        }
     }
 }
 

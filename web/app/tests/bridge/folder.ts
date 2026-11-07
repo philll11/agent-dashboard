@@ -177,6 +177,8 @@ export async function prepare(setup: Setup = {}): Promise<Prepared> {
   const env = {
     ...process.env,
     CLAUDE_CONFIG_DIR: root,
+    // Copilot CLI's data root, kept apart from the computer's own sessions.
+    COPILOT_HOME: join(folder, ".copilot"),
     AGENT_DASHBOARD_HISTORY: history,
     AGENT_DASHBOARD_NOW: new Date(NOW_MS).toISOString(),
     TZ: TIME_ZONE,

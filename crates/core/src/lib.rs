@@ -1,11 +1,15 @@
-//! Reads Claude Code's local data and keeps the usage history behind agent-dashboard.
+//! Reads the local data of the coding agents agent-dashboard covers, Claude Code and Copilot CLI,
+//! and keeps the usage history behind it.
 //!
 //! The words used here are defined in `CONTEXT.md` at the repository root.
 
+pub mod agent;
+pub mod copilot;
 pub mod history;
 pub mod http;
 pub mod import;
 pub mod ingest;
+mod lenient;
 pub mod limits;
 pub mod price_refresh;
 pub mod pricing;

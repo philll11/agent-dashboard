@@ -1,3 +1,4 @@
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{
     Attribution, History, Identity, ReportedCost, Request, SessionKey,
 };
@@ -38,7 +39,7 @@ impl Fixture {
         self.history
             .write(|w| {
                 let project = w.project("C--code-app", None)?;
-                w.session(session_id, project)
+                w.session(session_id, project, Agent::ClaudeCode)
             })
             .unwrap()
     }
@@ -61,7 +62,10 @@ impl Fixture {
                     inference_geo: None,
                     attribution: Attribution::default(),
                     entrypoint: None,
-                    claude_code_version: None,
+                    agent_version: None,
+                    reasoning_tokens: 0,
+                    initiator: None,
+                    charge: None,
                     imported_from: None,
                 })
             })

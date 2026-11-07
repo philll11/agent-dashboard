@@ -1,3 +1,4 @@
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{Attribution, History, Identity, Request, SessionKey};
 use agent_dashboard_core::pricing::PriceTable;
 use agent_dashboard_core::report::{self, Bucket, Filter, Range};
@@ -38,8 +39,8 @@ impl Fixture {
                 let app = w.project("C--code-app", Some(r"C:\code\app"))?;
                 let site = w.project("C--code-site", Some(r"C:\code\site"))?;
                 Ok((
-                    w.session("session-app", app)?,
-                    w.session("session-site", site)?,
+                    w.session("session-app", app, Agent::ClaudeCode)?,
+                    w.session("session-site", site, Agent::ClaudeCode)?,
                 ))
             })
             .unwrap();
@@ -89,7 +90,10 @@ impl Fixture {
                         mcp_tool: extra.mcp.map(|(_, tool)| tool),
                     },
                     entrypoint: Some("cli"),
-                    claude_code_version: Some("2.1.296"),
+                    agent_version: Some("2.1.296"),
+                    reasoning_tokens: 0,
+                    initiator: None,
+                    charge: None,
                     imported_from: None,
                 })
             })
@@ -260,10 +264,12 @@ fn a_filter_keeps_one_project_or_one_model() {
     };
 
     let app_only = Filter {
+        agent: None,
         project: Some(app_project(&fixture)),
         model: None,
     };
     let opus_only = Filter {
+        agent: None,
         project: None,
         model: Some("claude-opus-5-5".to_owned()),
     };
@@ -271,6 +277,7 @@ fn a_filter_keeps_one_project_or_one_model() {
     assert_eq!(requests(&opus_only), 2);
     assert_eq!(
         requests(&Filter {
+            agent: None,
             project: app_only.project,
             model: opus_only.model.clone(),
         }),
@@ -281,6 +288,7 @@ fn a_filter_keeps_one_project_or_one_model() {
         Fixture::table(),
         Fixture::everything(),
         &Filter {
+            agent: None,
             project: Some(site_project(&fixture)),
             model: None,
         },
@@ -384,7 +392,7 @@ fn a_sessions_detail_separates_subagents_and_credits() {
         [("github", Some("search_code"), 1)]
     );
     assert_eq!(detail.uncredited.requests, 1);
-    assert_eq!(detail.claude_code_version.as_deref(), Some("2.1.296"));
+    assert_eq!(detail.agent_version.as_deref(), Some("2.1.296"));
     assert_eq!(detail.entrypoint.as_deref(), Some("cli"));
 }
 
@@ -463,6 +471,7 @@ fn days_add_up_by_week_and_by_month() {
         Fixture::table(),
         Fixture::everything(),
         &TimeZone::UTC,
+        &Filter::default(),
     )
     .unwrap();
     let summed = |bucket| {

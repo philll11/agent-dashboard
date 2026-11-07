@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+use crate::agent::Agent;
 use crate::roots::{DataRoot, RootSource};
 
 /// The file in Claude Code's configuration folder that holds its login: on Linux and Windows,
@@ -68,11 +69,13 @@ pub struct LoginSource {
 }
 
 impl LoginSource {
-    /// The login of Claude Code's own configuration folder: the first data root that
-    /// `CLAUDE_CONFIG_DIR` or the default names, not one the person added, such as a WSL home.
+    /// The login of Claude Code's own configuration folder: the first of Claude Code's data roots
+    /// that `CLAUDE_CONFIG_DIR` or the default names, not one the person added, such as a WSL home.
     #[must_use]
     pub fn of(roots: &[DataRoot], config_dir: Option<&OsStr>) -> Option<Self> {
-        let root = roots.iter().find(|root| root.source != RootSource::Added)?;
+        let root = roots
+            .iter()
+            .find(|root| root.agent == Agent::ClaudeCode && root.source != RootSource::Added)?;
         let config_dir = match root.source {
             RootSource::Environment => config_dir
                 .and_then(OsStr::to_str)

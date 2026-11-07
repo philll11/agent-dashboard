@@ -54,6 +54,7 @@ impl Server {
             .args(["serve", "--stdio"])
             .args(options)
             .env("CLAUDE_CONFIG_DIR", &root)
+            .env("COPILOT_HOME", root.with_file_name(".copilot"))
             .env("AGENT_DASHBOARD_HISTORY", &history)
             .env("AGENT_DASHBOARD_NOW", NOW)
             .env("TZ", "UTC")
@@ -267,7 +268,8 @@ fn answers_with_the_history_it_reads() {
 
     let session = server.result("session", &json!({"id": id}));
     assert_eq!(session["totals"]["requests"], 2);
-    assert_eq!(session["claudeCodeVersion"], "2.1.296");
+    assert_eq!(session["agentVersion"], "2.1.296");
+    assert_eq!(session["agent"], "claude-code");
     assert_eq!(session["cumulativeCost"].as_array().unwrap().len(), 2);
 
     let prices = server.result("prices", &json!({"models": ["claude-opus-5-5"]}));
@@ -322,6 +324,7 @@ fn shows_the_plan_limits_a_status_line_records() {
     let mut statusline = Command::new(env!("CARGO_BIN_EXE_agent-dashboard"))
         .arg("statusline")
         .env("CLAUDE_CONFIG_DIR", &server.root)
+        .env("COPILOT_HOME", server.root.with_file_name(".copilot"))
         .env("AGENT_DASHBOARD_HISTORY", &server.history)
         .env("AGENT_DASHBOARD_NOW", NOW)
         .env("NO_COLOR", "1")
@@ -390,14 +393,16 @@ fn keeps_the_settings_every_surface_shares() {
     server.result("folders/add", &json!({"path": path}));
     let health = server.result("health", &Value::Null);
     let folders = health["folders"].as_array().unwrap();
-    assert_eq!(folders.len(), 2);
-    assert_eq!(folders[1]["source"], "added");
-    assert_eq!(folders[1]["path"], path);
+    assert_eq!(folders.len(), 3);
+    assert_eq!(folders[1]["agent"], "copilot-cli");
+    assert_eq!(folders[2]["agent"], "claude-code");
+    assert_eq!(folders[2]["source"], "added");
+    assert_eq!(folders[2]["path"], path);
     let relative = server.request("folders/add", &json!({"path": "somewhere"}));
     assert_eq!(relative["error"]["code"], -32602);
     server.result("folders/remove", &json!({"path": path}));
     let health = server.result("health", &Value::Null);
-    assert_eq!(health["folders"].as_array().unwrap().len(), 1);
+    assert_eq!(health["folders"].as_array().unwrap().len(), 2);
     assert_eq!(health["history"]["requests"], 2);
     assert_eq!(health["cleanupDays"], 30);
 }
@@ -855,6 +860,7 @@ fn a_history_too_new_to_read_answers_with_a_code_of_its_own() {
     let made = Command::new(env!("CARGO_BIN_EXE_agent-dashboard"))
         .arg("today")
         .env("CLAUDE_CONFIG_DIR", &root)
+        .env("COPILOT_HOME", root.with_file_name(".copilot"))
         .env("AGENT_DASHBOARD_HISTORY", &history)
         .env("AGENT_DASHBOARD_NOW", NOW)
         .output()

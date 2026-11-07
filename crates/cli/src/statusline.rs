@@ -8,10 +8,11 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history;
 use agent_dashboard_core::ingest;
 use agent_dashboard_core::limits::{FIVE_HOUR, Level, SEVEN_DAY, StatusLineInput};
-use agent_dashboard_core::report::{self, Range};
+use agent_dashboard_core::report::{self, Filter, Range};
 use agent_dashboard_core::transcript;
 use agent_dashboard_server::app::App;
 use agent_dashboard_server::fmt::money;
@@ -65,7 +66,14 @@ fn record(app: &App, input: &StatusLineInput) -> Option<f64> {
         let _ = ingest::ingest_transcripts(&mut history, &transcripts);
     }
     let day = app.now_zoned().date();
-    let models = report::by_model(&history, &app.prices, Range::days(day, day, &app.zone)).ok()?;
+    // Claude Code's status line shows Claude Code's own cost today.
+    let models = report::by_model(
+        &history,
+        &app.prices,
+        Range::days(day, day, &app.zone),
+        &Filter::agent(Agent::ClaudeCode),
+    )
+    .ok()?;
     Some(models.iter().map(|model| model.totals.cost.total()).sum())
 }
 

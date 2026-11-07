@@ -3,11 +3,11 @@
 //! boards draw.
 
 use agent_dashboard_server::protocol::{
-    Access, Choices, Cost, CostPoint, Credit, Day, DayCost, Days, Endpoint, FastPrices,
-    FiveHourWindow, Folder, FolderState, Health, HistoryFacts, ImportOffer, Level, Limits,
-    LongPrompt, Model, ModelDay, ModelRow, Overview, Pace, PriceDrift, PriceRefresh, PriceRow,
-    Prices, Progress, Project, ProjectRow, Provenance, SessionDetail, SessionRow, SessionsPage,
-    Status, StatusLine, Tokens, Totals, UsePoint, WhoRow, WindowReading, WindowView,
+    Access, AgentChoice, Choices, Cost, CostPoint, CostProvenance, Credit, Day, DayCost, Days,
+    Endpoint, FastPrices, FiveHourWindow, Folder, FolderState, Health, HistoryFacts, ImportOffer,
+    Level, Limits, LongPrompt, Model, ModelDay, ModelRow, Overview, Pace, PriceDrift, PriceRefresh,
+    PriceRow, Prices, Progress, Project, ProjectRow, Provenance, SessionDetail, SessionRow,
+    SessionsPage, Status, StatusLine, Tokens, Totals, UsePoint, WhoRow, WindowReading, WindowView,
 };
 use jiff::civil::{Date, date};
 use jiff::tz::TimeZone;
@@ -135,6 +135,11 @@ fn session_totals() -> Totals {
         unpriced_requests: 0,
         web_search_requests: 3,
         fast_requests: 0,
+        reasoning_tokens: 0,
+        cost_provenance: Some(CostProvenance::Estimate),
+        charged_requests: 0,
+        charged_usd: 0.0,
+        charged_credits: 0.0,
     }
 }
 
@@ -197,6 +202,11 @@ fn totals(cost: f64, requests_per_dollar: f64, fast_share: f64) -> Totals {
         unpriced_requests: 0,
         web_search_requests: 0,
         fast_requests: whole(f64::from(u32::try_from(requests).unwrap_or(0)) * fast_share),
+        reasoning_tokens: 0,
+        cost_provenance: Some(CostProvenance::Estimate),
+        charged_requests: 0,
+        charged_usd: 0.0,
+        charged_credits: 0.0,
     }
 }
 
@@ -353,6 +363,7 @@ impl Fixture {
     fn health(&self) -> Health {
         let mut folders = vec![Folder {
             path: r"C:\Users\you\.claude".to_owned(),
+            agent: "claude-code".to_owned(),
             source: "default".to_owned(),
             state: if self.variant == Variant::Empty {
                 FolderState::Missing
@@ -366,6 +377,7 @@ impl Fixture {
         if self.variant == Variant::Folder {
             folders.push(Folder {
                 path: r"\\wsl.localhost\Ubuntu\home\you\.claude".to_owned(),
+                agent: "claude-code".to_owned(),
                 source: "added".to_owned(),
                 state: FolderState::Unreachable {
                     reason: "WSL is not running".to_owned(),
@@ -423,7 +435,14 @@ impl Fixture {
         projects.sort_by(|a, b| a.name.cmp(&b.name));
         let mut models = self.models();
         models.sort_by(|a, b| a.name.cmp(&b.name));
-        Choices { projects, models }
+        Choices {
+            agents: vec![AgentChoice {
+                id: "claude-code".to_owned(),
+                name: "Claude Code".to_owned(),
+            }],
+            projects,
+            models,
+        }
     }
 
     /// The share of the cost a project filter keeps.
@@ -604,6 +623,7 @@ impl Fixture {
         };
         let reading = |window: &str, model: Option<&str>, used: f64, resets: i64, level: Level| {
             WindowReading {
+                agent: "claude-code".to_owned(),
                 window: window.to_owned(),
                 model: model.map(str::to_owned),
                 used_percentage: used,
@@ -611,6 +631,8 @@ impl Fixture {
                 observed_ms: observed,
                 provenance,
                 level,
+                used: None,
+                entitlement: None,
                 stale,
                 expired: stale && resets <= self.now_ms(),
             }
@@ -814,6 +836,7 @@ impl Fixture {
                 });
                 SessionRow {
                     id: format!("4f1c2a3b-0000-4000-8000-{index:012}"),
+                    agent: "claude-code".to_owned(),
                     title: (!title.is_empty()).then(|| title.to_owned()),
                     project: project(project_index),
                     first_ms,
@@ -899,7 +922,8 @@ impl Fixture {
             transcript: None,
             first_ms: first,
             last_ms: last,
-            claude_code_version: Some("2.4.1".to_owned()),
+            agent_version: Some("2.4.1".to_owned()),
+            agent: "claude-code".to_owned(),
             entrypoint: Some("cli".to_owned()),
             own: Totals {
                 requests: 186,

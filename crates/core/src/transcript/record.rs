@@ -1,13 +1,13 @@
-//! What the history takes from one transcript record.
+//! What the history takes from one transcript record: the kinds of record every agent's
+//! transcript reads into, and reading Claude Code's.
 
 use std::collections::BTreeMap;
-use std::fmt;
-use std::marker::PhantomData;
 
 use serde::Deserialize;
-use serde::de::value::MapAccessDeserializer;
-use serde::de::{self, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 
+use crate::lenient::{lenient, lenient_list, object};
+use crate::limits::LimitSnapshot;
+use crate::pricing::Charge;
 use crate::tokens::Tokens;
 
 /// A transcript record that the history uses.
@@ -20,6 +20,13 @@ pub enum Record {
     CustomTitle(String),
     /// Claude Code's own running cost for the session.
     CostState(CostState),
+    /// A plan-limit reading the agent recorded, such as Copilot CLI's monthly allowance.
+    Limit(LimitSnapshot),
+    /// The kind of agent a subagent is, by the id its requests carry.
+    SubagentType {
+        subagent_id: String,
+        agent_type: String,
+    },
 }
 
 /// The cost that one run of Claude Code reports for a session, at list prices.
@@ -48,7 +55,8 @@ pub struct ReportedModelCost {
 
 /// A request, as one transcript record holds it.
 ///
-/// Claude Code writes several records for one streamed response, each with the usage so far.
+/// Claude Code writes several records for one streamed response, each with the usage so far;
+/// Copilot CLI writes one for each request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequestRecord {
     /// The record's own id.
@@ -61,7 +69,7 @@ pub struct RequestRecord {
     pub cwd: Option<String>,
     /// How Claude Code was started, such as `cli`, `sdk-cli` or `claude-vscode`.
     pub entrypoint: Option<String>,
-    pub claude_code_version: Option<String>,
+    pub agent_version: Option<String>,
     pub speed: Option<String>,
     pub service_tier: Option<String>,
     pub inference_geo: Option<String>,
@@ -73,6 +81,16 @@ pub struct RequestRecord {
     /// The tokens used, by model: the record's own model first, then any other model the
     /// response used, such as one that Claude Code tried before falling back.
     pub usage: Vec<ModelUsage>,
+    /// Reasoning tokens, which the output tokens already count.
+    pub reasoning_tokens: u64,
+    /// What the request cost, as the agent recorded it; `None` where it records no charge.
+    pub charge: Option<Charge>,
+    /// Who started the request: `user`, `agent` or `sub-agent`, where the agent says.
+    pub initiator: Option<String>,
+    /// The subagent that made the request, where the record says rather than the transcript.
+    pub subagent_id: Option<String>,
+    /// The model's name as the agent shows it, such as `Claude Opus 5.5`.
+    pub model_name: Option<String>,
 }
 
 /// The tokens one model used for a request.
@@ -167,7 +185,7 @@ fn request(raw: RawRecord) -> Result<Option<RequestRecord>, Unreadable> {
         timestamp_ms,
         cwd: raw.cwd,
         entrypoint: raw.entrypoint,
-        claude_code_version: raw.version,
+        agent_version: raw.version,
         speed: usage.speed,
         service_tier: usage.service_tier,
         inference_geo: usage.inference_geo,
@@ -176,6 +194,11 @@ fn request(raw: RawRecord) -> Result<Option<RequestRecord>, Unreadable> {
         mcp_tool: raw.attribution_mcp_tool,
         web_search_requests: server_tools.web_search_requests.unwrap_or(0),
         web_fetch_requests: server_tools.web_fetch_requests.unwrap_or(0),
+        reasoning_tokens: 0,
+        charge: None,
+        initiator: None,
+        subagent_id: None,
+        model_name: None,
     }))
 }
 
@@ -342,104 +365,4 @@ struct RawServerTools {
     web_search_requests: Option<u64>,
     #[serde(default, deserialize_with = "lenient")]
     web_fetch_requests: Option<u64>,
-}
-
-/// Reads a small field as `T`, or as `None` when it holds another type, so that one changed field
-/// does not cost the whole record.
-fn lenient<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum Field<T> {
-        Value(T),
-        Other(IgnoredAny),
-    }
-    Ok(match Field::<T>::deserialize(deserializer)? {
-        Field::Value(value) => Some(value),
-        Field::Other(_) => None,
-    })
-}
-
-/// Reads a list, keeping the elements that read as `T`; anything other than a list reads as empty.
-fn lenient_list<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Ok(lenient::<D, Vec<Lenient<T>>>(deserializer)?
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|element| element.0)
-        .collect())
-}
-
-/// One element of a list read by [`lenient_list`].
-struct Lenient<T>(Option<T>);
-
-impl<'de, T: Deserialize<'de>> Deserialize<'de> for Lenient<T> {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        lenient(deserializer).map(Lenient)
-    }
-}
-
-/// Reads an object as `T`, or as `None` when the field holds something else.
-///
-/// Unlike [`lenient`], it reads the object in place instead of buffering it first, because a
-/// record's message holds the whole response.
-fn object<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    struct ObjectVisitor<T>(PhantomData<T>);
-
-    impl<'de, T: Deserialize<'de>> Visitor<'de> for ObjectVisitor<T> {
-        type Value = Option<T>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            formatter.write_str("any value")
-        }
-
-        fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<Self::Value, A::Error> {
-            T::deserialize(MapAccessDeserializer::new(map)).map(Some)
-        }
-
-        fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-            while seq.next_element::<IgnoredAny>()?.is_some() {}
-            Ok(None)
-        }
-
-        fn visit_bool<E: de::Error>(self, _: bool) -> Result<Self::Value, E> {
-            Ok(None)
-        }
-
-        fn visit_i64<E: de::Error>(self, _: i64) -> Result<Self::Value, E> {
-            Ok(None)
-        }
-
-        fn visit_u64<E: de::Error>(self, _: u64) -> Result<Self::Value, E> {
-            Ok(None)
-        }
-
-        fn visit_f64<E: de::Error>(self, _: f64) -> Result<Self::Value, E> {
-            Ok(None)
-        }
-
-        fn visit_str<E: de::Error>(self, _: &str) -> Result<Self::Value, E> {
-            Ok(None)
-        }
-
-        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
-            Ok(None)
-        }
-
-        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
-            Ok(None)
-        }
-    }
-
-    deserializer.deserialize_any(ObjectVisitor(PhantomData))
 }

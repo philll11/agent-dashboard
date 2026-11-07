@@ -14,11 +14,13 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::History;
 use agent_dashboard_core::ingest;
 use agent_dashboard_core::pricing::PriceTable;
 use agent_dashboard_core::reconcile;
-use agent_dashboard_core::report::{self, Range};
+use agent_dashboard_core::report::{self, Filter, Range};
+use agent_dashboard_core::roots::DataRoot;
 use agent_dashboard_core::transcript::{self, Transcript};
 use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use jiff::tz::TimeZone;
@@ -143,7 +145,7 @@ fn session(id: &str, turns: usize, start: Timestamp) -> Vec<u8> {
 /// Made-up transcripts in a data root: 48 sessions of 5 to 64 turns over the last four weeks,
 /// every fourth with a subagent, about 64 MB in all.
 struct Corpus {
-    root: PathBuf,
+    roots: Vec<DataRoot>,
     bytes: u64,
     largest: PathBuf,
     /// A session that grows by a turn whenever a benchmark asks.
@@ -181,13 +183,13 @@ impl Corpus {
             bytes: written.iter().map(|(_, bytes)| bytes.len() as u64).sum(),
             largest: largest.clone(),
             growing: written[0].0.clone(),
-            root,
+            roots: vec![DataRoot::added(root, Agent::ClaudeCode)],
             _dir: dir,
         }
     }
 
-    fn roots(&self) -> &[PathBuf] {
-        std::slice::from_ref(&self.root)
+    fn roots(&self) -> &[DataRoot] {
+        &self.roots
     }
 
     /// Adds turn `n` to the growing session.
@@ -218,7 +220,7 @@ impl Scratch {
         }
     }
 
-    fn ingested(roots: &[PathBuf]) -> Self {
+    fn ingested(roots: &[DataRoot]) -> Self {
         let mut scratch = Self::new();
         ingest::ingest(&mut scratch.history, roots).unwrap();
         scratch
@@ -244,7 +246,10 @@ fn parse(c: &mut Criterion, corpus: &Corpus) {
         fs::metadata(&corpus.largest).unwrap().len(),
     ));
     group.bench_function("transcript", |b| {
-        b.iter(|| transcript::read_from(&corpus.largest, 0, u64::MAX).unwrap());
+        b.iter(|| {
+            transcript::read_from(&corpus.largest, 0, u64::MAX, transcript::parse_line, None)
+                .unwrap()
+        });
     });
     group.finish();
 }
@@ -261,16 +266,18 @@ fn reports(c: &mut Criterion, corpus: &Corpus) {
 
     let mut group = c.benchmark_group("report");
     group.bench_function("by day, 30 days", |b| {
-        b.iter(|| report::by_day(history, table, days(30), &TimeZone::UTC).unwrap());
+        b.iter(|| {
+            report::by_day(history, table, days(30), &TimeZone::UTC, &Filter::default()).unwrap()
+        });
     });
     group.bench_function("by model, 30 days", |b| {
-        b.iter(|| report::by_model(history, table, days(30)).unwrap());
+        b.iter(|| report::by_model(history, table, days(30), &Filter::default()).unwrap());
     });
     group.bench_function("by session, 7 days", |b| {
-        b.iter(|| report::by_session(history, table, days(7)).unwrap());
+        b.iter(|| report::by_session(history, table, days(7), &Filter::default()).unwrap());
     });
     group.bench_function("by project, 30 days", |b| {
-        b.iter(|| report::by_project(history, table, days(30)).unwrap());
+        b.iter(|| report::by_project(history, table, days(30), &Filter::default()).unwrap());
     });
     group.bench_function("reconcile", |b| {
         b.iter(|| reconcile::reconcile(history, table, now.as_millisecond()).unwrap());
@@ -315,8 +322,8 @@ fn real_data(c: &mut Criterion) {
     let Some(root) = std::env::var_os(REAL_ROOT_ENV).map(PathBuf::from) else {
         return;
     };
-    let roots = std::slice::from_ref(&root);
     let all = transcript::find(&root);
+    let roots = &[DataRoot::added(root, Agent::ClaudeCode)];
     let week_ago = SystemTime::now() - Duration::from_hours(7 * 24);
     let recent: Vec<Transcript> = all
         .iter()

@@ -6,7 +6,7 @@ use std::process::ExitCode;
 
 use agent_dashboard_core::history::History;
 use agent_dashboard_core::limits::{FIVE_HOUR, Level, LimitSnapshot, SEVEN_DAY, Source};
-use agent_dashboard_core::report::{self, Bucket, DayTotals, ModelTotals, Range, Totals};
+use agent_dashboard_core::report::{self, Bucket, DayTotals, Filter, ModelTotals, Range, Totals};
 use jiff::civil::Date;
 use jiff::{Timestamp, ToSpan};
 use serde::Serialize;
@@ -52,7 +52,7 @@ pub fn today(app: &App, output: Output) -> ExitCode {
     limits::refresh(app, &mut history);
     let day = app.now_zoned().date();
     let range = Range::days(day, day, &app.zone);
-    let models = match report::by_model(&history, &app.prices, range) {
+    let models = match report::by_model(&history, &app.prices, range, &Filter::default()) {
         Ok(models) => models,
         Err(error) => {
             eprintln!("Cannot read the history: {error}");
@@ -141,6 +141,7 @@ pub fn daily(app: &App, since: Option<Date>, until: Option<Date>, output: Output
         &app.prices,
         Range::days(since, until, &app.zone),
         &app.zone,
+        &Filter::default(),
     ) {
         Ok(days) => days,
         Err(error) => {
@@ -195,6 +196,7 @@ pub fn periods(
         &app.prices,
         Range::days(first, last, &app.zone),
         &app.zone,
+        &Filter::default(),
     ) {
         Ok(days) => days,
         Err(error) => {
@@ -534,6 +536,7 @@ fn limit_json(limit: &LimitSnapshot) -> LimitJson {
         observed_at: at(limit.observed_ms).unwrap_or_default(),
         provenance: match limit.source {
             Source::StatusLine => "official",
+            Source::CopilotSessionFiles => "recorded",
             Source::UsageEndpoint => "experimental",
         },
     }

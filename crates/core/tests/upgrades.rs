@@ -14,12 +14,13 @@ use jiff::tz::TimeZone;
 use rusqlite::Connection;
 
 /// Every migration, as the history applies them: schema version N is the result of the first N.
-const MIGRATIONS: [&str; 5] = [
+const MIGRATIONS: [&str; 6] = [
     include_str!("../src/history/migrations/0001-projects-sessions-requests.sql"),
     include_str!("../src/history/migrations/0002-ingest.sql"),
     include_str!("../src/history/migrations/0003-usage-endpoint.sql"),
     include_str!("../src/history/migrations/0004-request-time.sql"),
     include_str!("../src/history/migrations/0005-subagents-and-settings.sql"),
+    include_str!("../src/history/migrations/0006-agents.sql"),
 ];
 
 /// The application id that marks an SQLite file as a history.
@@ -35,8 +36,9 @@ const RANGE: Range = Range {
 /// fast mode, US-only inference, web searches and fetches, a skill and an MCP tool, a request
 /// without a request id, one without a message id, a model with no price, a request brought in
 /// from claude-usage, titles, a reported cost, a plan window's reading, a day from Claude Code's
-/// statistics, read positions, the usage endpoint's last turn, a subagent's type, a shared setting
-/// and an added data folder.
+/// statistics, read positions, the usage endpoint's last turn, a subagent's type, a shared setting,
+/// an added data folder, and a Copilot CLI session with a charged request, its model's name and a
+/// reading of its monthly allowance.
 const ROWS: &[(u32, &str)] = &[
     (
         1,
@@ -133,6 +135,49 @@ const ROWS: &[(u32, &str)] = &[
         "INSERT INTO data_folders (path, added_ms)
          VALUES ('/home/me/.claude-work', 1788250000000)",
     ),
+    (
+        6,
+        "INSERT INTO sessions (id, session_id, project, agent, ai_title)
+         VALUES (3, 'session-copilot', 1, 'copilot-cli', 'Review the importer')",
+    ),
+    (
+        6,
+        "INSERT INTO requests (id, session, message_id, request_id, record_id, subagent_id,
+             timestamp_ms, model, input_tokens, output_tokens, cache_read_tokens,
+             cache_write_5m_tokens, cache_write_1h_tokens, web_search_requests,
+             web_fetch_requests, entrypoint, claude_code_version, record_ms, reasoning_tokens,
+             initiator, charge_input_nano, charge_output_nano, charge_cache_read_nano,
+             charge_cache_write_nano)
+         VALUES
+             (6, 3, NULL, NULL, 'copilot:msg_6', NULL, 1788343200000, 'claude-opus-5.5',
+              4, 49, 0, 30278, 0, 0, 0, 'github/cli', '1.0.106', 1788343200000, 12, 'user',
+              1760000, 107800000, 0, 16652900000),
+             (7, 3, NULL, NULL, 'copilot:msg_7', 'toolu_1', 1788343260000, 'gpt-6-luna',
+              3, 88, 0, 5075, 0, 0, 0, 'github/cli', '1.0.106', 1788343260000, 0,
+              'sub-agent', NULL, NULL, NULL, NULL)",
+    ),
+    (
+        6,
+        "INSERT INTO model_names (agent, model, name)
+         VALUES ('copilot-cli', 'claude-opus-5.5', 'Claude Opus 5.5')",
+    ),
+    (
+        6,
+        "INSERT INTO limit_snapshots (window, source, bucket_ms, observed_ms, used_percentage,
+             resets_at_ms, used, entitlement)
+         VALUES ('monthly', 'copilot-session-files', 1788343200000, 1788343205000, 2.5,
+              1790812800000, 1125.0, 45000.0)",
+    ),
+    (
+        6,
+        "UPDATE transcripts SET first_line = -7046029254386353131
+         WHERE path LIKE '%session-app.jsonl'",
+    ),
+    (
+        6,
+        "INSERT INTO data_folders (path, added_ms, agent)
+         VALUES ('/home/me/.copilot-work', 1788250000001, 'copilot-cli')",
+    ),
 ];
 
 fn latest() -> u32 {
@@ -178,10 +223,10 @@ fn picture(history: &History) -> String {
     let mut picture = String::new();
     let mut add = |part: &dyn Debug| writeln!(picture, "{part:?}").unwrap();
     add(&history.counts().unwrap());
-    add(&report::by_day(history, table, RANGE, &zone).unwrap());
-    add(&report::by_model(history, table, RANGE).unwrap());
-    add(&report::by_session(history, table, RANGE).unwrap());
-    add(&report::by_project(history, table, RANGE).unwrap());
+    add(&report::by_day(history, table, RANGE, &zone, &report::Filter::default()).unwrap());
+    add(&report::by_model(history, table, RANGE, &report::Filter::default()).unwrap());
+    add(&report::by_session(history, table, RANGE, &report::Filter::default()).unwrap());
+    add(&report::by_project(history, table, RANGE, &report::Filter::default()).unwrap());
     add(&sorted(history.projects().unwrap()));
     add(&sorted(history.sessions().unwrap()));
     add(&sorted(history.all_subagent_types().unwrap()));

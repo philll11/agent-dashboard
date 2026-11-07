@@ -22,10 +22,13 @@ pub struct Days {
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "protocol.ts")]
 pub struct Filters {
+    /// An agent: `claude-code` or `copilot-cli`.
+    #[ts(optional = nullable)]
+    pub agent: Option<String>,
     /// A project's id.
     #[ts(optional = nullable)]
     pub project: Option<String>,
-    /// A model id, as Claude Code records it.
+    /// A model id, as the agent records it.
     #[ts(optional = nullable)]
     pub model: Option<String>,
 }
@@ -63,12 +66,37 @@ pub struct Cost {
 pub struct Totals {
     pub requests: u64,
     pub tokens: Tokens,
-    /// The API-equivalent cost of the priced requests.
+    /// Reasoning tokens, which the output tokens already count.
+    pub reasoning_tokens: u64,
+    /// The cost of the priced requests in US dollars: Claude Code's API-equivalent cost and the
+    /// charges Copilot CLI recorded.
     pub cost: Cost,
-    /// Requests to models the price table does not list, whose cost is unknown.
+    /// Where the cost comes from; absent when no request is priced.
+    #[ts(optional = nullable)]
+    pub cost_provenance: Option<CostProvenance>,
+    /// Requests whose cost is a recorded charge.
+    pub charged_requests: u64,
+    /// The recorded charges that `cost` includes, in US dollars.
+    pub charged_usd: f64,
+    /// The same charges in AI credits, at $0.01 each.
+    pub charged_credits: f64,
+    /// Requests with neither a price nor a recorded charge, whose cost is unknown.
     pub unpriced_requests: u64,
     pub web_search_requests: u64,
     pub fast_requests: u64,
+}
+
+/// Where a cost comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "protocol.ts")]
+pub enum CostProvenance {
+    /// Claude Code's API-equivalent cost, from the price table.
+    Estimate,
+    /// Charges Copilot CLI recorded.
+    Recorded,
+    /// Both.
+    Mixed,
 }
 
 /// A model, by its id and the short name the price table gives it.
@@ -103,6 +131,8 @@ pub struct Project {
 pub enum Provenance {
     /// Claude Code's status line.
     Official,
+    /// What Copilot CLI recorded in its own files.
+    Recorded,
     /// Anthropic's undocumented usage endpoint.
     Experimental,
 }
@@ -124,8 +154,10 @@ pub enum Level {
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "protocol.ts")]
 pub struct WindowReading {
-    /// `five_hour`, `seven_day`, `seven_day:<model>` for one model's weekly window, or another
-    /// window Claude Code reports, such as `spend_limit`.
+    /// The agent whose plan the window is of: `claude-code` or `copilot-cli`.
+    pub agent: String,
+    /// `five_hour`, `seven_day`, `seven_day:<model>` for one model's weekly window, another
+    /// window Claude Code reports, such as `spend_limit`, or Copilot CLI's `monthly` allowance.
     pub window: String,
     /// The model whose weekly window this is.
     #[ts(optional = nullable)]
@@ -136,7 +168,13 @@ pub struct WindowReading {
     pub observed_ms: i64,
     pub provenance: Provenance,
     pub level: Level,
-    /// Older than an hour.
+    /// How much of an allowance is used, in AI credits, where the agent records it.
+    #[ts(optional = nullable)]
+    pub used: Option<f64>,
+    /// How large the allowance is, in AI credits, where the agent records it.
+    #[ts(optional = nullable)]
+    pub entitlement: Option<f64>,
+    /// Older than an hour, or a day for a monthly window.
     pub stale: bool,
     /// The window has reset since the reading, so the reading no longer tells its use.
     pub expired: bool,
@@ -285,8 +323,10 @@ pub struct SessionsParams {
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "protocol.ts")]
 pub struct SessionRow {
-    /// Claude Code's session id.
+    /// The agent's session id.
     pub id: String,
+    /// `claude-code` or `copilot-cli`.
+    pub agent: String,
     #[ts(optional = nullable)]
     pub title: Option<String>,
     pub project: Project,
@@ -377,8 +417,10 @@ pub struct SessionDetail {
     pub first_ms: i64,
     pub last_ms: i64,
     #[ts(optional = nullable)]
-    pub claude_code_version: Option<String>,
-    /// How Claude Code was started, such as `cli` or `claude-vscode`.
+    pub agent_version: Option<String>,
+    /// `claude-code` or `copilot-cli`.
+    pub agent: String,
+    /// How the agent was started, such as Claude Code's `cli` or Copilot CLI's `github/cli`.
     #[ts(optional = nullable)]
     pub entrypoint: Option<String>,
     pub totals: Totals,
@@ -469,6 +511,17 @@ pub enum StatusLine {
     Unknown {
         reason: String,
     },
+}
+
+/// An agent the dashboard can filter by.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "protocol.ts")]
+pub struct AgentChoice {
+    /// `claude-code` or `copilot-cli`.
+    pub id: String,
+    /// Such as `Copilot CLI`.
+    pub name: String,
 }
 
 /// The usage endpoint's state, and how asking it last went.
@@ -618,6 +671,8 @@ pub enum FolderState {
 #[ts(export, export_to = "protocol.ts")]
 pub struct Folder {
     pub path: String,
+    /// The agent whose data the folder holds: `claude-code` or `copilot-cli`.
+    pub agent: String,
     /// `default`, `environment` or `added`.
     pub source: String,
     pub state: FolderState,
@@ -717,6 +772,10 @@ pub struct SettingsChange {
 #[ts(export, export_to = "protocol.ts")]
 pub struct FolderParams {
     pub path: String,
+    /// The agent whose data the folder holds; Claude Code's when absent.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub agent: Option<String>,
 }
 
 /// `import/offer`: what the claude-usage dashboard's database would add to the history.
@@ -759,6 +818,8 @@ pub struct HistoryChanged {
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "protocol.ts")]
 pub struct Choices {
+    /// The agents the history holds sessions of, in a fixed order.
+    pub agents: Vec<AgentChoice>,
     /// By name.
     pub projects: Vec<Project>,
     /// By name.

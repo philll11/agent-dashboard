@@ -1,7 +1,8 @@
 //! Totals of the history's requests for reports: by model, by day, by session and by project.
 //!
-//! API-equivalent cost covers priced requests only; requests to unpriced models are counted
-//! apart, so that a missing price never shows as free.
+//! Cost is a Claude Code request's API-equivalent cost and a Copilot CLI request's recorded
+//! charge, added up in US dollars; totals say which kinds they hold (ADR 0015). Requests with
+//! neither are counted apart as unpriced, so that a missing price never shows as free.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -9,8 +10,9 @@ use jiff::civil::{Date, Weekday};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, ToSpan};
 
+use crate::agent::Agent;
 use crate::history::{History, HistoryError, ProjectKey, SessionKey, StoredRequest};
-use crate::pricing::{self, Cost, PriceTable};
+use crate::pricing::{self, Charge, Cost, PriceTable};
 use crate::tokens::Tokens;
 
 /// Requests added up.
@@ -18,36 +20,77 @@ use crate::tokens::Tokens;
 pub struct Totals {
     pub requests: u64,
     pub tokens: Tokens,
-    /// The API-equivalent cost of the priced requests.
+    /// Reasoning tokens, which the output tokens already count.
+    pub reasoning_tokens: u64,
+    /// The cost of the priced requests: API-equivalent cost estimated from the price table, and
+    /// charges the agents recorded.
     pub cost: Cost,
-    /// Requests to models the price table does not list, whose cost is unknown.
+    /// Priced requests whose cost is a charge the agent recorded rather than an estimate.
+    pub charged_requests: u64,
+    /// What those requests were charged, which `cost` includes.
+    pub charge: Charge,
+    /// Requests with neither a price nor a recorded charge, whose cost is unknown.
     pub unpriced_requests: u64,
     pub web_search_requests: u64,
     /// Requests made in fast mode.
     pub fast_requests: u64,
 }
 
+/// Where a cost comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CostProvenance {
+    /// API-equivalent cost from the price table.
+    Estimate,
+    /// Charges the agents recorded.
+    Recorded,
+    /// Both.
+    Mixed,
+}
+
 impl Totals {
     fn add(&mut self, request: &StoredRequest<'_>, cost: Option<Cost>) {
         self.requests += 1;
         self.tokens.add(request.tokens);
+        self.reasoning_tokens += request.reasoning_tokens;
         self.web_search_requests += request.web_search_requests;
         if request.speed == Some("fast") {
             self.fast_requests += 1;
         }
         match cost {
-            Some(cost) => self.cost.add(cost),
+            Some(cost) => {
+                self.cost.add(cost);
+                if let (true, Some(charge)) = (charged(request), request.charge) {
+                    self.charged_requests += 1;
+                    self.charge.add(charge);
+                }
+            }
             None => self.unpriced_requests += 1,
         }
     }
 
-    fn merge(&mut self, other: &Self) {
+    /// Adds `other` to these totals.
+    pub fn merge(&mut self, other: &Self) {
         self.requests += other.requests;
         self.tokens.add(other.tokens);
+        self.reasoning_tokens += other.reasoning_tokens;
         self.cost.add(other.cost);
+        self.charged_requests += other.charged_requests;
+        self.charge.add(other.charge);
         self.unpriced_requests += other.unpriced_requests;
         self.web_search_requests += other.web_search_requests;
         self.fast_requests += other.fast_requests;
+    }
+
+    /// Where the cost comes from; `None` when no request is priced.
+    #[must_use]
+    pub fn cost_provenance(&self) -> Option<CostProvenance> {
+        let priced = self.requests - self.unpriced_requests;
+        match (priced > self.charged_requests, self.charged_requests > 0) {
+            (true, false) => Some(CostProvenance::Estimate),
+            (false, true) => Some(CostProvenance::Recorded),
+            (true, true) => Some(CostProvenance::Mixed),
+            (false, false) => None,
+        }
     }
 }
 
@@ -92,15 +135,27 @@ impl Range {
     }
 }
 
-fn price(table: &PriceTable, request: &StoredRequest<'_>) -> Option<Cost> {
-    table.cost(&pricing::Request {
-        model: request.model,
-        timestamp_ms: request.timestamp_ms,
-        tokens: request.tokens,
-        speed: request.speed,
-        inference_geo: request.inference_geo,
-        web_search_requests: request.web_search_requests,
-    })
+/// What a request cost: the charge its agent recorded, where the agent records one, and otherwise
+/// its API-equivalent cost from the price table, which covers Claude Code's models only. `None`
+/// when neither is known.
+#[must_use]
+pub fn price(table: &PriceTable, request: &StoredRequest<'_>) -> Option<Cost> {
+    match request.agent {
+        Agent::CopilotCli => request.charge.map(Charge::cost),
+        Agent::ClaudeCode => table.cost(&pricing::Request {
+            model: request.model,
+            timestamp_ms: request.timestamp_ms,
+            tokens: request.tokens,
+            speed: request.speed,
+            inference_geo: request.inference_geo,
+            web_search_requests: request.web_search_requests,
+        }),
+    }
+}
+
+/// Whether a request's cost is a charge its agent recorded.
+fn charged(request: &StoredRequest<'_>) -> bool {
+    request.agent == Agent::CopilotCli && request.charge.is_some()
 }
 
 fn by_cost(models: HashMap<String, Totals>) -> Vec<ModelTotals> {
@@ -119,7 +174,7 @@ fn by_cost(models: HashMap<String, Totals>) -> Vec<ModelTotals> {
     models
 }
 
-/// The totals of the requests in `range`, by model, highest API-equivalent cost first.
+/// The totals of the requests in `range` that `filter` admits, by model, highest cost first.
 ///
 /// # Errors
 ///
@@ -128,9 +183,13 @@ pub fn by_model(
     history: &History,
     table: &PriceTable,
     range: Range,
+    filter: &Filter,
 ) -> Result<Vec<ModelTotals>, HistoryError> {
     let mut models: HashMap<String, Totals> = HashMap::new();
     history.for_each_request(range.from_ms, range.to_ms, |request| {
+        if !filter.admits(request) {
+            return;
+        }
         models
             .entry(request.model.to_owned())
             .or_default()
@@ -139,8 +198,8 @@ pub fn by_model(
     Ok(by_cost(models))
 }
 
-/// The totals of the requests in `range`, by day in `zone`, oldest day first. Days without
-/// requests are left out.
+/// The totals of the requests in `range` that `filter` admits, by day in `zone`, oldest day
+/// first. Days without requests are left out.
 ///
 /// # Errors
 ///
@@ -150,9 +209,13 @@ pub fn by_day(
     table: &PriceTable,
     range: Range,
     zone: &TimeZone,
+    filter: &Filter,
 ) -> Result<Vec<DayTotals>, HistoryError> {
     let mut days: BTreeMap<Date, HashMap<String, Totals>> = BTreeMap::new();
     history.for_each_request(range.from_ms, range.to_ms, |request| {
+        if !filter.admits(request) {
+            return;
+        }
         let Ok(at) = Timestamp::from_millisecond(request.timestamp_ms) else {
             return;
         };
@@ -278,7 +341,7 @@ pub struct SessionTotals {
     pub models: Vec<ModelTotals>,
 }
 
-/// The totals of the requests in `range`, by session, most recent first.
+/// The totals of the requests in `range` that `filter` admits, by session, most recent first.
 ///
 /// # Errors
 ///
@@ -287,8 +350,9 @@ pub fn by_session(
     history: &History,
     table: &PriceTable,
     range: Range,
+    filter: &Filter,
 ) -> Result<Vec<SessionTotals>, HistoryError> {
-    sessions_matching(history, table, range, &Filter::default())
+    sessions_matching(history, table, range, filter)
 }
 
 /// A session's totals while they are added up, with its models and subagents so far.
@@ -360,7 +424,7 @@ pub struct ProjectTotals {
     pub totals: Totals,
 }
 
-/// The totals of the requests in `range`, by project, highest API-equivalent cost first.
+/// The totals of the requests in `range` that `filter` admits, by project, highest cost first.
 ///
 /// # Errors
 ///
@@ -369,9 +433,13 @@ pub fn by_project(
     history: &History,
     table: &PriceTable,
     range: Range,
+    filter: &Filter,
 ) -> Result<Vec<ProjectTotals>, HistoryError> {
     let mut projects: HashMap<ProjectKey, (ProjectTotals, HashSet<SessionKey>)> = HashMap::new();
     history.for_each_request(range.from_ms, range.to_ms, |request| {
+        if !filter.admits(request) {
+            return;
+        }
         let (entry, sessions) = projects.entry(request.project).or_insert_with(|| {
             (
                 ProjectTotals {
@@ -427,6 +495,8 @@ pub fn totals(
 /// Which requests a report covers, besides its range.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Filter {
+    /// Only this agent's requests.
+    pub agent: Option<Agent>,
     /// Only this project's requests.
     pub project: Option<ProjectKey>,
     /// Only this model's requests, by model id.
@@ -434,11 +504,22 @@ pub struct Filter {
 }
 
 impl Filter {
+    /// Only `agent`'s requests.
+    #[must_use]
+    pub fn agent(agent: Agent) -> Self {
+        Self {
+            agent: Some(agent),
+            ..Self::default()
+        }
+    }
+
     /// Whether the filter counts `request`.
     #[must_use]
     pub fn admits(&self, request: &StoredRequest<'_>) -> bool {
-        self.project
-            .is_none_or(|project| project == request.project)
+        self.agent.is_none_or(|agent| agent == request.agent)
+            && self
+                .project
+                .is_none_or(|project| project == request.project)
             && self
                 .model
                 .as_deref()
@@ -603,7 +684,7 @@ pub struct SessionDetail {
     /// Requests credited to neither a skill nor an MCP server.
     pub uncredited: Totals,
     /// The Claude Code version and entry point of its latest request.
-    pub claude_code_version: Option<String>,
+    pub agent_version: Option<String>,
     pub entrypoint: Option<String>,
 }
 
@@ -638,7 +719,7 @@ pub fn session_detail(
             skills: Vec::new(),
             mcp_tools: Vec::new(),
             uncredited: Totals::default(),
-            claude_code_version: None,
+            agent_version: None,
             entrypoint: None,
         });
         detail.first_ms = detail.first_ms.min(request.timestamp_ms);
@@ -675,8 +756,8 @@ pub fn session_detail(
                 .add(request, cost),
             (None, None) => detail.uncredited.add(request, cost),
         }
-        if let Some(version) = request.claude_code_version {
-            detail.claude_code_version = Some(version.to_owned());
+        if let Some(version) = request.agent_version {
+            detail.agent_version = Some(version.to_owned());
         }
         if let Some(entrypoint) = request.entrypoint {
             detail.entrypoint = Some(entrypoint.to_owned());

@@ -29,6 +29,12 @@ impl Fixture {
         self.dir.path().join(".claude")
     }
 
+    /// Copilot CLI's data root, which stays empty unless a test writes to it, so that no test
+    /// reads the Copilot CLI sessions of the computer it runs on.
+    pub fn copilot_root(&self) -> PathBuf {
+        self.dir.path().join(".copilot")
+    }
+
     pub fn history(&self) -> PathBuf {
         self.dir.path().join("history.sqlite")
     }
@@ -44,6 +50,7 @@ impl Fixture {
         command
             .args(args)
             .env("CLAUDE_CONFIG_DIR", self.root())
+            .env("COPILOT_HOME", self.copilot_root())
             .env("AGENT_DASHBOARD_HISTORY", self.history())
             .env("AGENT_DASHBOARD_NOW", NOW)
             .env("TZ", "UTC")

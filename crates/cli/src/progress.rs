@@ -19,10 +19,8 @@ pub fn ingest(app: &App, history: &mut History) -> Result<Option<Report>, Histor
     let started = Instant::now();
     let show = std::io::stderr().is_terminal();
     let mut shown = None;
-    let report = ingest::ingest_with_progress(
-        history,
-        &app.root_paths(),
-        |Progress { done, total, .. }| {
+    let report =
+        ingest::ingest_with_progress(history, &app.roots, |Progress { done, total, .. }| {
             if show
                 && started.elapsed() >= QUIET_FOR
                 && shown != Some(done)
@@ -39,8 +37,7 @@ pub fn ingest(app: &App, history: &mut History) -> Result<Option<Report>, Histor
                 let _ = stderr.flush();
             }
             ControlFlow::Continue(())
-        },
-    );
+        });
     if shown.is_some() {
         let _ = write!(std::io::stderr(), "\r{}\r", " ".repeat(60));
     }

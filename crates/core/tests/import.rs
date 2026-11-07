@@ -2,9 +2,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::History;
 use agent_dashboard_core::import::{self, CLAUDE_USAGE, ImportError, ImportReport};
 use agent_dashboard_core::ingest;
+use agent_dashboard_core::roots::DataRoot;
 use rusqlite::{Connection, OpenFlags, params};
 use serde_json::json;
 
@@ -81,9 +83,12 @@ impl Fixture {
     }
 
     fn ingest(&mut self) {
-        ingest::ingest(&mut self.history, std::slice::from_ref(&self.root))
-            .unwrap()
-            .unwrap();
+        ingest::ingest(
+            &mut self.history,
+            &[DataRoot::added(&self.root, Agent::ClaudeCode)],
+        )
+        .unwrap()
+        .unwrap();
     }
 
     fn import(&mut self, database: &Path) -> Result<ImportReport, ImportError> {

@@ -23,7 +23,11 @@ fn doctor_reports_the_data_folder_history_prices_and_limits() {
 
     let root = fixture.root().display().to_string();
     output
-        .stdout(contains(format!("✓ Data folder    {root}   1 transcript")))
+        .stdout(contains(format!("✓ Claude Code    {root}    1 transcript")))
+        .stdout(contains("- Copilot CLI    "))
+        .stdout(contains(
+            "not found; Copilot CLI makes it when it first runs (COPILOT_HOME)",
+        ))
         .stdout(contains("(CLAUDE_CONFIG_DIR)"))
         .stdout(contains("✓ History        "))
         .stdout(contains("integrity check passed"))
@@ -43,7 +47,7 @@ fn doctor_fails_when_no_data_folder_exists() {
         .cli(&["doctor"])
         .assert()
         .failure()
-        .stdout(contains("✗ Data folder"))
+        .stdout(contains("✗ Claude Code"))
         .stdout(contains("not found"));
 }
 

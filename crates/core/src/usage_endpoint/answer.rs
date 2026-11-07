@@ -31,6 +31,8 @@ pub fn plan_limits(json: &str, observed_ms: i64) -> Vec<LimitSnapshot> {
                 observed_ms,
                 used_percentage: used,
                 resets_at_ms: resets_at_ms(entry.get("resets_at")),
+                used: None,
+                entitlement: None,
             });
         }
     };

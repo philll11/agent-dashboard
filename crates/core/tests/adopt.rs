@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Barrier};
 use std::thread;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{
     Attribution, History, HistoryError, Identity, PREDECESSOR, Request, SessionKey,
 };
@@ -34,7 +35,10 @@ fn request(session: SessionKey, record_id: &str) -> Request<'_> {
         inference_geo: None,
         attribution: Attribution::default(),
         entrypoint: Some("cli"),
-        claude_code_version: Some("2.1.296"),
+        agent_version: Some("2.1.296"),
+        reasoning_tokens: 0,
+        initiator: None,
+        charge: None,
         imported_from: None,
     }
 }
@@ -47,7 +51,7 @@ fn predecessor(dir: &Path, requests: usize) -> PathBuf {
     history
         .write(|w| {
             let project = w.project("C--code-app", Some(r"C:\code\app"))?;
-            let session = w.session("session-1", project)?;
+            let session = w.session("session-1", project, Agent::ClaudeCode)?;
             ids.iter()
                 .try_for_each(|id| w.request(&request(session, id)))
         })
@@ -66,6 +70,8 @@ fn snapshot(observed_ms: i64, used_percentage: f64) -> LimitSnapshot {
         observed_ms,
         used_percentage,
         resets_at_ms: Some(observed_ms + 3_600_000),
+        used: None,
+        entitlement: None,
     }
 }
 
@@ -102,7 +108,7 @@ fn a_history_that_exists_is_never_replaced() {
     history
         .write(|w| {
             let project = w.project("C--code-other", Some(r"C:\code\other"))?;
-            let session = w.session("session-2", project)?;
+            let session = w.session("session-2", project, Agent::ClaudeCode)?;
             w.request(&request(session, "rec-new"))
         })
         .unwrap();

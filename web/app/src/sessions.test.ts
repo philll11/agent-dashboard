@@ -22,11 +22,17 @@ const TOTALS: Totals = {
   unpricedRequests: 0,
   webSearchRequests: 0,
   fastRequests: 0,
+  reasoningTokens: 0,
+  costProvenance: "estimate",
+  chargedRequests: 0,
+  chargedUsd: 0,
+  chargedCredits: 0,
 };
 
 function row(id: string, path: string | null, lastMs: number): SessionRow {
   return {
     id,
+    agent: "claude-code",
     title: id,
     project: { id: `project-${id}`, name: id, path },
     firstMs: lastMs - 30 * MINUTE,

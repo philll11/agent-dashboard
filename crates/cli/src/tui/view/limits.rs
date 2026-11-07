@@ -101,8 +101,10 @@ fn provenance(state: &State, readings: &[&WindowReading], source: bool) -> (Stri
     }
     let from = match (newest.provenance, source) {
         (Provenance::Official, true) => "official · status line",
+        (Provenance::Recorded, true) => "recorded · Copilot CLI",
         (Provenance::Experimental, true) => "experimental · usage endpoint",
         (Provenance::Official, false) => "official",
+        (Provenance::Recorded, false) => "recorded",
         (Provenance::Experimental, false) => "experimental",
     };
     (format!("{from} · {age}"), theme.muted())

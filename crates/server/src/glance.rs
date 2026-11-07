@@ -197,6 +197,7 @@ pub fn compose(readings: &[WindowReading], today: Today, zone: &TimeZone, now_ms
             let now = Timestamp::from_millisecond(now_ms).ok()?;
             let from = match latest.provenance {
                 Provenance::Official => "Official, status line",
+                Provenance::Recorded => "Recorded, Copilot CLI",
                 Provenance::Experimental => "Experimental, usage endpoint",
             };
             Some(format!("{from}, {}", ago(observed, now)))

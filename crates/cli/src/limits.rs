@@ -86,6 +86,7 @@ pub fn report(app: &App, output: Output) -> ExitCode {
 fn provenance(provenance: Provenance) -> &'static str {
     match provenance {
         Provenance::Official => "official",
+        Provenance::Recorded => "recorded",
         Provenance::Experimental => "experimental",
     }
 }

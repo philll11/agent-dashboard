@@ -26,6 +26,11 @@ function totals(usd: number, unpricedRequests = 0): Totals {
     unpricedRequests,
     webSearchRequests: 0,
     fastRequests: 0,
+    reasoningTokens: 0,
+    costProvenance: "estimate",
+    chargedRequests: 0,
+    chargedUsd: 0,
+    chargedCredits: 0,
   };
 }
 
@@ -36,6 +41,7 @@ function window(
   extra: Partial<WindowReading> = {},
 ): WindowReading {
   return {
+    agent: "claude-code",
     window: name,
     usedPercentage,
     resetsAtMs,
@@ -92,6 +98,7 @@ function summary(change: Partial<Status> = {}, limitsConnected = true): Summary 
   return {
     status,
     choices: {
+      agents: [{ id: "claude-code", name: "Claude Code" }],
       projects: [],
       models: [
         { id: "claude-opus-5-5", name: "Opus 5.5" },

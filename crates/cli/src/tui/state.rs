@@ -1053,6 +1053,7 @@ impl State {
                 format: ExportFormat::Csv,
                 days,
                 filters: Filters {
+                    agent: None,
                     project: project.cloned(),
                     model: model.cloned(),
                 },

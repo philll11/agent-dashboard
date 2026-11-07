@@ -5,6 +5,7 @@ import { type MouseEvent, useState } from "react";
 
 import type { Credit, SessionDetail as Detail, Totals, WhoRow } from "@agent-dashboard/protocol";
 
+import { agentName } from "../agents";
 import { LineChart } from "../charts/lines";
 import { moneyTick, niceScale } from "../charts/scale";
 import { useHost, useStatus } from "../context";
@@ -135,7 +136,7 @@ function Heading({ detail }: { detail: Detail }) {
     ? (ENTRYPOINTS[detail.entrypoint] ?? detail.entrypoint)
     : undefined;
   const version = [
-    detail.claudeCodeVersion ? `Claude Code ${detail.claudeCodeVersion}` : undefined,
+    detail.agentVersion ? `${agentName(detail.agent)} ${detail.agentVersion}` : undefined,
     started,
   ]
     .filter(Boolean)

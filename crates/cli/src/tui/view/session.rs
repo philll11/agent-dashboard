@@ -177,7 +177,7 @@ fn draw_page(c: &mut Canvas, state: &State, detail: &SessionDetail, title: &str)
         span(state, detail.first_ms, detail.last_ms),
         duration(detail.last_ms - detail.first_ms),
     ];
-    if let Some(version) = &detail.claude_code_version {
+    if let Some(version) = &detail.agent_version {
         meta.push(format!("Claude Code {}", clean(version)));
     }
     if wide {

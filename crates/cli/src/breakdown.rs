@@ -5,7 +5,7 @@ use std::fmt::Write as _;
 use std::process::ExitCode;
 
 use agent_dashboard_core::history::{History, ProjectKey, SessionKey};
-use agent_dashboard_core::report::{self, Range};
+use agent_dashboard_core::report::{self, Filter, Range};
 use jiff::Span;
 use jiff::civil::Date;
 
@@ -68,8 +68,12 @@ pub fn models(app: &App, since: Option<Date>, until: Option<Date>, output: Outpu
             &crate::export::params(Dataset::Models, output, since, until),
         );
     }
-    let models = match report::by_model(&history, &app.prices, Range::days(since, until, &app.zone))
-    {
+    let models = match report::by_model(
+        &history,
+        &app.prices,
+        Range::days(since, until, &app.zone),
+        &Filter::default(),
+    ) {
         Ok(models) => models,
         Err(error) => {
             eprintln!("Cannot read the history: {error}");
@@ -123,14 +127,18 @@ pub fn sessions(app: &App, since: Option<Date>, until: Option<Date>, output: Out
             &crate::export::params(Dataset::Sessions, output, since, until),
         );
     }
-    let sessions =
-        match report::by_session(&history, &app.prices, Range::days(since, until, &app.zone)) {
-            Ok(sessions) => sessions,
-            Err(error) => {
-                eprintln!("Cannot read the history: {error}");
-                return ExitCode::FAILURE;
-            }
-        };
+    let sessions = match report::by_session(
+        &history,
+        &app.prices,
+        Range::days(since, until, &app.zone),
+        &Filter::default(),
+    ) {
+        Ok(sessions) => sessions,
+        Err(error) => {
+            eprintln!("Cannot read the history: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     let details: HashMap<SessionKey, (String, Option<String>)> = history
         .sessions()
         .unwrap_or_default()
@@ -205,14 +213,18 @@ pub fn projects(app: &App, since: Option<Date>, until: Option<Date>, output: Out
             &crate::export::params(Dataset::Projects, output, since, until),
         );
     }
-    let totals =
-        match report::by_project(&history, &app.prices, Range::days(since, until, &app.zone)) {
-            Ok(projects) => projects,
-            Err(error) => {
-                eprintln!("Cannot read the history: {error}");
-                return ExitCode::FAILURE;
-            }
-        };
+    let totals = match report::by_project(
+        &history,
+        &app.prices,
+        Range::days(since, until, &app.zone),
+        &Filter::default(),
+    ) {
+        Ok(projects) => projects,
+        Err(error) => {
+            eprintln!("Cannot read the history: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     let names = project_names(&history);
     let name = |key: ProjectKey| names.get(&key).cloned().unwrap_or_default();
     let paint = Paint::for_stdout();

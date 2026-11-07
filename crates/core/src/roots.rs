@@ -1,4 +1,4 @@
-//! Finding Claude Code's data roots and what they contain.
+//! Finding the agents' data roots and what they contain.
 
 use std::ffi::OsStr;
 use std::io;
@@ -6,34 +6,52 @@ use std::path::{Path, PathBuf};
 
 use walkdir::WalkDir;
 
-use crate::transcript;
+use crate::agent::Agent;
+use crate::{copilot, transcript};
 
 /// The environment variable Claude Code reads to move its configuration folder.
 pub const CONFIG_DIR_ENV: &str = "CLAUDE_CONFIG_DIR";
 
+/// The environment variable Copilot CLI reads to move its data folder.
+pub const COPILOT_HOME_ENV: &str = "COPILOT_HOME";
+
 /// Where a data root came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RootSource {
-    /// Listed in `CLAUDE_CONFIG_DIR`, which takes the place of the default.
+    /// Named by the agent's environment variable, `CLAUDE_CONFIG_DIR` or `COPILOT_HOME`, which
+    /// takes the place of the default.
     Environment,
-    /// Claude Code's default location, `~/.claude`.
+    /// The agent's default location: `~/.claude` or `~/.copilot`.
     Default,
     /// Added by the person, for example a WSL home.
     Added,
 }
 
-/// A data root to read, and where it came from.
+/// A data root to read, the agent whose data it holds, and where it came from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DataRoot {
     pub path: PathBuf,
+    pub agent: Agent,
     pub source: RootSource,
+}
+
+impl DataRoot {
+    /// A data root the person added, holding `agent`'s data.
+    #[must_use]
+    pub fn added(path: impl Into<PathBuf>, agent: Agent) -> Self {
+        Self {
+            path: path.into(),
+            agent,
+            source: RootSource::Added,
+        }
+    }
 }
 
 /// What a data root holds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RootStatus {
-    /// The folder exists; `transcripts` and `bytes` cover every transcript that
-    /// [`transcript::find`] finds.
+    /// The folder exists; `transcripts` and `bytes` cover every transcript of the agent's that
+    /// it holds.
     Found { transcripts: u64, bytes: u64 },
     /// The folder does not exist.
     Missing,
@@ -43,21 +61,31 @@ pub enum RootStatus {
     Unreadable { reason: String },
 }
 
-/// Lists the data roots to read, in order and without duplicates.
+/// Lists the data roots to read, in order and without duplicates: Claude Code's, then Copilot
+/// CLI's, then the ones the person added.
 ///
 /// `config_dir` is the value of `CLAUDE_CONFIG_DIR`: one path or a comma-separated list, where a
-/// leading `~` stands for `home`. When it names at least one folder it replaces the default, as it
-/// does for Claude Code. `added` roots always come last.
+/// leading `~` stands for `home`. When it names at least one folder it replaces `~/.claude`, as it
+/// does for Claude Code. `copilot_home` is the value of `COPILOT_HOME`, which replaces
+/// `~/.copilot` in the same way. `added` roots, each with its agent, always come last.
 #[must_use]
 pub fn data_roots(
     config_dir: Option<&OsStr>,
+    copilot_home: Option<&OsStr>,
     home: Option<&Path>,
-    added: &[PathBuf],
+    added: &[(PathBuf, Agent)],
 ) -> Vec<DataRoot> {
     let mut roots: Vec<DataRoot> = Vec::new();
-    let mut push = |path: PathBuf, source: RootSource| {
-        if !roots.iter().any(|root| same_path(&root.path, &path)) {
-            roots.push(DataRoot { path, source });
+    let mut push = |path: PathBuf, agent: Agent, source: RootSource| {
+        if !roots
+            .iter()
+            .any(|root| root.agent == agent && same_path(&root.path, &path))
+        {
+            roots.push(DataRoot {
+                path,
+                agent,
+                source,
+            });
         }
     };
 
@@ -66,22 +94,39 @@ pub fn data_roots(
         .unwrap_or_default();
     if from_env.is_empty() {
         if let Some(home) = home {
-            push(home.join(".claude"), RootSource::Default);
+            push(home.join(".claude"), Agent::ClaudeCode, RootSource::Default);
         }
     } else {
         for path in from_env {
-            push(path, RootSource::Environment);
+            push(path, Agent::ClaudeCode, RootSource::Environment);
         }
     }
-    for path in added {
-        push(path.clone(), RootSource::Added);
+    let copilot_env = copilot_home
+        .map(|value| value.to_string_lossy().trim().to_owned())
+        .filter(|value| !value.is_empty());
+    match (copilot_env, home) {
+        (Some(value), _) => push(
+            expand_home(&value, home),
+            Agent::CopilotCli,
+            RootSource::Environment,
+        ),
+        (None, Some(home)) => push(
+            home.join(".copilot"),
+            Agent::CopilotCli,
+            RootSource::Default,
+        ),
+        (None, None) => {}
+    }
+    for (path, agent) in added {
+        push(path.clone(), *agent, RootSource::Added);
     }
     roots
 }
 
-/// Looks at a data root and counts the transcripts under its `projects` folder.
+/// Looks at a data root and counts its agent's transcripts: Claude Code's under its `projects`
+/// folder, Copilot CLI's under its `session-state` folder.
 #[must_use]
-pub fn inspect(root: &Path) -> RootStatus {
+pub fn inspect(root: &Path, agent: Agent) -> RootStatus {
     match std::fs::metadata(root) {
         Ok(meta) if meta.is_dir() => {}
         Ok(_) => {
@@ -112,7 +157,10 @@ pub fn inspect(root: &Path) -> RootStatus {
         }
     }
 
-    let projects = root.join("projects");
+    let projects = root.join(match agent {
+        Agent::ClaudeCode => "projects",
+        Agent::CopilotCli => copilot::SESSIONS,
+    });
     if !projects.exists() {
         return RootStatus::Found {
             transcripts: 0,
@@ -134,10 +182,14 @@ pub fn inspect(root: &Path) -> RootStatus {
             }
             Err(_) => continue,
         };
-        let is_transcript = entry
-            .path()
-            .strip_prefix(&projects)
-            .is_ok_and(transcript::is_transcript);
+        let is_transcript =
+            entry
+                .path()
+                .strip_prefix(&projects)
+                .is_ok_and(|relative| match agent {
+                    Agent::ClaudeCode => transcript::is_transcript(relative),
+                    Agent::CopilotCli => copilot::is_transcript(relative),
+                });
         if entry.file_type().is_file() && is_transcript {
             transcripts += 1;
             bytes += entry.metadata().map_or(0, |meta| meta.len());
@@ -209,27 +261,56 @@ mod tests {
         PathBuf::from("/home/ada")
     }
 
+    fn claude(roots: &[DataRoot]) -> Vec<&DataRoot> {
+        roots
+            .iter()
+            .filter(|root| root.agent == Agent::ClaudeCode)
+            .collect()
+    }
+
     #[test]
-    fn defaults_to_dot_claude_in_home() {
-        let roots = data_roots(None, Some(&home()), &[]);
+    fn defaults_to_dot_claude_and_dot_copilot_in_home() {
+        let roots = data_roots(None, None, Some(&home()), &[]);
         assert_eq!(
             roots,
-            vec![DataRoot {
-                path: home().join(".claude"),
-                source: RootSource::Default
-            }]
+            vec![
+                DataRoot {
+                    path: home().join(".claude"),
+                    agent: Agent::ClaudeCode,
+                    source: RootSource::Default
+                },
+                DataRoot {
+                    path: home().join(".copilot"),
+                    agent: Agent::CopilotCli,
+                    source: RootSource::Default
+                },
+            ]
         );
     }
 
     #[test]
     fn config_dir_replaces_the_default() {
-        let roots = data_roots(Some(OsStr::new("/data/claude")), Some(&home()), &[]);
+        let roots = data_roots(Some(OsStr::new("/data/claude")), None, Some(&home()), &[]);
         assert_eq!(
-            roots,
-            vec![DataRoot {
+            claude(&roots),
+            vec![&DataRoot {
                 path: PathBuf::from("/data/claude"),
+                agent: Agent::ClaudeCode,
                 source: RootSource::Environment
             }]
+        );
+    }
+
+    #[test]
+    fn copilot_home_replaces_the_default() {
+        let roots = data_roots(None, Some(OsStr::new("~/work/copilot")), Some(&home()), &[]);
+        assert_eq!(
+            roots.last(),
+            Some(&DataRoot {
+                path: home().join("work/copilot"),
+                agent: Agent::CopilotCli,
+                source: RootSource::Environment
+            })
         );
     }
 
@@ -237,9 +318,11 @@ mod tests {
     fn config_dir_accepts_a_comma_separated_list() {
         let roots = data_roots(
             Some(OsStr::new(" /a , ,~/work/.claude,/b ")),
+            None,
             Some(&home()),
             &[],
         );
+        let roots = claude(&roots);
         let paths: Vec<_> = roots.iter().map(|root| root.path.clone()).collect();
         assert_eq!(
             paths,
@@ -257,22 +340,40 @@ mod tests {
     }
 
     #[test]
-    fn blank_config_dir_falls_back_to_the_default() {
-        let roots = data_roots(Some(OsStr::new(" , ")), Some(&home()), &[]);
-        assert_eq!(roots[0].source, RootSource::Default);
+    fn blank_variables_fall_back_to_the_defaults() {
+        let roots = data_roots(
+            Some(OsStr::new(" , ")),
+            Some(OsStr::new("  ")),
+            Some(&home()),
+            &[],
+        );
+        assert!(roots.iter().all(|root| root.source == RootSource::Default));
+        assert_eq!(roots.len(), 2);
     }
 
     #[test]
     fn added_roots_come_last_without_duplicates() {
-        let added = vec![PathBuf::from("/mnt/wsl/.claude"), home().join(".claude/")];
-        let roots = data_roots(None, Some(&home()), &added);
-        let sources: Vec<_> = roots.iter().map(|root| root.source).collect();
-        assert_eq!(sources, vec![RootSource::Default, RootSource::Added]);
+        let added = vec![
+            (PathBuf::from("/mnt/wsl/.claude"), Agent::ClaudeCode),
+            (home().join(".claude/"), Agent::ClaudeCode),
+            (PathBuf::from("/mnt/wsl/.copilot"), Agent::CopilotCli),
+        ];
+        let roots = data_roots(None, None, Some(&home()), &added);
+        let kinds: Vec<_> = roots.iter().map(|root| (root.agent, root.source)).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                (Agent::ClaudeCode, RootSource::Default),
+                (Agent::CopilotCli, RootSource::Default),
+                (Agent::ClaudeCode, RootSource::Added),
+                (Agent::CopilotCli, RootSource::Added),
+            ]
+        );
     }
 
     #[test]
-    fn no_home_and_no_config_dir_means_no_default() {
-        assert_eq!(data_roots(None, None, &[]), Vec::new());
+    fn no_home_and_no_variables_means_no_default() {
+        assert_eq!(data_roots(None, None, None, &[]), Vec::new());
     }
 
     #[test]

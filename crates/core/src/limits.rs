@@ -1,8 +1,13 @@
-//! Plan limits: how much of each plan window is used, as Claude Code reports it (ADR 0005).
+//! Plan limits: how much of each plan window is used, as Claude Code reports it (ADR 0005) and
+//! as Copilot CLI records it (ADR 0016).
 
 use serde::Deserialize;
 use serde_json::Value;
 
+use jiff::ToSpan;
+use jiff::tz::TimeZone;
+
+use crate::agent::Agent;
 use crate::history::{History, HistoryError};
 use crate::pricing::PriceTable;
 use crate::report::{self, Filter, Range, Totals};
@@ -11,6 +16,10 @@ use crate::report::{self, Filter, Range, Totals};
 pub const FIVE_HOUR: &str = "five_hour";
 /// The weekly window.
 pub const SEVEN_DAY: &str = "seven_day";
+/// The monthly spend limit Claude Code reports for some plans.
+pub const SPEND_LIMIT: &str = "spend_limit";
+/// Copilot CLI's monthly allowance of AI credits.
+pub const MONTHLY: &str = "monthly";
 
 /// The weekly window of one model, such as Fable's, which only the usage endpoint reports.
 #[must_use]
@@ -29,6 +38,29 @@ pub fn weekly_model(window: &str) -> Option<&str> {
 /// it runs in a terminal, and other Claude apps use the same windows meanwhile.
 pub const STALE_AFTER_MS: i64 = 60 * 60 * 1000;
 
+/// How old a reading of a monthly window may be before it is shown as stale: it moves slowly, and
+/// Copilot CLI records it only while it runs.
+pub const MONTHLY_STALE_AFTER_MS: i64 = 24 * 60 * 60 * 1000;
+
+/// When the window `window` that resets at `resets_at_ms` started: five hours before for the
+/// five-hour window, a calendar month before (in UTC) for the monthly ones, and a week before
+/// for the others.
+#[must_use]
+pub fn window_start_ms(window: &str, resets_at_ms: i64) -> i64 {
+    match window {
+        FIVE_HOUR => resets_at_ms - FIVE_HOURS_MS,
+        MONTHLY | SPEND_LIMIT => jiff::Timestamp::from_millisecond(resets_at_ms)
+            .ok()
+            .and_then(|resets| resets.to_zoned(TimeZone::UTC).checked_sub(1.month()).ok())
+            .map_or(resets_at_ms - 30 * DAY_MS, |start| {
+                start.timestamp().as_millisecond()
+            }),
+        _ => resets_at_ms - 7 * DAY_MS,
+    }
+}
+
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+
 /// Where a limit snapshot comes from, and so how far to trust it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Source {
@@ -37,6 +69,8 @@ pub enum Source {
     /// Anthropic's undocumented usage endpoint, used only when the person turns it on:
     /// experimental.
     UsageEndpoint,
+    /// Copilot CLI's session files, in which it records the allowance GitHub reports: recorded.
+    CopilotSessionFiles,
 }
 
 impl Source {
@@ -46,6 +80,16 @@ impl Source {
         match self {
             Self::StatusLine => "status-line",
             Self::UsageEndpoint => "usage-endpoint",
+            Self::CopilotSessionFiles => "copilot-session-files",
+        }
+    }
+
+    /// The agent whose plan the source's readings are of.
+    #[must_use]
+    pub fn agent(self) -> Agent {
+        match self {
+            Self::StatusLine | Self::UsageEndpoint => Agent::ClaudeCode,
+            Self::CopilotSessionFiles => Agent::CopilotCli,
         }
     }
 
@@ -55,6 +99,7 @@ impl Source {
         match name {
             "status-line" => Some(Self::StatusLine),
             "usage-endpoint" => Some(Self::UsageEndpoint),
+            "copilot-session-files" => Some(Self::CopilotSessionFiles),
             _ => None,
         }
     }
@@ -82,6 +127,10 @@ pub struct LimitSnapshot {
     pub used_percentage: f64,
     /// When the window resets, in milliseconds since the Unix epoch.
     pub resets_at_ms: Option<i64>,
+    /// How much of an allowance was used, in AI credits, where the agent records it.
+    pub used: Option<f64>,
+    /// How large the allowance is, in AI credits, where the agent records it.
+    pub entitlement: Option<f64>,
 }
 
 impl Level {
@@ -114,7 +163,12 @@ impl LimitSnapshot {
     /// Whether the reading is old enough to show as stale.
     #[must_use]
     pub fn stale(&self, now_ms: i64) -> bool {
-        now_ms.saturating_sub(self.observed_ms) > STALE_AFTER_MS
+        let after = if self.window == MONTHLY {
+            MONTHLY_STALE_AFTER_MS
+        } else {
+            STALE_AFTER_MS
+        };
+        now_ms.saturating_sub(self.observed_ms) > after
     }
 }
 
@@ -190,6 +244,8 @@ impl StatusLineInput {
                 observed_ms: now_ms,
                 used_percentage: *used,
                 resets_at_ms: resets_at.map(|seconds| seconds.saturating_mul(1000)),
+                used: None,
+                entitlement: None,
             })
             .collect()
     }
@@ -310,7 +366,8 @@ pub fn recent_five_hour_windows(
                 from_ms: window.start_ms,
                 to_ms: window.resets_at_ms.min(now_ms.saturating_add(1)),
             };
-            let totals = report::totals(history, table, range, &Filter::default())?;
+            // The five-hour window is Claude Code's, so only its requests count against it.
+            let totals = report::totals(history, table, range, &Filter::agent(Agent::ClaudeCode))?;
             Ok((window, totals))
         })
         .collect()
@@ -352,6 +409,8 @@ mod tests {
             observed_ms,
             used_percentage: used,
             resets_at_ms: Some(resets_at_ms),
+            used: None,
+            entitlement: None,
         };
         let first = 1_000 * MINUTE;
         let second = first + FIVE_HOURS_MS;
@@ -432,6 +491,8 @@ mod tests {
             observed_ms: 0,
             used_percentage: used,
             resets_at_ms: Some(10),
+            used: None,
+            entitlement: None,
         };
         assert_eq!(at(69.9).level(), Level::Normal);
         assert_eq!(at(70.0).level(), Level::Warning);
