@@ -22,10 +22,11 @@ pub fn claude_usage(app: &App, database: Option<PathBuf>) -> ExitCode {
         return ExitCode::FAILURE;
     };
     // Transcripts come first, so that the import only adds what they no longer hold.
-    let mut history = match ready_history(app) {
-        Ok(history) => history,
+    let (app, mut history) = match ready_history(app) {
+        Ok(ready) => ready,
         Err(code) => return code,
     };
+    let app = &app;
     match import::import_claude_usage(&mut history, &database, app.now.as_millisecond()) {
         Ok(ImportReport {
             imported,

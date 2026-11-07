@@ -10,7 +10,7 @@ use agent_dashboard_core::history::{self, History};
 use agent_dashboard_core::price_refresh;
 use agent_dashboard_core::pricing::PriceTable;
 use agent_dashboard_core::report::Bucket;
-use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, DataRoot};
+use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, COPILOT_HOME_ENV, DataRoot};
 use agent_dashboard_core::usage_endpoint::LoginSource;
 use jiff::civil::{Date, Weekday};
 use jiff::tz::TimeZone;
@@ -94,6 +94,10 @@ pub struct App {
     pub roots: Vec<DataRoot>,
     /// The value of `CLAUDE_CONFIG_DIR`.
     pub config_dir: Option<OsString>,
+    /// The value of `COPILOT_HOME`.
+    pub copilot_home: Option<OsString>,
+    /// The names the agents show for models the price table does not list, by model id.
+    pub model_names: Arc<HashMap<String, String>>,
     pub home: Option<PathBuf>,
     /// The time zone days are counted in.
     pub zone: TimeZone,
@@ -128,12 +132,20 @@ impl App {
             .map(PathBuf::from)
             .or_else(history::default_path);
         let config_dir = std::env::var_os(CONFIG_DIR_ENV);
+        let copilot_home = std::env::var_os(COPILOT_HOME_ENV);
         let home = std::env::home_dir();
         let zone = TimeZone::system();
         Self {
             history_path,
-            roots: roots::data_roots(config_dir.as_deref(), home.as_deref(), &[]),
+            roots: roots::data_roots(
+                config_dir.as_deref(),
+                copilot_home.as_deref(),
+                home.as_deref(),
+                &[],
+            ),
             config_dir,
+            copilot_home,
+            model_names: Arc::default(),
             home,
             system_zone: zone.clone(),
             zone,
@@ -163,7 +175,20 @@ impl App {
     pub fn with_shared(&self, history: &History) -> Self {
         let mut app = self.clone();
         if let Ok(folders) = history.data_folders() {
-            app.roots = roots::data_roots(app.config_dir.as_deref(), app.home.as_deref(), &folders);
+            app.roots = roots::data_roots(
+                app.config_dir.as_deref(),
+                app.copilot_home.as_deref(),
+                app.home.as_deref(),
+                &folders,
+            );
+        }
+        if let Ok(names) = history.model_names() {
+            app.model_names = Arc::new(
+                names
+                    .into_iter()
+                    .map(|((_, model), name)| (model, name))
+                    .collect(),
+            );
         }
         let settings = history.settings().unwrap_or_default();
         app.zone = settings
@@ -216,11 +241,5 @@ impl App {
     #[must_use]
     pub fn login_source(&self) -> Option<LoginSource> {
         LoginSource::of(&self.roots, self.config_dir.as_deref())
-    }
-
-    /// The data roots, as paths.
-    #[must_use]
-    pub fn root_paths(&self) -> Vec<PathBuf> {
-        self.roots.iter().map(|root| root.path.clone()).collect()
     }
 }

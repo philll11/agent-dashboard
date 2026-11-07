@@ -1,5 +1,5 @@
-//! What shows above a section, dimming it: the keys, the range, project and model pickers, and
-//! the export box.
+//! What shows above a section, dimming it: the keys, the range, agent, project and model pickers,
+//! and the export box.
 
 use agent_dashboard_server::protocol::ExportFormat;
 
@@ -12,6 +12,7 @@ pub fn draw(c: &mut Canvas, state: &State, overlay: &Overlay) {
     match overlay {
         Overlay::Help => keys(c, state),
         Overlay::Range { hover } => range(c, state, *hover),
+        Overlay::Agent { hover } => agent(c, state, *hover),
         Overlay::Project { hover, filter } => {
             let choices = state.project_choices(filter);
             picker(
@@ -53,13 +54,20 @@ pub const HELP_KEYS: [(&str, &str); 13] = [
     ("Enter", "open"),
     ("Esc", "back, close"),
     ("/", "search the sessions"),
-    ("r  p  m", "range, project, model"),
+    (FILTER_KEYS.0, FILTER_KEYS.1),
     ("t", "charts or tables"),
     ("e", "export the section"),
     ("R", "read new transcripts now"),
     ("?", "this help"),
     ("q  Ctrl-C", "quit"),
 ];
+
+/// The pickers' keys, with the agent's.
+const FILTER_KEYS: (&str, &str) = ("r  a  p  m", "range, agent, project, model");
+
+/// The pickers' keys while the history holds one agent and none is chosen, which the help leaves
+/// the agent's key out of.
+const ONE_AGENT_FILTER_KEYS: (&str, &str) = ("r  p  m", "range, project, model");
 
 fn keys(c: &mut Canvas, state: &State) {
     let theme = c.theme;
@@ -69,11 +77,47 @@ fn keys(c: &mut Canvas, state: &State) {
     c.clear(x0, y0, w, h);
     c.boxed((x0, y0, w, h), Some("Keys"), None);
     for (row, (key, what)) in (0..).zip(HELP_KEYS) {
+        let (key, what) = if (key, what) == FILTER_KEYS && !state.agent_shown() {
+            ONE_AGENT_FILTER_KEYS
+        } else {
+            (key, what)
+        };
         c.text(x0 + 3, y0 + 2 + row, key, theme.key());
         c.text(x0 + 22, y0 + 2 + row, what, theme.text());
     }
     clear_footer(c);
     footer(c, state, &[("Esc", "close")], None);
+}
+
+/// The agents to choose from: every agent, and each the history holds, with the one chosen
+/// ticked.
+fn agent(c: &mut Canvas, state: &State, hover: usize) {
+    let theme = c.theme;
+    let choices = state.agent_choices();
+    let w = 26;
+    let rows = i32::try_from(choices.len()).unwrap_or(1);
+    let h = rows + 4;
+    let x0 = c.w - w;
+    c.clear(x0, 1, w, h);
+    c.boxed((x0, 1, w, h), Some("Agent"), None);
+    for (row, (id, name)) in (0..).zip(&choices) {
+        let y = 2 + row;
+        c.text(x0 + 4, y, &fit(&clean(name), w - 8), theme.text());
+        if *id == state.agent {
+            c.right(x0 + w - 2, y, "✓", theme.good());
+        }
+        if usize::try_from(row).is_ok_and(|row| row == hover) {
+            c.select(y, x0 + 1, x0 + w - 2);
+        }
+    }
+    c.text(x0 + 2, 2 + rows + 1, "Enter applies", theme.muted());
+    clear_footer(c);
+    footer(
+        c,
+        state,
+        &[("↑↓", "choose"), ("Enter", "apply"), ("Esc", "close")],
+        None,
+    );
 }
 
 fn range(c: &mut Canvas, state: &State, hover: usize) {

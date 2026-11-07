@@ -12,6 +12,7 @@ use std::process::{Child, Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{Attribution, History, Identity, Request};
 use agent_dashboard_core::tokens::Tokens;
 use rusqlite::{Connection, OpenFlags};
@@ -258,7 +259,7 @@ fn open_on_signal(folder: &Path, index: u64) {
     history
         .write(|w| {
             let project = w.project("project", None)?;
-            w.session(&format!("session-{index}"), project)?;
+            w.session(&format!("session-{index}"), project, Agent::ClaudeCode)?;
             Ok(())
         })
         .unwrap();
@@ -279,7 +280,8 @@ fn write_the_workload(folder: &Path, index: u64) {
             .write(|w| {
                 for version in batch {
                     let project = w.project(&format!("project-{}", version.session / 3), None)?;
-                    let session = w.session(&session_id(version.session), project)?;
+                    let session =
+                        w.session(&session_id(version.session), project, Agent::ClaudeCode)?;
                     w.request(&Request {
                         session,
                         identity: Identity::from_ids(
@@ -304,7 +306,10 @@ fn write_the_workload(folder: &Path, index: u64) {
                         inference_geo: None,
                         attribution: Attribution::default(),
                         entrypoint: None,
-                        claude_code_version: None,
+                        agent_version: None,
+                        reasoning_tokens: 0,
+                        initiator: None,
+                        charge: None,
                         imported_from: None,
                     })?;
                 }

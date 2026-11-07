@@ -14,85 +14,146 @@
   - text: /History since \d+ July \d+ · read just now/
 - main:
   - heading "Models" [level=1]
-  - text: /5 models in the last \d+ days · \$\d+\.\d+ API-equivalent/
+  - text: /8 models in the last \d+ days · \$\d+\.\d+ including estimates/
   - 'button /Date range: Last \d+ days/'
+  - 'button "Agent: All agents"'
   - 'button "Project: All projects"'
   - button "Export"
-  - region "API-equivalent cost per day, by model":
-    - heading "API-equivalent cost per day, by model" [level=2]
-    - text: /Estimate at Anthropic's list prices · last \d+ days/
+  - region "Cost per day, by agent":
+    - heading "Cost per day, by agent" [level=2]
+    - text: /Includes an estimate at Anthropic's list prices · last \d+ days/
     - button "Show as table"
     - list "Legend":
-      - listitem: /Fable 5\.1 , \$\d+\.\d+/
-      - listitem: /Opus 5\.5 , \$\d+\.\d+/
-      - listitem: /Sonnet 5\.5 , \$\d+\.\d+/
-      - listitem: /Haiku 5\.5 , \$\d+\.\d+/
-    - 'group /4 lines of API-equivalent cost per day, last \d+ days: Fable 5\.1 \$\d+\.\d+, Opus 5\.5 \$\d+\.\d+, Sonnet 5\.5 \$\d+\.\d+, Haiku 5\.5 \$\d+\.\d+\. The left and right arrow keys read along it\./'
+      - listitem: /Claude Code , \$\d+\.\d+/
+      - listitem: /Copilot CLI , \$\d+\.\d+/
+    - 'group /2 lines of cost per day, last \d+ days: Claude Code \$\d+\.\d+, Copilot CLI \$\d+\.\d+\. The left and right arrow keys read along it\./'
   - region /Tokens and cost · last \d+ days/:
     - heading /Tokens and cost · last \d+ days/ [level=2]
     - table:
       - rowgroup:
-        - row "Model Requests Input Output Cache writes, 5 min Cache writes, 1 h Cache reads Fast mode API-equivalent cost":
-          - columnheader "Model"
+        - row "Agent and model Requests Input Output Of it reasoning Cache writes, 5 min Cache writes, 1 h Cache reads Fast mode Cost":
+          - columnheader "Agent and model"
           - columnheader "Requests"
           - columnheader "Input"
           - columnheader "Output"
+          - columnheader "Of it reasoning"
           - columnheader "Cache writes, 5 min"
           - columnheader "Cache writes, 1 h"
           - columnheader "Cache reads"
           - columnheader "Fast mode"
-          - columnheader "API-equivalent cost"
+          - columnheader "Cost"
       - rowgroup:
-        - row /Opus 5\.5 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 5% \$\d+\.\d+/:
+        - row /Claude Code \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 1% \$\d+\.\d+ \+ unpriced/:
+          - rowheader "Claude Code"
+          - cell /\d+,\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "1%"
+          - cell /\$\d+\.\d+ \+ unpriced/
+        - row /Opus 5\.5 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 5% \$\d+\.\d+/:
           - rowheader "Opus 5.5"
           - cell /\d+,\d+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell "5%"
           - cell /\$\d+\.\d+/
-        - row /Fable 5\.1 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+        - row /Fable 5\.1 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
           - rowheader "Fable 5.1"
           - cell /\d+,\d+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell "0%"
           - cell /\$\d+\.\d+/
-        - row /Sonnet 5\.5 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+        - row /Sonnet 5\.5 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
           - rowheader "Sonnet 5.5"
           - cell /\d+,\d+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell "0%"
           - cell /\$\d+\.\d+/
-        - row /Haiku 5\.5 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+        - row /Haiku 5\.5 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
           - rowheader "Haiku 5.5"
           - cell /\d+,\d+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell "0%"
           - cell /\$\d+\.\d+/
-        - row /glm-4\.6 \d+ \d+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0% Unpriced/:
+        - row /glm-4\.6 \d+ \d+ [\d,.]+[bkmBKM]+ 0 0 [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0% Unpriced/:
           - rowheader "glm-4.6"
           - cell /\d+/
           - cell /\d+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell "0"
+          - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell "0%"
           - cell "Unpriced"
+      - rowgroup:
+        - row /Copilot CLI \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+          - rowheader "Copilot CLI"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0%"
+          - cell /\$\d+\.\d+/
+        - row /Opus 5\.5 \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+          - rowheader "Opus 5.5"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0%"
+          - cell /\$\d+\.\d+/
+        - row /GPT-5\.5 \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+          - rowheader "GPT-5.5"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0%"
+          - cell /\$\d+\.\d+/
+        - row /Gemini 3\.1 Pro \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+          - rowheader "Gemini 3.1 Pro"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0%"
+          - cell /\$\d+\.\d+/
   - region "Prices used · US dollars per million tokens":
     - heading "Prices used · US dollars per million tokens" [level=2]
     - text: /Price table of \d+ October \d+, from Anthropic's pricing page/
@@ -141,4 +202,4 @@
           - cell /\$\d+\.\d+/
           - cell /\$\d+\.\d+/
           - cell /\$\d+\.\d+/
-    - paragraph: Fast mode, US-only inference (1.1 times) and web search are priced from the same table. A model missing from it shows as unpriced, never as free; Settings can check this project's repository for a newer table once a day.
+    - paragraph: /Fast mode, US-only inference \(1\.1 times\) and web search are priced from the same table\. A model missing from it shows as unpriced, never as free; Settings can check this project's repository for a newer table once a day\. Copilot CLI's requests cost what Copilot CLI recorded, at \$\d+\.\d+ an AI credit, so they need no price\./

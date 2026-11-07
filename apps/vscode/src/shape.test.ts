@@ -26,6 +26,11 @@ function totals(usd: number, unpricedRequests = 0): Totals {
     unpricedRequests,
     webSearchRequests: 0,
     fastRequests: 0,
+    reasoningTokens: 0,
+    costProvenance: "estimate",
+    chargedRequests: 0,
+    chargedUsd: 0,
+    chargedCredits: 0,
   };
 }
 
@@ -36,6 +41,7 @@ function window(
   extra: Partial<WindowReading> = {},
 ): WindowReading {
   return {
+    agent: "claude-code",
     window: name,
     usedPercentage,
     resetsAtMs,
@@ -50,6 +56,10 @@ function window(
 
 function model(id: string, name: string, usd: number): ModelRow {
   return { model: { id, name }, totals: totals(usd) };
+}
+
+function project(id: string, name: string, usd: number): Overview["projects"][number] {
+  return { project: { id, name }, sessions: 3, lastMs: NOW, totals: totals(usd), dailyCost: [] };
 }
 
 function overview(models: ModelRow[], projects: Overview["projects"] = []): Overview {
@@ -82,16 +92,10 @@ function summary(change: Partial<Status> = {}, limitsConnected = true): Summary 
     weekStart: "monday",
     ...change,
   };
-  const project = (id: string, name: string, usd: number) => ({
-    project: { id, name },
-    sessions: 3,
-    lastMs: NOW,
-    totals: totals(usd),
-    dailyCost: [],
-  });
   return {
     status,
     choices: {
+      agents: [{ id: "claude-code", name: "Claude Code" }],
       projects: [],
       models: [
         { id: "claude-opus-5-5", name: "Opus 5.5" },
@@ -108,6 +112,8 @@ function summary(change: Partial<Status> = {}, limitsConnected = true): Summary 
       [model("claude-opus-5-5", "Opus 5.5", 30)],
       ["a", "b", "c", "d", "e", "f"].map((name, index) => project(`C--${name}`, name, 10 - index)),
     ),
+    todayByAgent: [],
+    weekByAgent: [],
     limitsConnected,
   };
 }
@@ -158,7 +164,7 @@ describe("the status bar item", () => {
   it("shows today's cost once the five-hour window has reset", () => {
     const item = statusItem(summary(), Date.parse("2026-10-10T01:21:00Z"));
     expect(item.text).toBe("$5.10 today");
-    expect(item.label).toBe("API-equivalent cost today $5.10. Open the usage dashboard.");
+    expect(item.label).toBe("Cost today $5.10, API-equivalent estimate. Open the usage dashboard.");
     expect(item.lines[0]).toEqual({ label: "Five-hour window", value: "reset at 14:20" });
   });
 
@@ -176,7 +182,7 @@ interface GlanceExample {
   timeZone: string;
   limits: WindowReading[];
   today: { usd: number; unpricedRequests: number };
-  expect: { lines: [string, string][]; source: string | null; statusText: string };
+  expect: { lines: [string, string][]; sources: string[]; statusText: string };
 }
 
 const GLANCE = JSON.parse(
@@ -195,12 +201,14 @@ describe("the glance's shared examples", () => {
     );
     expect(item.lines.map((line) => [line.label, line.value])).toEqual(example.expect.lines);
     expect(item.text).toBe(example.expect.statusText);
-    const { source } = example.expect;
-    if (source === null) {
+    const { sources } = example.expect;
+    if (sources.length === 0) {
       expect(item.note).not.toMatch(/^Limits: /);
     } else {
-      const prefix = `Limits: ${source.charAt(0).toLowerCase()}${source.slice(1)}`;
-      expect(item.note.slice(0, prefix.length)).toBe(prefix);
+      const sentence = sources
+        .map((source) => `${source.charAt(0).toLowerCase()}${source.slice(1)}`)
+        .join("; ");
+      expect(item.note.startsWith(`Limits: ${sentence}. `)).toBe(true);
     }
   });
 });
@@ -218,11 +226,11 @@ describe("the sidebar tree", () => {
       "  Five-hour window | 42% · resets 14:20",
       "  Weekly, all models | 71% · resets Thu 09:00",
       "  Weekly, Fable | 18% · resets Thu 09:00",
-      "Today | $5.10 estimate",
+      "Today | $5.10 · estimate",
       "  Opus 5.5 | $2.10",
       "  Fable 5.1 | $1.83",
       "  Opus 4.8 | $0.04",
-      "This week | $48.32 estimate",
+      "This week | $48.32 · estimate",
       "  Opus 5.5 | $30.00",
       "Top projects | this week",
       "  a | $10.00",
@@ -231,6 +239,63 @@ describe("the sidebar tree", () => {
       "  d | $7.00",
       "  e | $6.00",
     ]);
+  });
+
+  it("lists each agent's usage apart once the history holds two agents", () => {
+    const copilot = (usd: number): Totals => ({
+      ...totals(usd),
+      costProvenance: "recorded",
+      chargedRequests: 10,
+      chargedUsd: usd,
+      chargedCredits: usd * 100,
+    });
+    const agentOverview = (rows: ModelRow[], usd: number, recorded: boolean): Overview => ({
+      ...overview(rows, [project("C--x", recorded ? "x" : "y", usd)]),
+      totals: recorded ? copilot(usd) : totals(usd),
+    });
+    const both = {
+      ...summary(),
+      todayByAgent: [
+        {
+          agent: "claude-code",
+          overview: agentOverview([model("claude-opus-5-5", "Opus 5.5", 2.1)], 2.1, false),
+        },
+        {
+          agent: "copilot-cli",
+          overview: agentOverview(
+            [
+              {
+                model: { id: "claude-opus-5.5", name: "Opus 5.5, Copilot CLI" },
+                totals: copilot(0.41),
+              },
+            ],
+            0.41,
+            true,
+          ),
+        },
+      ],
+      weekByAgent: [
+        { agent: "claude-code", overview: agentOverview([], 30, false) },
+        { agent: "copilot-cli", overview: agentOverview([], 13.12, true) },
+      ],
+    };
+    const [, today, , projects] = tree(both, NOW);
+    expect(today?.children.map((child) => `${child.label} | ${child.description}`)).toEqual([
+      "Claude Code | $2.10 · estimate",
+      "Copilot CLI | $0.41 · recorded",
+    ]);
+    expect(today?.children[1]?.children.map((child) => child.label)).toEqual(["Opus 5.5"]);
+    expect(today?.children[1]?.children[0]?.icon).toBeUndefined();
+    expect(today?.children.map((child) => child.icon)).toEqual([
+      { kind: "model", series: "fable" },
+      { kind: "model", series: "opus" },
+    ]);
+    expect(projects?.children.map((child) => child.label)).toEqual(["Claude Code", "Copilot CLI"]);
+    expect(projects?.children[1]?.children[0]?.show).toEqual({
+      section: "sessions",
+      project: "C--x",
+      agent: "copilot-cli",
+    });
   });
 
   it("marks a window over 70% and colours each model by its family's newest", () => {

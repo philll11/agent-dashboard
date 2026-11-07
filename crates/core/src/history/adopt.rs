@@ -49,6 +49,8 @@ impl History {
                     observed_ms: row.get(2)?,
                     used_percentage: row.get(3)?,
                     resets_at_ms: row.get(4)?,
+                    used: None,
+                    entitlement: None,
                 });
             }
         }

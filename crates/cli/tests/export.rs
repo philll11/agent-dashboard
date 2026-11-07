@@ -426,7 +426,7 @@ fn a_saved_csv_starts_with_a_byte_order_mark_and_a_saved_json_does_not() {
     let csv = saved("--csv");
     assert!(csv.starts_with(&BYTE_ORDER_MARK));
     assert!(
-        csv[BYTE_ORDER_MARK.len()..].starts_with(b"at,session_id,title,"),
+        csv[BYTE_ORDER_MARK.len()..].starts_with(b"at,agent,session_id,title,"),
         "the header follows the mark"
     );
 
@@ -459,7 +459,7 @@ fn a_saved_csv_guards_a_formula_title_inside_its_quotes() {
 fn standard_output_csv_has_no_byte_order_mark_and_no_apostrophe() {
     let fixture = fixture();
     let csv = stdout(&fixture, &export("--csv", &[]));
-    assert!(csv.starts_with(b"at,session_id,title,"));
+    assert!(csv.starts_with(b"at,agent,session_id,title,"));
     assert!(!csv.contains(&b'\''));
     let csv = String::from_utf8(csv).unwrap();
     assert!(
@@ -699,7 +699,7 @@ fn export_of_days_without_requests_is_an_empty_array_or_a_header_alone() {
 
     assert_eq!(stdout(&fixture, &export("--json", &quiet_days)), b"[]\n");
     let csv = text(&fixture, &export("--csv", &quiet_days));
-    assert!(csv.starts_with("at,session_id,title,"), "{csv}");
+    assert!(csv.starts_with("at,agent,session_id,title,"), "{csv}");
     assert_eq!(csv.lines().count(), 1, "{csv}");
 }
 

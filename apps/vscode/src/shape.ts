@@ -4,15 +4,17 @@
 import type {
   Choices,
   Level,
+  ModelRow,
   Overview,
   Show,
   Status,
   Totals,
   WindowReading,
 } from "@agent-dashboard/protocol";
+import { type AgentOverview, agentName, agentSeries, nameUnder } from "@agent-dashboard/app/agents";
 import { ago, money, percent, when } from "@agent-dashboard/app/format";
 import { type Series, seriesOf } from "@agent-dashboard/app/models";
-import { inOrder, LEVEL_TEXT, windowName } from "@agent-dashboard/app/windows";
+import { creditsText, inOrder, LEVEL_TEXT, windowName } from "@agent-dashboard/app/windows";
 
 /** The server's answers that the status bar item and the tree are made from. */
 export interface Summary {
@@ -22,6 +24,10 @@ export interface Summary {
   today: Overview;
   /** This week's requests, from its first day to today. */
   week: Overview;
+  /** Today's and this week's requests of each agent, while the history holds more than one; the
+   * tree then lists each agent's apart, since each may be paid for by someone else. */
+  todayByAgent: AgentOverview[];
+  weekByAgent: AgentOverview[];
   /** Whether Claude Code's status line records plan limits, as far as the settings tell. */
   limitsConnected: boolean;
 }
@@ -64,8 +70,9 @@ export interface Node {
   expanded: boolean;
 }
 
-/** The most projects the tree lists. */
+/** The most projects the tree lists, and the most of each agent's while it lists them apart. */
 const TOP_PROJECTS = 5;
+const TOP_PROJECTS_EACH = 3;
 
 /** The newest reading among `readings`. */
 function newest(readings: readonly WindowReading[]): WindowReading | undefined {
@@ -97,6 +104,8 @@ function reading(window: WindowReading, nowMs: number, timeZone: string, marked 
   }
   const share = percent(window.usedPercentage);
   const used = marked && window.level !== "normal" ? `${share} ▲` : share;
+  const credits = creditsText(window);
+  if (credits) return `${used} · ${credits}`;
   return resetsAt == null ? used : `${used} · resets ${when(resetsAt, nowMs, timeZone)}`;
 }
 
@@ -105,15 +114,30 @@ function levelWords(level: Level): string | undefined {
   return LEVEL_TEXT[level]?.toLowerCase();
 }
 
-/** Where the newest reading comes from, for a sentence: `official, status line`. */
+/** Where a reading comes from, for a sentence: `official, status line`. */
 function source(window: WindowReading): string {
-  return window.provenance === "official"
-    ? "official, status line"
-    : "experimental, usage endpoint";
+  if (window.provenance === "official") return "official, status line";
+  if (window.provenance === "recorded") return "recorded, Copilot CLI";
+  return "experimental, usage endpoint";
 }
 
-/** The status bar item: the five-hour window when it has a current reading, and otherwise today's
- * API-equivalent cost. */
+/** What a cost is, after its figure: `$5.10 · estimate`, `$1.74 · recorded`, `$6.84 · includes
+ * estimate`. */
+function kind(totals: Totals): string {
+  if (totals.costProvenance === "recorded") return "recorded";
+  if (totals.costProvenance === "mixed") return "includes estimate";
+  return "estimate";
+}
+
+/** What today's cost is, for a sentence, by where it comes from. */
+function costWords(totals: Totals): string {
+  if (totals.costProvenance === "recorded") return "as Copilot CLI recorded it";
+  if (totals.costProvenance === "mixed") return "includes an API-equivalent estimate";
+  return "API-equivalent estimate";
+}
+
+/** The status bar item: the five-hour window and Copilot CLI's allowance while they have current
+ * readings, and otherwise today's cost. */
 export function statusItem(summary: Summary, nowMs: number): StatusItem {
   const { status } = summary;
   const windows = inOrder(status.limits);
@@ -122,22 +146,48 @@ export function statusItem(summary: Summary, nowMs: number): StatusItem {
     value: reading(window, nowMs, status.timeZone, true),
   }));
   lines.push({ label: "Today", value: cost(status.todayTotals) });
-  const latest = newest(windows);
-  const note = latest
-    ? `Limits: ${source(latest)}, ${ago(latest.observedMs, nowMs)}. Cost: API-equivalent estimate.`
-    : "Cost: API-equivalent estimate. Plan limits are not recorded yet.";
-  const fiveHour = windows.find(
-    (window) => window.window === "five_hour" && !expired(window, nowMs),
-  );
-  if (fiveHour) {
-    const used = percent(fiveHour.usedPercentage);
-    const resetsAt = fiveHour.resetsAtMs;
-    const time = resetsAt == null ? undefined : when(resetsAt, nowMs, status.timeZone);
-    const words = levelWords(fiveHour.level);
+  const latest = (["claude-code", "copilot-cli"] as const)
+    .map((agent) => newest(windows.filter((window) => window.agent === agent)))
+    .filter((window): window is WindowReading => window !== undefined);
+  const costNote = `Cost: ${costWords(status.todayTotals)}.`;
+  const note =
+    latest.length > 0
+      ? `Limits: ${latest.map((window) => `${source(window)}, ${ago(window.observedMs, nowMs)}`).join("; ")}. ${costNote}`
+      : `${costNote} Plan limits are not recorded yet.`;
+  const current = (name: string) =>
+    windows.find((window) => window.window === name && !expired(window, nowMs));
+  const fiveHour = current("five_hour");
+  const allowance = current("monthly");
+  if (fiveHour ?? allowance) {
+    const texts: string[] = [];
+    const spoken: string[] = [];
+    if (fiveHour) {
+      const used = percent(fiveHour.usedPercentage);
+      const resetsAt = fiveHour.resetsAtMs;
+      const time = resetsAt == null ? undefined : when(resetsAt, nowMs, status.timeZone);
+      const words = levelWords(fiveHour.level);
+      texts.push(time ? `5h ${used} · ${time}` : `5h ${used}`);
+      spoken.push(
+        `Five-hour window ${used} used${words ? `, ${words}` : ""}${time ? `, resets at ${time}` : ""}`,
+      );
+    }
+    if (allowance) {
+      const used = percent(allowance.usedPercentage);
+      const words = levelWords(allowance.level);
+      texts.push(`Copilot ${used}`);
+      spoken.push(`Copilot allowance ${used} used${words ? `, ${words}` : ""}`);
+    }
+    const levels = [fiveHour, allowance]
+      .filter((window): window is WindowReading => window !== undefined)
+      .map((window) => window.level);
     return {
-      text: time ? `5h ${used} · ${time}` : `5h ${used}`,
-      label: `Five-hour window ${used} used${words ? `, ${words}` : ""}${time ? `, resets at ${time}` : ""}. Open the usage dashboard.`,
-      level: fiveHour.level,
+      text: texts.join(" · "),
+      label: `${spoken.join("; ")}. Open the usage dashboard.`,
+      level: levels.includes("critical")
+        ? "critical"
+        : levels.includes("warning")
+          ? "warning"
+          : "normal",
       lines,
       note,
     };
@@ -145,7 +195,7 @@ export function statusItem(summary: Summary, nowMs: number): StatusItem {
   const today = cost(status.todayTotals);
   return {
     text: `${today} today`,
-    label: `API-equivalent cost today ${today}. Open the usage dashboard.`,
+    label: `Cost today ${today}, ${costWords(status.todayTotals)}. Open the usage dashboard.`,
     level: "normal",
     lines,
     note,
@@ -176,7 +226,7 @@ export function tree(summary: Summary, nowMs: number): Node[] {
     show: { section: "limits" },
     expanded: true,
     children: windows.map((window) => ({
-      id: `limits/${window.window}`,
+      id: `limits/${window.agent}/${window.window}`,
       label: windowName(window),
       description: reading(window, nowMs, status.timeZone),
       icon:
@@ -199,53 +249,95 @@ export function tree(summary: Summary, nowMs: number): Node[] {
       expanded: false,
     });
   }
+  const todayOnly = { range: "today" } as const;
+  /** A model's item: under its agent's item without a swatch, as the dashboard's tables show it. */
+  const modelNode = (id: string, row: ModelRow, show: Show, agent?: string): Node => ({
+    id: `${id}/${row.model.id}`,
+    label: agent ? nameUnder(agent, row.model.name) : row.model.name,
+    description: cost(row.totals),
+    ...(agent ? {} : { icon: { kind: "model", series: series.get(row.model.id) ?? "other" } }),
+    show,
+    children: [],
+    expanded: false,
+  });
+  /** Each agent's item, with its cost and its models' items under it. */
+  const agentNodes = (
+    id: string,
+    groups: readonly AgentOverview[],
+    range: Pick<Show, "range">,
+    expanded: boolean,
+  ): Node[] =>
+    groups.map(({ agent, overview }) => ({
+      id: `${id}/${agent}`,
+      label: agentName(agent),
+      description: `${cost(overview.totals)} · ${kind(overview.totals)}`,
+      icon: { kind: "model", series: agentSeries(agent) },
+      show: { section: "overview", agent, ...range },
+      expanded,
+      children: overview.models.map((row) =>
+        modelNode(`${id}/${agent}`, row, { section: "models", agent, ...range }, agent),
+      ),
+    }));
   const todayNode: Node = {
     id: "today",
     label: "Today",
-    description: `${cost(status.todayTotals)} estimate`,
-    show: { section: "overview", range: "today" },
+    description: `${cost(status.todayTotals)} · ${kind(status.todayTotals)}`,
+    show: { section: "overview", ...todayOnly },
     expanded: true,
-    children: today.models.map((row) => ({
-      id: `today/${row.model.id}`,
-      label: row.model.name,
-      description: cost(row.totals),
-      icon: { kind: "model", series: series.get(row.model.id) ?? "other" },
-      show: { section: "models", range: "today" },
-      children: [],
-      expanded: false,
-    })),
+    children:
+      summary.todayByAgent.length > 0
+        ? agentNodes("today", summary.todayByAgent, todayOnly, true)
+        : today.models.map((row) => modelNode("today", row, { section: "models", ...todayOnly })),
   };
   const weekNode: Node = {
     id: "week",
     label: "This week",
-    description: `${cost(status.weekTotals)} estimate`,
+    description: `${cost(status.weekTotals)} · ${kind(status.weekTotals)}`,
     show: { section: "overview" },
     expanded: false,
-    children: week.models.map((row) => ({
-      id: `week/${row.model.id}`,
-      label: row.model.name,
+    children:
+      summary.weekByAgent.length > 0
+        ? agentNodes("week", summary.weekByAgent, {}, true)
+        : week.models.map((row) => modelNode("week", row, { section: "models" })),
+  };
+  const projectNodes = (
+    id: string,
+    rows: Overview["projects"],
+    count: number,
+    agent?: string,
+  ): Node[] =>
+    rows.slice(0, count).map((row) => ({
+      id: `${id}/${row.project.id}`,
+      label: row.project.name,
       description: cost(row.totals),
-      icon: { kind: "model", series: series.get(row.model.id) ?? "other" },
-      show: { section: "models" },
+      icon: { kind: "folder" },
+      show: { section: "sessions", project: row.project.id, ...(agent ? { agent } : {}) },
       children: [],
       expanded: false,
-    })),
-  };
+    }));
   const projects: Node = {
     id: "projects",
     label: "Top projects",
     description: "this week",
     show: { section: "projects" },
     expanded: true,
-    children: week.projects.slice(0, TOP_PROJECTS).map((row) => ({
-      id: `projects/${row.project.id}`,
-      label: row.project.name,
-      description: cost(row.totals),
-      icon: { kind: "folder" },
-      show: { section: "sessions", project: row.project.id },
-      children: [],
-      expanded: false,
-    })),
+    children:
+      summary.weekByAgent.length > 0
+        ? summary.weekByAgent.map(({ agent, overview }) => ({
+            id: `projects/${agent}`,
+            label: agentName(agent),
+            description: cost(overview.totals),
+            icon: { kind: "model", series: agentSeries(agent) },
+            show: { section: "projects", agent },
+            expanded: true,
+            children: projectNodes(
+              `projects/${agent}`,
+              overview.projects,
+              TOP_PROJECTS_EACH,
+              agent,
+            ),
+          }))
+        : projectNodes("projects", week.projects, TOP_PROJECTS),
   };
   return [limits, todayNode, weekNode, projects];
 }

@@ -48,6 +48,10 @@ pub(super) const MIGRATIONS: &[Migration] = &[
         sql: include_str!("migrations/0005-subagents-and-settings.sql"),
         breaks_older_readers: false,
     },
+    Migration {
+        sql: include_str!("migrations/0006-agents.sql"),
+        breaks_older_readers: false,
+    },
 ];
 
 /// The schema version that a list of migrations leads to.

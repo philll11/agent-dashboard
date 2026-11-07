@@ -275,7 +275,7 @@ impl History {
     pub fn read_positions(&self) -> Result<HashMap<String, ReadPosition>, HistoryError> {
         let mut statement = self
             .conn
-            .prepare("SELECT path, read_to, len, modified_ms FROM transcripts")?;
+            .prepare("SELECT path, read_to, len, modified_ms, first_line FROM transcripts")?;
         let positions = statement
             .query_map([], |row| {
                 Ok((
@@ -284,6 +284,7 @@ impl History {
                         read_to: row.get(1)?,
                         len: row.get(2)?,
                         modified_ms: row.get(3)?,
+                        first_line: row.get(4)?,
                     },
                 ))
             })?
@@ -300,9 +301,9 @@ impl History {
         &self,
         paths: &[String],
     ) -> Result<HashMap<String, ReadPosition>, HistoryError> {
-        let mut statement = self
-            .conn
-            .prepare_cached("SELECT read_to, len, modified_ms FROM transcripts WHERE path = ?1")?;
+        let mut statement = self.conn.prepare_cached(
+            "SELECT read_to, len, modified_ms, first_line FROM transcripts WHERE path = ?1",
+        )?;
         let mut positions = HashMap::new();
         for path in paths {
             let position = statement
@@ -311,6 +312,7 @@ impl History {
                         read_to: row.get(0)?,
                         len: row.get(1)?,
                         modified_ms: row.get(2)?,
+                        first_line: row.get(3)?,
                     })
                 })
                 .optional()?;

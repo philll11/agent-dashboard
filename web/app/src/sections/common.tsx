@@ -2,7 +2,9 @@
 
 import { type ReactNode, useMemo } from "react";
 
-import type { Days, Totals } from "@agent-dashboard/protocol";
+import type { CostProvenance, Days, Filters, Totals } from "@agent-dashboard/protocol";
+
+import type { AgentOverview } from "../agents";
 
 import { useHost, useStatus } from "../context";
 import { useRequest } from "../data";
@@ -121,6 +123,31 @@ export function RangeMenu() {
   );
 }
 
+/** The agent picker, once the history holds more than one agent, or while one is chosen. */
+export function AgentMenu() {
+  const { view, change } = useView();
+  const choices = useRequest("choices", null).data;
+  const known = choices?.agents ?? [];
+  if (known.length < 2 && view.agent === null) return null;
+  const agents: Choice<string | null>[] = [
+    { value: null, label: "All agents" },
+    ...known.map((agent) => ({ value: agent.id, label: agent.name })),
+  ];
+  if (view.agent !== null && !agents.some((choice) => choice.value === view.agent)) {
+    agents.push({ value: view.agent, label: view.agent });
+  }
+  return (
+    <Picker
+      label="Agent"
+      value={view.agent}
+      choices={agents}
+      onChange={(agent) => {
+        change({ agent });
+      }}
+    />
+  );
+}
+
 export function ProjectMenu() {
   const { view, change } = useView();
   const choices = useRequest("choices", null).data;
@@ -167,9 +194,88 @@ export function ModelMenu() {
 }
 
 /** The filters the view holds, as the server takes them. */
-export function useFilters(): { project: string | null; model: string | null } {
+export function useFilters(): {
+  agent: string | null;
+  project: string | null;
+  model: string | null;
+} {
   const { view } = useView();
-  return { project: view.project, model: view.model };
+  return { agent: view.agent, project: view.project, model: view.model };
+}
+
+/** The agents the view covers: the one chosen, or every agent in the history. */
+export function useAgents(): string[] {
+  const { view } = useView();
+  const choices = useRequest("choices", null).data;
+  if (view.agent !== null) return [view.agent];
+  return choices?.agents.map((agent) => agent.id) ?? [];
+}
+
+/** Each agent's figures for `days` under `filters`, in the agents' order, while the view covers
+ * more than one agent: usage is then split by agent before anything else, since each agent may be
+ * paid for by someone else. `undefined` while the view covers one agent; empty until every answer
+ * is in. */
+export function useByAgent(days: Days, filters: Filters): AgentOverview[] | undefined {
+  const agents = useAgents();
+  const split = agents.length > 1;
+  const claude = useRequest(
+    "overview",
+    { days, filters: { ...filters, agent: "claude-code" } },
+    split,
+  ).data;
+  const copilot = useRequest(
+    "overview",
+    { days, filters: { ...filters, agent: "copilot-cli" } },
+    split,
+  ).data;
+  if (!split) return undefined;
+  if (!claude || !copilot) return [];
+  return [
+    { agent: "claude-code", overview: claude },
+    { agent: "copilot-cli", overview: copilot },
+  ].filter((group) => agents.includes(group.agent));
+}
+
+/** Where the costs of `totals` come from; without any cost, where the agents in view would take
+ * theirs from. */
+export function useProvenance(totals: Totals | undefined): CostProvenance {
+  const agents = useAgents();
+  if (totals?.costProvenance) return totals.costProvenance;
+  const copilot = agents.includes("copilot-cli");
+  if (!copilot) return "estimate";
+  return agents.length > 1 ? "mixed" : "recorded";
+}
+
+/** A cost's badge, by where it comes from. */
+export const PROVENANCE_BADGE: Record<CostProvenance, string> = {
+  estimate: "Estimate",
+  recorded: "Recorded",
+  mixed: "Includes estimate",
+};
+
+/** What a cost is, after its figure in a summary: `$148.37 API-equivalent`. */
+export const COST_WORDS: Record<CostProvenance, string> = {
+  estimate: "API-equivalent",
+  recorded: "recorded",
+  mixed: "including estimates",
+};
+
+/** What a cost is called, by where it comes from: `API-equivalent cost` while it is all
+ * estimate. */
+export function costName(provenance: CostProvenance): string {
+  return provenance === "estimate" ? "API-equivalent cost" : "Cost";
+}
+
+/** Where a cost comes from, for a subtitle. */
+export function costSource(provenance: CostProvenance): string {
+  switch (provenance) {
+    case "estimate":
+      return "Estimate at Anthropic's list prices";
+    case "recorded":
+      return "As Copilot CLI recorded it";
+    case "mixed":
+      return "Includes an estimate at Anthropic's list prices";
+  }
 }
 
 /** Every token, of every kind. */
@@ -185,7 +291,7 @@ export function cacheShare(totals: Totals): number {
   return all > 0 ? cacheRead / all : 0;
 }
 
-/** API-equivalent cost, saying when some requests could not be priced: `$5.05 + unpriced`. */
+/** A cost, saying when some requests could not be priced: `$5.05 + unpriced`. */
 export function costText(totals: Totals): string {
   if (totals.requests > 0 && totals.unpricedRequests === totals.requests) return "Unpriced";
   return totals.unpricedRequests > 0

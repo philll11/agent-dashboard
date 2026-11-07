@@ -21,6 +21,7 @@ import type { Options } from "./synthetic.ts";
 
 /** Where the dashboard is shown the folders and the history, whatever the machine. */
 export const SHOWN_ROOT = "/home/you/.claude";
+export const SHOWN_COPILOT_ROOT = "/home/you/.copilot";
 export const SHOWN_HISTORY = "/home/you/.local/share/agent-dashboard/history.sqlite";
 export const SHOWN_PROGRAM = "/home/you/.local/bin/agent-dashboard";
 export const SHOWN_ADDED_FOLDER = "//wsl.localhost/Ubuntu/home/you/.claude";
@@ -68,8 +69,8 @@ export class Bridge {
     });
   }
 
-  /** Writes the scenario's Claude Code folder, reads it into a new history, and starts a server
-   * on them. */
+  /** Writes the scenario's Claude Code and Copilot CLI folders, reads them into a new history, and
+   * starts a server on them. */
   static async start(scenario: Scenario = {}): Promise<Bridge> {
     const setup: Setup = { empty: scenario.empty ?? false };
     if (scenario.options) setup.options = scenario.options;
@@ -94,6 +95,10 @@ export class Bridge {
         spellings(folder).map((path): [string, string] => [path, SHOWN_ADDED_FOLDER]),
       ),
       ...spellings(root).map((path): [string, string] => [path, SHOWN_ROOT]),
+      ...spellings(join(folder, ".copilot")).map((path): [string, string] => [
+        path,
+        SHOWN_COPILOT_ROOT,
+      ]),
     ];
     const exited = new Promise<void>((resolve) =>
       server.once("exit", () => {

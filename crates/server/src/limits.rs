@@ -3,7 +3,7 @@
 //! usage endpoint on asks for, and what went wrong the last time it was asked.
 
 use agent_dashboard_core::history::{History, HistoryError};
-use agent_dashboard_core::limits::{self, FIVE_HOUR, FIVE_HOURS_MS};
+use agent_dashboard_core::limits::{self, FIVE_HOUR};
 use agent_dashboard_core::usage_endpoint::{Outcome, State};
 use jiff::Timestamp;
 
@@ -13,9 +13,7 @@ use crate::protocol::{Endpoint, FiveHourWindow, Limits, Pace, StatusLine, UsePoi
 use crate::requests::{totals, window_reading};
 use crate::statusline::{self, Connection};
 
-/// How long a weekly window lasts.
-const WEEK_MS: i64 = 7 * DAY_MS;
-/// How far back a weekly window's pace is measured.
+/// How far back the pace of a window longer than five hours is measured.
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 /// How far back the recent five-hour windows go.
 pub(crate) const RECENT_WINDOWS_MS: i64 = 7 * DAY_MS;
@@ -30,12 +28,9 @@ pub fn view(app: &App, history: &History) -> Result<Limits, HistoryError> {
     let now_ms = app.now.as_millisecond();
     let mut windows = Vec::new();
     for reading in history.latest_limits()? {
-        let length = if reading.window == FIVE_HOUR {
-            FIVE_HOURS_MS
-        } else {
-            WEEK_MS
-        };
-        let start_ms = reading.resets_at_ms.map(|resets| resets - length);
+        let start_ms = reading
+            .resets_at_ms
+            .map(|resets| limits::window_start_ms(&reading.window, resets));
         let series: Vec<UsePoint> = match (start_ms, reading.resets_at_ms) {
             (Some(start_ms), Some(resets_at_ms)) => history
                 .limit_snapshots(&reading.window, start_ms, now_ms.saturating_add(1))?

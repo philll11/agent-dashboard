@@ -1,5 +1,6 @@
 //! `agent-dashboard export`, and the reports' JSON and CSV, which come from the same export as
-//! the dashboard's files.
+//! the dashboard's files; a report of every agent's models or projects asks for each agent's
+//! apart.
 
 use std::io::{self, BufWriter, IsTerminal, Write};
 use std::ops::ControlFlow;
@@ -7,6 +8,7 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_server::app::App;
 use agent_dashboard_server::export;
 use agent_dashboard_server::fmt::grouped;
@@ -14,14 +16,28 @@ use agent_dashboard_server::protocol::{Dataset, Days, ExportFormat, ExportParams
 use jiff::Timestamp;
 use jiff::civil::Date;
 
-use crate::report::{Output, colour_json, ready_history};
+use crate::report::{Given, Output, colour_json, ready_history};
 use crate::style::Paint;
 
 /// How often an export to a file shows its progress on a terminal.
 const PROGRESS_EVERY: Duration = Duration::from_millis(250);
 
-/// What a report's `--json` or `--csv` writes: `dataset` for `days`.
-pub fn params(dataset: Dataset, output: Output, first: Date, last: Date) -> ExportParams {
+/// The filters of a report or export that counts only `agent`'s requests, or every agent's.
+fn filters(agent: Option<Agent>) -> Filters {
+    Filters {
+        agent: agent.map(|agent| agent.as_str().to_owned()),
+        ..Filters::default()
+    }
+}
+
+/// What a report's `--json` or `--csv` writes: `dataset` for the days from `first` to `last`, of
+/// `agent`'s requests or every agent's.
+pub fn params(
+    dataset: Dataset,
+    output: Output,
+    (first, last): (Date, Date),
+    agent: Option<Agent>,
+) -> ExportParams {
     ExportParams {
         dataset,
         format: if output == Output::Json {
@@ -33,7 +49,7 @@ pub fn params(dataset: Dataset, output: Output, first: Date, last: Date) -> Expo
             first: first.to_string(),
             last: last.to_string(),
         }),
-        filters: Filters::default(),
+        filters: filters(agent),
         search: None,
         session: None,
     }
@@ -69,19 +85,20 @@ pub fn print(app: &App, params: &ExportParams) -> ExitCode {
     }
 }
 
-/// `agent-dashboard export`: every request, or those of the days given, as CSV or JSON, to
-/// standard output or to a file saved for a spreadsheet.
+/// `agent-dashboard export`: every request, or those of the days given, of `agent` or every
+/// agent, as CSV or JSON, to standard output or to a file saved for a spreadsheet.
 pub fn run(
     app: &App,
-    since: Option<Date>,
-    until: Option<Date>,
+    (since, until): Given,
+    agent: Option<Agent>,
     format: ExportFormat,
     output: Option<&Path>,
 ) -> ExitCode {
-    let history = match ready_history(app) {
-        Ok(history) => history,
+    let (app, history) = match ready_history(app) {
+        Ok(ready) => ready,
         Err(code) => return code,
     };
+    let app = &app;
     let days = if since.is_some() || until.is_some() {
         let today = app.now_zoned().date();
         let last = until.unwrap_or(today);
@@ -106,7 +123,7 @@ pub fn run(
         dataset: Dataset::Requests,
         format,
         days,
-        filters: Filters::default(),
+        filters: filters(agent),
         search: None,
         session: None,
     };

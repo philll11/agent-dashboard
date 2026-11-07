@@ -1,12 +1,15 @@
 //! Models: cost per day by model, each model's tokens by kind, its share of fast mode and of the
-//! cost, and the prices the estimate uses. A page that scrolls when it does not fit.
+//! cost, and the prices the estimate uses. While usage splits by agent, the chart is by agent and
+//! each agent's models come under its own row of their totals. A page that scrolls when it does
+//! not fit.
 
 use agent_dashboard_server::fmt::{compact, grouped, percent, price, short_date};
-use agent_dashboard_server::protocol::{ModelRow, Overview, PriceRow, Prices};
+use agent_dashboard_server::protocol::{ModelRow, Overview, PriceRow, Prices, Totals};
+use ratatui::style::Style;
 
 use super::chart;
-use super::overview::{cost_chart, cost_text, tokens_of};
-use super::{KEYS, footer, header, notice, scrolled, series_of};
+use super::overview::{agent_chart, cost_chart, cost_text, tokens_of};
+use super::{AgentPart, KEYS, agent_parts, footer, header, notice, scrolled, series_of};
 use crate::tui::canvas::{Canvas, clean, fit};
 use crate::tui::state::{Section, State, day};
 use crate::tui::theme::Series;
@@ -16,10 +19,18 @@ fn wide(state: &State) -> bool {
     state.wide() && state.width >= 120
 }
 
+/// Every model's overview, once it has come, and while usage splits by agent, once each agent's
+/// part has come too.
 fn overview(state: &State) -> Option<&Overview> {
     state
         .models_request()
         .and_then(|request| state.overview(&request))
+        .filter(|_| !state.by_agent() || parts(state).is_some())
+}
+
+/// Each agent's part of the models, while usage splits by agent.
+fn parts(state: &State) -> Option<Vec<AgentPart<'_>>> {
+    agent_parts(state, state.models_request())
 }
 
 fn prices(state: &State) -> Option<&Prices> {
@@ -70,11 +81,16 @@ struct Layout {
     prices: (i32, i32),
 }
 
+/// Whether none of a model's requests has a cost: neither a price nor a recorded charge.
+fn unpriced_row(row: &ModelRow) -> bool {
+    row.totals.requests > 0 && row.totals.unpriced_requests == row.totals.requests
+}
+
 fn unpriced(overview: &Overview) -> Vec<String> {
     overview
         .models
         .iter()
-        .filter(|row| row.model.name == row.model.id)
+        .filter(|row| unpriced_row(row))
         .map(|row| clean(&row.model.id))
         .collect()
 }
@@ -92,7 +108,13 @@ fn layout(state: &State) -> Layout {
 
 fn arrange(state: &State, chart_h: i32) -> Layout {
     let wide = wide(state);
-    let models = overview(state).map_or(0, |overview| overview.models.len());
+    let models = match parts(state) {
+        Some(parts) => parts
+            .iter()
+            .map(|part| 1 + part.overview.models.len())
+            .sum(),
+        None => overview(state).map_or(0, |overview| overview.models.len()),
+    };
     let rows = i32::try_from(models).unwrap_or(0);
     let unpriced = overview(state).map_or(0, |overview| unpriced(overview).len());
     let priced_rows =
@@ -162,10 +184,15 @@ fn draw_page(c: &mut Canvas, state: &State, overview: &Overview) {
     let wide = wide(state);
     let w = c.w;
     let layout = layout(state);
-    let chart = cost_chart(state, overview, w - 10);
+    let parts = parts(state);
+    let chart = match &parts {
+        Some(parts) => agent_chart(state, overview, parts, w - 10),
+        None => cost_chart(state, overview, w - 10),
+    };
     let title = format!(
-        "Cost per {} by model · {}",
+        "Cost per {} by {} · {}",
         chart.per(),
+        chart.by(),
         state.range.title()
     );
     let chart_box = (0, layout.chart.0, w, layout.chart.1);
@@ -186,7 +213,13 @@ fn draw_page(c: &mut Canvas, state: &State, overview: &Overview) {
             })
             .unwrap_or_default(),
     );
-    tokens_box(c, state, overview, &series, layout.tokens);
+    tokens_box(
+        c,
+        state,
+        (overview, parts.as_deref()),
+        &series,
+        layout.tokens,
+    );
     let unpriced = unpriced(overview);
     let mut y = layout.notes;
     if !wide {
@@ -247,11 +280,12 @@ fn end_of(columns: &[(&str, i32)], label: &str) -> i32 {
         .map_or(0, |(_, end)| *end)
 }
 
-/// Each model's requests, tokens by kind, fast mode, cost and share.
+/// Each model's requests, tokens by kind, fast mode, cost and share; each agent's models under a
+/// row of the agent's totals while usage splits by agent, every share of all the agents' cost.
 fn tokens_box(
     c: &mut Canvas,
     state: &State,
-    overview: &Overview,
+    (overview, parts): (&Overview, Option<&[AgentPart<'_>]>),
     series: &std::collections::HashMap<String, Series>,
     (top, h): (i32, i32),
 ) {
@@ -263,10 +297,7 @@ fn tokens_box(
         Some(&format!("Tokens and cost · {}", state.range.title())),
         None,
     );
-    let unpriced_any = overview
-        .models
-        .iter()
-        .any(|row| row.model.name == row.model.id);
+    let unpriced_any = overview.models.iter().any(unpriced_row);
     let (heading, first) = if wide {
         (top + 2, top + 3)
     } else {
@@ -299,11 +330,42 @@ fn tokens_box(
         c.right(*end, heading, label, theme.muted());
     }
     let mut y = first;
-    for row in &overview.models {
+    let total = overview.totals.cost.total;
+    // Each agent's line, and its models a step in from it, without their marks.
+    let mut lines: Vec<(Line<'_>, &Totals)> = Vec::new();
+    match parts {
+        Some(parts) => {
+            for part in parts {
+                let mark = (theme.swatch(part.series), theme.series(part.series));
+                lines.push((
+                    (4, part.name.clone(), theme.strong(), Some(mark)),
+                    &part.overview.totals,
+                ));
+                for row in &part.overview.models {
+                    lines.push(((6, clean(&row.model.name), theme.text(), None), &row.totals));
+                }
+            }
+        }
+        None => {
+            for row in &overview.models {
+                let of = series.get(&row.model.id).copied().unwrap_or(Series::Other);
+                let mark = if unpriced_row(row) {
+                    ("?", theme.muted())
+                } else {
+                    (theme.swatch(of), theme.series(of))
+                };
+                lines.push((
+                    (4, clean(&row.model.name), theme.text(), Some(mark)),
+                    &row.totals,
+                ));
+            }
+        }
+    }
+    for (line, totals) in &lines {
         if y >= top + h - 1 {
             break;
         }
-        token_row(c, row, y, &columns, (overview.totals.cost.total, series));
+        token_row(c, (y, line), totals, (&columns, total));
         y += 1;
     }
     if (wide || !unpriced_any) && y < top + h - 1 {
@@ -318,31 +380,25 @@ fn tokens_box(
     }
 }
 
-/// One model's row of the table: its tokens by kind in the wide layout, all its tokens in the
-/// narrow one, and its cost and share of `total`.
+/// How a row of the table starts: the column of its name, the name and its style, and the mark
+/// two columns before the name, where it has one.
+type Line<'a> = (i32, String, Style, Option<(&'a str, Style)>);
+
+/// One row of the table, for a model or an agent: its tokens by kind in the wide layout, all its
+/// tokens in the narrow one, and its cost and share of `total`.
 fn token_row(
     c: &mut Canvas,
-    row: &ModelRow,
-    y: i32,
-    columns: &[(&str, i32)],
-    (total, series): (f64, &std::collections::HashMap<String, Series>),
+    (y, (x, name, style, mark)): (i32, &Line<'_>),
+    totals: &Totals,
+    (columns, total): (&[(&str, i32)], f64),
 ) {
     let theme = c.theme;
     let end = |label: &str| end_of(columns, label);
-    let unpriced = row.model.name == row.model.id;
-    let of = series.get(&row.model.id).copied().unwrap_or(Series::Other);
-    if unpriced {
-        c.put(2, y, "?", theme.muted());
-    } else {
-        c.put(2, y, theme.swatch(of), theme.series(of));
+    let unpriced = totals.requests > 0 && totals.unpriced_requests == totals.requests;
+    if let Some((symbol, mark_style)) = mark {
+        c.put(x - 2, y, symbol, *mark_style);
     }
-    c.text(
-        4,
-        y,
-        &fit(&clean(&row.model.name), end("Requests") - 13),
-        theme.text(),
-    );
-    let totals = &row.totals;
+    c.text(*x, y, &fit(name, end("Requests") - 13 - (x - 4)), *style);
     let tokens = &totals.tokens;
     c.right(end("Requests"), y, &grouped(totals.requests), theme.text());
     if end("Input") > 0 {

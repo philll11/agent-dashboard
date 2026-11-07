@@ -3,7 +3,9 @@
 use rusqlite::{OptionalExtension, Transaction, params};
 
 use super::HistoryError;
+use crate::agent::Agent;
 use crate::limits::LimitSnapshot;
+use crate::pricing::Charge;
 use crate::tokens::Tokens;
 use crate::usage_endpoint::Outcome;
 
@@ -74,6 +76,9 @@ pub struct ReadPosition {
     pub len: u64,
     /// Milliseconds since the Unix epoch.
     pub modified_ms: i64,
+    /// A hash of the transcript's first line, which tells a transcript written again from the
+    /// start apart from one that grew.
+    pub first_line: Option<i64>,
 }
 
 /// The skill, MCP server or MCP tool that Claude Code credits a request to.
@@ -103,11 +108,18 @@ pub struct Request<'a> {
     pub service_tier: Option<&'a str>,
     pub inference_geo: Option<&'a str>,
     pub attribution: Attribution<'a>,
-    /// How Claude Code was started, such as `cli` or `sdk-cli`.
+    /// How the agent was started, such as Claude Code's `cli` or Copilot CLI's `github/cli`.
     pub entrypoint: Option<&'a str>,
-    pub claude_code_version: Option<&'a str>,
+    /// The version of the agent that made the request.
+    pub agent_version: Option<&'a str>,
     /// The source the request was imported from; `None` for a request read from a transcript.
     pub imported_from: Option<&'a str>,
+    /// Reasoning tokens, which the output tokens already count.
+    pub reasoning_tokens: u64,
+    /// Who started the request, where the agent says: `user`, `agent` or `sub-agent`.
+    pub initiator: Option<&'a str>,
+    /// What the request cost, as the agent recorded it; `None` where it records no charge.
+    pub charge: Option<Charge>,
 }
 
 /// Records into the history within one transaction, which [`History::write`] opens.
@@ -171,7 +183,8 @@ impl<'conn> Writer<'conn> {
         Ok(id.map(ProjectKey))
     }
 
-    /// Records a session of a project, identified by Claude Code's session id.
+    /// Records a session of a project in `agent`, identified by the agent's session id. Both
+    /// agents name sessions by UUID, so a session id is unique across them.
     ///
     /// # Errors
     ///
@@ -180,13 +193,14 @@ impl<'conn> Writer<'conn> {
         &mut self,
         session_id: &str,
         project: ProjectKey,
+        agent: Agent,
     ) -> Result<SessionKey, HistoryError> {
         self.tx
             .prepare_cached(
-                "INSERT INTO sessions (session_id, project) VALUES (?1, ?2)
+                "INSERT INTO sessions (session_id, project, agent) VALUES (?1, ?2, ?3)
                  ON CONFLICT (session_id) DO NOTHING",
             )?
-            .execute(params![session_id, project.0])?;
+            .execute(params![session_id, project.0, agent.as_str()])?;
         let id = self
             .tx
             .prepare_cached("SELECT id FROM sessions WHERE session_id = ?1")?
@@ -233,6 +247,41 @@ impl<'conn> Writer<'conn> {
                  ON CONFLICT (session, subagent_id) DO UPDATE SET agent_type = excluded.agent_type",
             )?
             .execute(params![session.0, subagent_id, agent_type])?;
+        Ok(())
+    }
+
+    /// The session with the agent's `session_id`, when the history holds it.
+    ///
+    /// # Errors
+    ///
+    /// SQLite errors.
+    pub fn known_session(&mut self, session_id: &str) -> Result<Option<SessionKey>, HistoryError> {
+        let id = self
+            .tx
+            .prepare_cached("SELECT id FROM sessions WHERE session_id = ?1")?
+            .query_row([session_id], |row| row.get(0))
+            .optional()?;
+        Ok(id.map(SessionKey))
+    }
+
+    /// Records the name `agent` shows for one of its models.
+    ///
+    /// # Errors
+    ///
+    /// SQLite errors.
+    pub fn model_name(
+        &mut self,
+        agent: Agent,
+        model: &str,
+        name: &str,
+    ) -> Result<(), HistoryError> {
+        self.tx
+            .prepare_cached(
+                "INSERT INTO model_names (agent, model, name) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (agent, model) DO UPDATE SET name = excluded.name
+                 WHERE model_names.name != excluded.name",
+            )?
+            .execute(params![agent.as_str(), model, name])?;
         Ok(())
     }
 
@@ -324,13 +373,16 @@ impl<'conn> Writer<'conn> {
         self.tx
             .prepare_cached(
                 "INSERT INTO limit_snapshots (
-                     window, source, bucket_ms, observed_ms, used_percentage, resets_at_ms
+                     window, source, bucket_ms, observed_ms, used_percentage, resets_at_ms, used,
+                     entitlement
                  )
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
                  ON CONFLICT (window, source, bucket_ms) DO UPDATE SET
                      observed_ms = excluded.observed_ms,
                      used_percentage = excluded.used_percentage,
-                     resets_at_ms = excluded.resets_at_ms
+                     resets_at_ms = excluded.resets_at_ms,
+                     used = excluded.used,
+                     entitlement = excluded.entitlement
                  WHERE excluded.observed_ms >= limit_snapshots.observed_ms",
             )?
             .execute(params![
@@ -339,7 +391,9 @@ impl<'conn> Writer<'conn> {
                 snapshot.observed_ms.div_euclid(BUCKET_MS) * BUCKET_MS,
                 snapshot.observed_ms,
                 snapshot.used_percentage,
-                snapshot.resets_at_ms
+                snapshot.resets_at_ms,
+                snapshot.used,
+                snapshot.entitlement
             ])?;
         Ok(())
     }
@@ -419,17 +473,20 @@ impl<'conn> Writer<'conn> {
     ) -> Result<(), HistoryError> {
         self.tx
             .prepare_cached(
-                "INSERT INTO transcripts (path, read_to, len, modified_ms) VALUES (?1, ?2, ?3, ?4)
+                "INSERT INTO transcripts (path, read_to, len, modified_ms, first_line)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
                  ON CONFLICT (path) DO UPDATE SET
                      read_to = excluded.read_to,
                      len = excluded.len,
-                     modified_ms = excluded.modified_ms",
+                     modified_ms = excluded.modified_ms,
+                     first_line = excluded.first_line",
             )?
             .execute(params![
                 path,
                 position.read_to,
                 position.len,
-                position.modified_ms
+                position.modified_ms,
+                position.first_line
             ])?;
         Ok(())
     }
@@ -490,6 +547,7 @@ impl<'conn> Writer<'conn> {
             mcp_server,
             mcp_tool,
         } = request.attribution;
+        let charge = request.charge;
         let changed = self.tx.prepare_cached(sql)?.execute(params![
             request.session.0,
             message_id,
@@ -512,8 +570,14 @@ impl<'conn> Writer<'conn> {
             mcp_server,
             mcp_tool,
             request.entrypoint,
-            request.claude_code_version,
+            request.agent_version,
             request.imported_from,
+            request.reasoning_tokens,
+            request.initiator,
+            charge.map(|charge| charge.input),
+            charge.map(|charge| charge.output),
+            charge.map(|charge| charge.cache_read),
+            charge.map(|charge| charge.cache_write),
         ])?;
         if changed == 0 {
             self.tx.prepare_cached(earlier)?.execute(params![
@@ -612,18 +676,23 @@ impl<'conn> Writer<'conn> {
         Ok(taken == 1)
     }
 
-    /// Adds a data folder, read after the default one or `CLAUDE_CONFIG_DIR`'s.
+    /// Adds a data folder holding `agent`'s data, read after the agents' own.
     ///
     /// # Errors
     ///
     /// SQLite errors.
-    pub fn add_data_folder(&mut self, path: &str, added_ms: i64) -> Result<(), HistoryError> {
+    pub fn add_data_folder(
+        &mut self,
+        path: &str,
+        agent: Agent,
+        added_ms: i64,
+    ) -> Result<(), HistoryError> {
         self.tx
             .prepare_cached(
-                "INSERT INTO data_folders (path, added_ms) VALUES (?1, ?2)
+                "INSERT INTO data_folders (path, agent, added_ms) VALUES (?1, ?2, ?3)
                  ON CONFLICT (path) DO NOTHING",
             )?
-            .execute(params![path, added_ms])?;
+            .execute(params![path, agent.as_str(), added_ms])?;
         Ok(())
     }
 
@@ -677,11 +746,13 @@ macro_rules! upsert_request {
                 input_tokens, output_tokens, cache_read_tokens, cache_write_5m_tokens,
                 cache_write_1h_tokens, web_search_requests, web_fetch_requests, speed,
                 service_tier, inference_geo, skill, mcp_server, mcp_tool, entrypoint,
-                claude_code_version, imported_from, record_ms
+                claude_code_version, imported_from, record_ms, reasoning_tokens, initiator,
+                charge_input_nano, charge_output_nano, charge_cache_read_nano,
+                charge_cache_write_nano
             )
             VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18,
-                ?19, ?20, ?21, ?22, ?23, ?6
+                ?19, ?20, ?21, ?22, ?23, ?6, ?24, ?25, ?26, ?27, ?28, ?29
             )
             ON CONFLICT ",
             $conflict_target,
@@ -707,7 +778,13 @@ macro_rules! upsert_request {
                 mcp_tool = excluded.mcp_tool,
                 entrypoint = excluded.entrypoint,
                 claude_code_version = excluded.claude_code_version,
-                imported_from = excluded.imported_from
+                imported_from = excluded.imported_from,
+                reasoning_tokens = excluded.reasoning_tokens,
+                initiator = excluded.initiator,
+                charge_input_nano = excluded.charge_input_nano,
+                charge_output_nano = excluded.charge_output_nano,
+                charge_cache_read_nano = excluded.charge_cache_read_nano,
+                charge_cache_write_nano = excluded.charge_cache_write_nano
             WHERE (
                 excluded.imported_from IS NULL,
                 excluded.input_tokens + excluded.output_tokens + excluded.cache_read_tokens

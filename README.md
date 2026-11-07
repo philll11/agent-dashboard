@@ -1,6 +1,6 @@
 # agent-dashboard
 
-See how you use Claude Code: what it would cost at API prices, where the usage goes, and how close you are to your plan limits.
+See how you use your coding agents, Claude Code and GitHub Copilot CLI: what your usage costs, where it goes, and how close you are to your plan limits.
 It runs inside VS Code, as a desktop app and in the terminal, on Windows, macOS and Linux, with nothing else to install.
 
 > It is made for personal use, and installed from the [releases](https://github.com/philll11/agent-dashboard/releases) rather than a marketplace.
@@ -8,8 +8,8 @@ It runs inside VS Code, as a desktop app and in the terminal, on Windows, macOS 
 
 ## What it is for
 
-- **Plan limits at a glance**: how much of the five-hour and weekly windows you have used, and when they reset.
-- **Usage and cost**: tokens and API-equivalent cost today, this week and this month, by model.
+- **Plan limits at a glance**: how much of Claude Code's five-hour and weekly windows and Copilot's monthly allowance you have used, and when they reset.
+- **Usage and cost**: tokens and cost today, this week and this month, in one figure that says whether it includes an estimate, and each agent's models and projects apart, since the agents are often paid for by different people.
 - **Where it goes**: projects, sessions, subagents, skills and MCP servers, and how well the prompt cache works for you.
 - **History that lasts**: Claude Code deletes its transcripts after 30 days by default; agent-dashboard keeps what it has read.
 - **Your data, your way**: CSV and JSON export, and terminal reports you can script.
@@ -29,14 +29,14 @@ The platforms are `win32`, `darwin`, `linux` and `alpine`, each `x64` or `arm64`
 It comes with the `agent-dashboard` program for your platform, so nothing else needs installing.
 To update, install the package from a newer release.
 
-- The status bar shows the five-hour window and when it resets, or today's API-equivalent cost before plan limits are recorded.
+- The status bar shows Claude Code's five-hour window and when it resets, and Copilot's allowance, such as `5h 42% · 14:20 · Copilot 4%`, or today's cost before plan limits are recorded.
 - Its sidebar lists plan limits, today by model, this week and the week's top projects.
-- The **Usage dashboard** tab in the panel, beside the terminal, holds the whole dashboard under a strip that keeps the five-hour and weekly windows and the latest session in the project you have open in sight, whichever section you look at.
+- The **Usage dashboard** tab in the panel, beside the terminal, holds the whole dashboard under a strip that keeps Claude Code's five-hour and weekly windows, Copilot's allowance and the latest session in the project you have open in sight, whichever section you look at.
   Drag it beside the terminal or into a sidebar, and it fits itself to the room.
 - The dashboard also opens in an editor tab, in your colour theme: Overview, Sessions, Projects, Models, Limits and Settings.
 - Its walkthrough records your plan limits, brings in claude-usage history and chooses data folders.
 
-In a window connected to WSL, over SSH or in a container, it runs on that machine and reads its Claude Code folder.
+In a window connected to WSL, over SSH or in a container, it runs on that machine and reads its agents' folders.
 Install it there from that window, with **Extensions: Install from VSIX…** and the package for that machine, such as `agent-dashboard-linux-x64-<version>.vsix` for WSL on an x64 computer: an extension installed in a local window does not run in remote ones until it is installed there too.
 `agentDashboard.server.path` runs another `agent-dashboard` instead of the one that comes with the extension, such as a build of your own.
 
@@ -57,7 +57,7 @@ macOS asks once before the app opens: in **System Settings**, **Privacy & Securi
 
 - The sidebar holds the sections: Overview, Sessions, Projects, Models, Limits and Settings.
 - The window is light or dark as your system is, and remembers its size and place.
-- Its item in the notification area, or the menu bar on macOS, shows how much of the five-hour window you have used, and its menu lists every plan window and today's API-equivalent cost.
+- Its item in the notification area, or the menu bar on macOS, shows how much of the five-hour window you have used, marked once that or Copilot's allowance passes 70%, and its menu lists every plan window and today's cost.
   On Windows and macOS, closing the window keeps the app running there, and **Quit** in the item's menu ends it; on Linux, closing the window quits unless you switch keeping it running on in Settings.
   Settings can also hide the item and open the app at login, in the item without the window.
 - Each section's **Export** button saves its table as CSV or JSON, and Settings saves the whole history.
@@ -103,14 +103,14 @@ It works from the keyboard alone, in a terminal of 80 by 24 or larger:
 | `Enter` | Open a session, or filter the dashboard to a project |
 | `Esc` | Go back, or close |
 | `/` | Search the sessions |
-| `r`, `p`, `m` | Choose the range, the project and the model |
+| `r`, `a`, `p`, `m` | Choose the range, the agent, the project and the model |
 | `t` | Show the charts as tables |
 | `e` | Export the section shown, as CSV or JSON, to a file in your Downloads folder unless you change it |
 | `R` | Read new transcripts now |
 | `?` | Show the keys |
 | `q`, `Ctrl-C` | Quit |
 
-It reads what Claude Code adds to its transcripts every minute and updates in place.
+It reads what the agents add to their transcripts every minute and updates in place.
 Its colours suit your terminal's light or dark background, which it asks the terminal about; `AGENT_DASHBOARD_THEME=light` or `dark` chooses instead.
 `NO_COLOR` turns colour off, and the charts then tell the models apart by pattern.
 In Git Bash's own window, run it in Windows Terminal or through `winpty agent-dashboard`.
@@ -121,7 +121,7 @@ For a screen reader, the reports below print plain lines.
 
 | Command | What it shows |
 |---|---|
-| `agent-dashboard today` | Today's requests and API-equivalent cost by model, and your plan limits |
+| `agent-dashboard today` | Today's requests and cost by model, and your plan limits |
 | `agent-dashboard daily` | Requests, tokens and cost per day |
 | `agent-dashboard weekly` | Requests, tokens and cost per week |
 | `agent-dashboard monthly` | Requests, tokens and cost per calendar month |
@@ -136,16 +136,22 @@ For a screen reader, the reports below print plain lines.
 
 `daily`, `models` and `projects` cover the last 30 days and `sessions` the last 7, unless you give `--since` and `--until` with dates such as `2026-10-05`.
 `weekly` and `monthly` cover the last 12 weeks and months, and with `--since` and `--until` every week or month those days fall in, whole; weeks start on the day the dashboard's settings name, Monday unless you choose another.
-Every report takes `--json` or `--csv` for scripts.
-Each command first reads what Claude Code has added to its transcripts; the first time, that takes a few seconds.
+Every report takes `--json` or `--csv` for scripts, and `--agent claude-code` or `--agent copilot-cli` for one agent's usage.
+Each command first reads what the agents have added to their transcripts; the first time, that takes a few seconds.
 
 ### Export
 
-`agent-dashboard export` writes one row per request, with its session, project, model, tokens, tools and API-equivalent cost: as CSV unless you give `--json`, for every day unless you give `--since` and `--until`.
+`agent-dashboard export` writes one row per request, with its agent, session, project, model, tokens, tools and cost, and where the cost comes from: as CSV unless you give `--json`, for every day unless you give `--since` and `--until`.
 It writes to standard output for scripts, or with `--output requests.csv` to a file made for spreadsheets: a CSV file starts with UTF-8's byte order mark, so that Excel reads it as UTF-8, and text that a spreadsheet would take for a formula, such as a session title starting with `=`, gets an apostrophe before it.
 Use `--output` in Windows PowerShell 5.1, whose `>` writes another encoding.
 The dashboard's exports are the same files.
 Days are written in your time zone, moments in UTC, and costs in US dollars without a symbol.
+
+### Cost
+
+Claude Code's cost is an API-equivalent estimate: what its requests would cost at Anthropic's published API prices, never what your plan charges.
+Copilot CLI's cost is what Copilot CLI recorded for each request in AI credits, at $0.01 a credit, including what GitHub adds, such as for data residency.
+A figure that adds both says it includes an estimate, and the agent filter splits it.
 
 ### Prices
 
@@ -156,9 +162,12 @@ A newer table is used only when it keeps every price this version has, adding on
 
 ### Plan limits
 
+Copilot CLI notes your monthly allowance, in AI credits, with each request it makes, so there is nothing to connect.
+The allowance counts Copilot wherever you use it, not only the CLI, and resets at 00:00 UTC on the 1st of each month.
+
 Claude Code passes your plan limits to its status line command while it runs in a terminal.
 `agent-dashboard statusline connect` makes agent-dashboard that command, after showing you the change to Claude Code's `settings.json` and keeping a backup.
-Its line starts with the session's title, which tells apart sessions running side by side, then shows the model, how much of each plan window is used and today's API-equivalent cost: `Fix the importer · Opus 5.5 · 5h 42% · week 71% · $5.05 today`.
+Its line starts with the session's title, which tells apart sessions running side by side, then shows the model, how much of each plan window is used and Claude Code's API-equivalent cost today: `Fix the importer · Opus 5.5 · 5h 42% · week 71% · $5.05 today`.
 If you already have a status line, agent-dashboard records the plan limits and then shows yours.
 `agent-dashboard statusline disconnect` puts back the status line you had before.
 
@@ -174,7 +183,8 @@ If you used the [claude-usage](https://github.com/phuryn/claude-usage) dashboard
 
 ### Where the data lives
 
-agent-dashboard reads what Claude Code keeps in `~/.claude`, or in the folders that `CLAUDE_CONFIG_DIR` names, separated by commas.
+agent-dashboard reads what Claude Code keeps in `~/.claude`, or in the folders that `CLAUDE_CONFIG_DIR` names, separated by commas, and what Copilot CLI keeps in `~/.copilot/session-state`, or under the folder `COPILOT_HOME` names.
+Settings, or the dashboard's own Settings section, can add another folder for either agent, such as one in WSL.
 It keeps its own history in `history.sqlite`, in `%LOCALAPPDATA%\agent-dashboard` on Windows, `~/Library/Application Support/agent-dashboard` on macOS and `~/.local/share/agent-dashboard` on Linux.
 Set `AGENT_DASHBOARD_HISTORY` to keep it in another file, `NO_COLOR` to turn colours off, and `AGENT_DASHBOARD_THEME` to `light` or `dark` to choose colours for your terminal's background.
 
@@ -197,7 +207,7 @@ If you set `CLAUDE_DASHBOARD_HISTORY` or `CLAUDE_DASHBOARD_THEME`, set `AGENT_DA
 
 ## Privacy
 
-- agent-dashboard reads the files Claude Code keeps on your machine and records numbers, names and titles in a local database; it never stores prompt or code content.
+- agent-dashboard reads the files Claude Code and Copilot CLI keep on your machine and records numbers, names and titles in a local database; it never stores prompt or code content.
 - There is no telemetry.
 - It only uses the network for features you switch on: plan limits from Anthropic's undocumented usage endpoint (labelled experimental), update checks for the desktop app, and the daily check for a newer price table in this repository.
 

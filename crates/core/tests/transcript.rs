@@ -93,7 +93,10 @@ fn reads_a_request_from_an_assistant_record() {
             timestamp_ms: 1_791_612_987_123,
             cwd: Some(r"C:\code\app".into()),
             entrypoint: Some("cli".into()),
-            claude_code_version: Some("2.1.296".into()),
+            agent_version: Some("2.1.296".into()),
+            reasoning_tokens: 0,
+            initiator: None,
+            charge: None,
             speed: Some("standard".into()),
             service_tier: Some("standard".into()),
             inference_geo: Some("global".into()),
@@ -102,6 +105,8 @@ fn reads_a_request_from_an_assistant_record() {
             mcp_tool: Some("create_pull_request".into()),
             web_search_requests: 2,
             web_fetch_requests: 1,
+            subagent_id: None,
+            model_name: None,
             usage: vec![ModelUsage {
                 model: "claude-opus-5-5".into(),
                 tokens: tokens(3, 640, 42_000, 500, 1_000),
@@ -233,7 +238,7 @@ fn a_field_of_an_unexpected_type_costs_only_that_field() {
 
     let request = request(&record);
 
-    assert_eq!(request.claude_code_version, None);
+    assert_eq!(request.agent_version, None);
     assert_eq!(request.entrypoint, None);
     assert_eq!(request.speed, None);
     assert_eq!(request.web_search_requests, 0);
@@ -391,6 +396,7 @@ fn record_ids(records: &[Record]) -> Vec<String> {
             Record::Request(request) => request.record_id.clone(),
             Record::AiTitle(title) | Record::CustomTitle(title) => title.clone(),
             Record::CostState(state) => format!("cost-state {}", state.started_ms),
+            Record::Limit(_) | Record::SubagentType { .. } => unreachable!("Copilot CLI only"),
         })
         .collect()
 }
@@ -445,7 +451,7 @@ fn a_half_written_last_line_waits_for_the_next_read() {
     let cut = bytes.len() - 10;
     write(&path, &bytes[..cut]);
 
-    let first = read_from(&path, 0, u64::MAX).unwrap();
+    let first = read_from(&path, 0, u64::MAX, parse_line, None).unwrap();
     assert_eq!(record_ids(&first.records), ["rec-0", "rec-1", "rec-2"]);
     assert!(first.end < cut as u64);
 
@@ -455,7 +461,7 @@ fn a_half_written_last_line_waits_for_the_next_read() {
         .unwrap()
         .write_all(&bytes[cut..])
         .unwrap();
-    let second = read_from(&path, first.end, u64::MAX).unwrap();
+    let second = read_from(&path, first.end, u64::MAX, parse_line, None).unwrap();
     assert_eq!(record_ids(&second.records), ["Made-up title"]);
     assert_eq!(second.end, bytes.len() as u64);
     assert!(!second.restarted);
@@ -471,7 +477,7 @@ fn a_read_stops_after_the_line_that_reaches_the_limit() {
     let mut ids = Vec::new();
     let mut reads = 0;
     loop {
-        let read = read_from(&path, offset, 1).unwrap();
+        let read = read_from(&path, offset, 1, parse_line, None).unwrap();
         if read.end == offset {
             break;
         }
@@ -489,10 +495,10 @@ fn a_shorter_transcript_is_read_again_from_the_start() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("4f1c.jsonl");
     write(&path, &transcript_bytes());
-    let end = read_from(&path, 0, u64::MAX).unwrap().end;
+    let end = read_from(&path, 0, u64::MAX, parse_line, None).unwrap().end;
     write(&path, &line(&assistant()));
 
-    let read = read_from(&path, end, u64::MAX).unwrap();
+    let read = read_from(&path, end, u64::MAX, parse_line, None).unwrap();
 
     assert!(read.restarted);
     assert_eq!(
@@ -509,7 +515,7 @@ fn unreadable_lines_are_counted_and_skipped() {
     bytes.extend(line(&assistant()));
     write(&path, &bytes);
 
-    let read = read_from(&path, 0, u64::MAX).unwrap();
+    let read = read_from(&path, 0, u64::MAX, parse_line, None).unwrap();
 
     assert_eq!(read.unreadable, 1);
     assert_eq!(read.records.len(), 1);
@@ -518,7 +524,14 @@ fn unreadable_lines_are_counted_and_skipped() {
 #[test]
 fn a_deleted_transcript_cannot_be_read() {
     let dir = tempfile::tempdir().unwrap();
-    let error = read_from(&dir.path().join("gone.jsonl"), 0, u64::MAX).unwrap_err();
+    let error = read_from(
+        &dir.path().join("gone.jsonl"),
+        0,
+        u64::MAX,
+        parse_line,
+        None,
+    )
+    .unwrap_err();
     assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
 }
 
@@ -546,7 +559,7 @@ proptest! {
             file.flush().unwrap();
             written = cut;
             loop {
-                let read = read_from(&path, offset, limit).unwrap();
+                let read = read_from(&path, offset, limit, parse_line, None).unwrap();
                 prop_assert!(!read.restarted);
                 records.extend(read.records);
                 if read.end == offset {
@@ -556,7 +569,7 @@ proptest! {
             }
         }
 
-        let whole = read_from(&path, 0, u64::MAX).unwrap();
+        let whole = read_from(&path, 0, u64::MAX, parse_line, None).unwrap();
         prop_assert_eq!(offset, bytes.len() as u64);
         prop_assert_eq!(records, whole.records);
     }

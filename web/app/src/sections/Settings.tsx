@@ -1,5 +1,5 @@
-// Settings: the Claude Code data folders, the history, the plan limit sources, the prices, time,
-// and what the dashboard does on the network.
+// Settings: each agent's data folders, the history, the plan limit sources, the prices, time, and
+// what the dashboard does on the network.
 
 import { type ReactNode, useEffect, useId, useState, useSyncExternalStore } from "react";
 
@@ -12,12 +12,13 @@ import type {
   Settings as SettingsAnswer,
 } from "@agent-dashboard/protocol";
 
+import { AGENTS, agentName } from "../agents";
 import { useHost, useStatus } from "../context";
 import { useRequest, useStore } from "../data";
 import { CancelExport, ExportMenu, ExportProgressLine, useExportState } from "../exports";
 import { dayWords, dayWordsAt, fullDate, grouped } from "../format";
 import { type Desktop, RELEASES, type UpdateState, type Updates } from "../host";
-import { Switch } from "../ui/controls";
+import { Picker, Switch } from "../ui/controls";
 import { Check, Plus, Spinner, Warning } from "../ui/icons";
 import { useNow } from "../ui/time";
 import { Panel, Pause, Pill } from "../ui/panels";
@@ -71,45 +72,69 @@ function megabytes(bytes: number): string {
   return `${grouped(Math.round(bytes / 1_000_000))} MB`;
 }
 
-const SOURCES: Record<string, string> = {
-  default: "Default",
-  environment: "From CLAUDE_CONFIG_DIR",
-  added: "Added by you",
-};
+/** Where a folder comes from: `Default`, `From CLAUDE_CONFIG_DIR`. */
+function sourceName(folder: Folder): string {
+  if (folder.source === "default") return "Default";
+  if (folder.source === "added") return "Added by you";
+  if (folder.source === "environment") {
+    return folder.agent === "copilot-cli" ? "From COPILOT_HOME" : "From CLAUDE_CONFIG_DIR";
+  }
+  return folder.source;
+}
+
+const AGENT_CHOICES = AGENTS.map((agent) => ({ value: agent, label: agentName(agent) }));
 
 function Folders({ health }: { health: Health }) {
   const host = useHost();
   const store = useStore();
   const [change, problem] = useChange();
+  const [agent, setAgent] = useState<string>("claude-code");
   const add = () => {
     void host.pickFolder?.().then((path) => {
-      if (path) change(() => store.send("folders/add", { path }));
+      if (path) change(() => store.send("folders/add", { path, agent }));
     });
   };
+  const groups = [...new Set<string>([...AGENTS, ...health.folders.map((folder) => folder.agent)])]
+    .map((id) => ({ agent: id, folders: health.folders.filter((folder) => folder.agent === id) }))
+    .filter((group) => group.folders.length > 0);
   return (
     <Panel
-      title="Claude Code data folders"
-      subtitle="Where to read transcripts from. CLAUDE_CONFIG_DIR is used when it is set."
+      title="Data folders"
+      subtitle="Where to read each agent's transcripts from. CLAUDE_CONFIG_DIR and COPILOT_HOME are used when they are set."
       actions={
         host.pickFolder ? (
-          <button type="button" className="button compact raised" onClick={add}>
-            <Plus />
-            Add folder
-          </button>
+          <span className="add-folder">
+            <span className="subtitle">Holds the data of</span>
+            <Picker
+              label="Holds the data of"
+              value={agent}
+              choices={AGENT_CHOICES}
+              onChange={setAgent}
+            />
+            <button type="button" className="button compact raised" onClick={add}>
+              <Plus />
+              Add a folder…
+            </button>
+          </span>
         ) : undefined
       }
     >
-      <ul className="folders">
-        {health.folders.map((folder) => (
-          <FolderRow
-            key={folder.path}
-            folder={folder}
-            onRemove={() => {
-              change(() => store.send("folders/remove", { path: folder.path }));
-            }}
-          />
-        ))}
-      </ul>
+      {groups.map((group) => (
+        <section key={group.agent} aria-label={agentName(group.agent)} className="folder-group">
+          <h3 className="minor-heading">{agentName(group.agent)}</h3>
+          <ul className="folders">
+            {group.folders.map((folder) => (
+              <FolderRow
+                key={folder.path}
+                folder={folder}
+                onRemove={() => {
+                  change(() => store.send("folders/remove", { path: folder.path }));
+                }}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
       {problem && <p className="note problem">{problem}</p>}
     </Panel>
   );
@@ -121,7 +146,7 @@ function FolderRow({ folder, onRemove }: { folder: Folder; onRemove: () => void 
     state.state === "found"
       ? `${grouped(state.transcripts)} ${state.transcripts === 1 ? "transcript" : "transcripts"} · ${megabytes(state.bytes)}`
       : state.state === "missing"
-        ? "Claude Code has not saved anything here yet"
+        ? `${agentName(folder.agent)} has not saved anything here yet`
         : state.reason;
   return (
     <li className="folder">
@@ -129,7 +154,7 @@ function FolderRow({ folder, onRemove }: { folder: Folder; onRemove: () => void 
         <span className="mono folder-path">{folder.path}</span>
         <Pause />
         <span className="subtitle">
-          {SOURCES[folder.source] ?? folder.source} · {detail}
+          {sourceName(folder)} · {detail}
         </span>
       </span>
       <Pause />
@@ -214,6 +239,11 @@ function History({ health }: { health: Health }) {
           Claude Code deletes transcripts after {grouped(health.cleanupDays)} days; everything read
           before then stays here.
         </Fact>
+        {health.folders.some((folder) => folder.agent === "copilot-cli") && (
+          <Fact name="Copilot CLI clean-up">
+            Copilot CLI documents none; whatever it deletes, everything read stays here.
+          </Fact>
+        )}
       </Facts>
       <div className="actions">
         {health.historyPath && host.reveal && (
@@ -572,8 +602,8 @@ function NotificationArea({ desktop, settings }: { desktop: Desktop; settings: S
   return (
     <Panel title={place.charAt(0).toUpperCase() + place.slice(1)}>
       <SwitchRow
-        name={`Show the five-hour window in the ${place}`}
-        text="Its icon shows how much of the window you have used, and its menu lists every plan window and opens the dashboard."
+        name={`Show plan limits in the ${place}`}
+        text="Its icon shows how much of the five-hour window you have used, marked once that or Copilot's allowance passes 70%, and its menu lists every plan window and opens the dashboard."
         checked={settings.tray}
         onChange={(tray) => {
           change(() => store.send("settings/set", { tray }));

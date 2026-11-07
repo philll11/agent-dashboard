@@ -4,6 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::report::Bucket;
 use agent_dashboard_server::app::weekday;
 use agent_dashboard_server::export;
@@ -175,6 +176,7 @@ pub fn day(text: &str) -> Date {
 pub enum Overlay {
     Help,
     Range { hover: usize },
+    Agent { hover: usize },
     Project { hover: usize, filter: String },
     Model { hover: usize, filter: String },
     Export(Box<ExportBox>),
@@ -249,6 +251,8 @@ pub struct State {
     pub height: u16,
     pub section: Section,
     pub range: Range,
+    /// An agent's id, such as `copilot-cli`, or every agent.
+    pub agent: Option<String>,
     /// A project's id, or every project.
     pub project: Option<String>,
     /// A model's id, or every model.
@@ -286,6 +290,7 @@ impl State {
             height,
             section: Section::Overview,
             range: Range::ThirtyDays,
+            agent: None,
             project: None,
             model: None,
             tables: false,
@@ -348,6 +353,33 @@ impl State {
         }
     }
 
+    /// Whether the history holds the sessions of more than one agent.
+    pub fn several_agents(&self) -> bool {
+        self.choices()
+            .is_some_and(|choices| choices.agents.len() > 1)
+    }
+
+    /// Whether the screen names the agent filter: once the history holds more than one agent, or
+    /// while one is chosen.
+    pub fn agent_shown(&self) -> bool {
+        self.agent.is_some() || self.several_agents()
+    }
+
+    /// The agents whose requests the screen shows, by id: the one chosen, or every agent the
+    /// history holds.
+    pub fn agents_in_view(&self) -> Vec<&str> {
+        match &self.agent {
+            Some(agent) => vec![agent.as_str()],
+            None => self.choices().map_or_else(Vec::new, |choices| {
+                choices
+                    .agents
+                    .iter()
+                    .map(|agent| agent.id.as_str())
+                    .collect()
+            }),
+        }
+    }
+
     pub fn limits(&self) -> Option<&Limits> {
         match self.answers.get(&Request::new("limits", Value::Null)) {
             Some(Answer::Limits(limits)) => Some(limits),
@@ -379,6 +411,31 @@ impl State {
             Some(Answer::Overview(overview)) => Some(overview),
             _ => None,
         }
+    }
+
+    /// Whether usage splits by agent before anything else: no agent is chosen and the history
+    /// holds more than one, whose models and projects are never added together.
+    pub fn by_agent(&self) -> bool {
+        self.agent.is_none() && self.several_agents()
+    }
+
+    /// The agents usage splits between, by id, while it splits by agent; none otherwise.
+    pub fn split_agents(&self) -> Vec<&str> {
+        if self.by_agent() {
+            self.agents_in_view()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// The answers to `request` for each agent usage splits between, in the order of the
+    /// history's agents, once every one has come.
+    pub fn agent_overviews(&self, request: Option<Request>) -> Option<Vec<(&str, &Overview)>> {
+        let request = request?;
+        self.split_agents()
+            .into_iter()
+            .map(|agent| Some((agent, self.overview(&of_agent(&request, agent))?)))
+            .collect()
     }
 
     pub fn sessions_page(&self) -> Option<&SessionsPage> {
@@ -419,11 +476,17 @@ impl State {
             .unwrap_or(Weekday::Monday)
     }
 
+    /// The filters chosen, as requests send them, with the project and the model only where
+    /// `project` and `model` keep them.
+    fn filters(&self, project: Option<&str>, model: Option<&str>) -> Value {
+        json!({ "agent": self.agent.as_deref(), "project": project, "model": model })
+    }
+
     /// The days and filters chosen, added up.
     pub fn overview_request(&self) -> Option<Request> {
         Some(overview_request(
             &self.days()?,
-            &filters(self.project.as_deref(), self.model.as_deref()),
+            &self.filters(self.project.as_deref(), self.model.as_deref()),
         ))
     }
 
@@ -445,7 +508,7 @@ impl State {
                 first: first.to_string(),
                 last: today.to_string(),
             },
-            &filters(self.project.as_deref(), self.model.as_deref()),
+            &self.filters(self.project.as_deref(), self.model.as_deref()),
         ))
     }
 
@@ -453,7 +516,7 @@ impl State {
     pub fn projects_request(&self) -> Option<Request> {
         Some(overview_request(
             &self.days()?,
-            &filters(None, self.model.as_deref()),
+            &self.filters(None, self.model.as_deref()),
         ))
     }
 
@@ -461,17 +524,28 @@ impl State {
     pub fn models_request(&self) -> Option<Request> {
         Some(overview_request(
             &self.days()?,
-            &filters(self.project.as_deref(), None),
+            &self.filters(self.project.as_deref(), None),
         ))
     }
 
-    /// The selected project's days, for the chart under the Projects table.
+    /// The selected project's days, for the chart under the Projects table; an agent's projects
+    /// while an agent or its small projects together are selected; and every project otherwise.
     pub fn project_chart_request(&self) -> Option<Request> {
-        let id = self.selected_project()?;
-        Some(overview_request(
-            &self.days()?,
-            &filters(Some(&id), self.model.as_deref()),
-        ))
+        let every = self.projects_request()?;
+        Some(match super::view::projects::selected_for_chart(self) {
+            (Some(project), agent) => {
+                let mut request = overview_request(
+                    &self.days()?,
+                    &self.filters(Some(&project), self.model.as_deref()),
+                );
+                if let Some(agent) = agent {
+                    request = of_agent(&request, &agent);
+                }
+                request
+            }
+            (None, Some(agent)) => of_agent(&every, &agent),
+            (None, None) => every,
+        })
     }
 
     /// The prices of the models the Models section lists.
@@ -491,7 +565,7 @@ impl State {
             "sessions",
             json!({
                 "days": self.days()?,
-                "filters": filters(self.project.as_deref(), self.model.as_deref()),
+                "filters": self.filters(self.project.as_deref(), self.model.as_deref()),
                 "search": (!self.search.applied.is_empty()).then_some(&self.search.applied),
                 "offset": self.sessions_offset(),
                 "limit": SESSIONS_PAGE,
@@ -512,7 +586,7 @@ impl State {
             "sessions",
             json!({
                 "days": self.days()?,
-                "filters": filters(self.project.as_deref(), self.model.as_deref()),
+                "filters": self.filters(self.project.as_deref(), self.model.as_deref()),
                 "search": null,
                 "offset": 0,
                 "limit": 1,
@@ -574,6 +648,18 @@ impl State {
                 add(Some(prices_request(&[])));
             }
             Section::Limits => add(Some(Request::new("limits", Value::Null))),
+        }
+        // Each agent's part, while usage splits by agent.
+        let split = match self.section {
+            Section::Overview => self.overview_request(),
+            Section::Projects => self.projects_request(),
+            Section::Models => self.models_request(),
+            _ => None,
+        };
+        if let Some(request) = split {
+            for agent in self.split_agents() {
+                needed.push(of_agent(&request, agent));
+            }
         }
         needed
     }
@@ -734,6 +820,14 @@ impl State {
                     .unwrap_or(0);
                 self.overlay = Some(Overlay::Range { hover });
             }
+            'a' => {
+                let hover = self
+                    .agent_choices()
+                    .iter()
+                    .position(|(id, _)| *id == self.agent)
+                    .unwrap_or(0);
+                self.overlay = Some(Overlay::Agent { hover });
+            }
             'p' => {
                 let hover = self
                     .project_choices("")
@@ -846,13 +940,19 @@ impl State {
                 }
             }
             Section::Projects => {
+                use super::view::projects::Row;
                 match super::view::projects::rows(self).get(self.projects.selected) {
-                    Some(super::view::projects::Row::Project(row)) => {
+                    Some(Row::Agent(agent, _)) => {
+                        self.agent = Some((*agent).to_owned());
+                        self.section = Section::Overview;
+                        self.filtered();
+                    }
+                    Some(Row::Project(row, _)) => {
                         self.project = Some(row.project.id.clone());
                         self.section = Section::Overview;
                         self.filtered();
                     }
-                    Some(super::view::projects::Row::Others(_)) => {
+                    Some(Row::Others(..)) => {
                         self.overlay = Some(Overlay::Project {
                             hover: 0,
                             filter: String::new(),
@@ -870,14 +970,6 @@ impl State {
         let page = self.sessions_page()?;
         let index = self.sessions.selected.checked_sub(self.sessions_offset())?;
         Some(page.rows.get(index)?.id.clone())
-    }
-
-    /// The id of the project the Projects table selects, if it is one project.
-    pub fn selected_project(&self) -> Option<String> {
-        match super::view::projects::rows(self).get(self.projects.selected)? {
-            super::view::projects::Row::Project(row) => Some(row.project.id.clone()),
-            super::view::projects::Row::Others(_) => None,
-        }
     }
 
     /// A new range or filter: lists start from the top.
@@ -917,6 +1009,26 @@ impl State {
             (KeyCode::PageDown, _) => self.step(self.page()),
             _ => {}
         }
+    }
+
+    /// The agents to choose from, `None` standing for every agent, with their names: those the
+    /// history holds, and the one chosen whatever it holds.
+    pub fn agent_choices(&self) -> Vec<(Option<String>, String)> {
+        let mut choices = vec![(None, "All agents".to_owned())];
+        if let Some(found) = self.choices() {
+            choices.extend(
+                found
+                    .agents
+                    .iter()
+                    .map(|agent| (Some(agent.id.clone()), agent.name.clone())),
+            );
+        }
+        if let Some(chosen) = &self.agent
+            && !choices.iter().any(|(id, _)| id.as_ref() == Some(chosen))
+        {
+            choices.push((Some(chosen.clone()), agent_name(chosen)));
+        }
+        choices
     }
 
     /// The projects to choose from, `None` standing for every project, with their names, those
@@ -991,6 +1103,30 @@ impl State {
                     _ => self.overlay = Some(Overlay::Range { hover }),
                 }
             }
+            Overlay::Agent { hover } => {
+                let choices = self.agent_choices();
+                let last = choices.len().saturating_sub(1);
+                match code {
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        self.overlay = Some(Overlay::Agent {
+                            hover: hover.saturating_sub(1),
+                        });
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        self.overlay = Some(Overlay::Agent {
+                            hover: (hover + 1).min(last),
+                        });
+                    }
+                    KeyCode::Enter => {
+                        if let Some((id, _)) = choices.get(hover.min(last)) {
+                            self.agent.clone_from(id);
+                            self.filtered();
+                        }
+                    }
+                    KeyCode::Esc | KeyCode::Char('a') => {}
+                    _ => self.overlay = Some(Overlay::Agent { hover }),
+                }
+            }
             Overlay::Project { hover, filter } => {
                 let choices = self.project_choices(&filter);
                 if let Some((hover, filter)) = picker_key(code, text, hover, filter, choices.len())
@@ -1047,22 +1183,26 @@ impl State {
         let days = self.days()?;
         let span = Some((day(&days.first), day(&days.last)));
         let phrase = self.range.phrase();
-        let params =
-            |dataset, days, project: Option<&String>, model: Option<&String>| ExportParams {
-                dataset,
-                format: ExportFormat::Csv,
-                days,
-                filters: Filters {
-                    project: project.cloned(),
-                    model: model.cloned(),
-                },
-                search: None,
-                session: None,
-            };
-        let (project, model) = (self.project.as_ref(), self.model.as_ref());
+        let params = |dataset, days, (agent, project, model): Chosen<'_>| ExportParams {
+            dataset,
+            format: ExportFormat::Csv,
+            days,
+            filters: Filters {
+                agent: agent.cloned(),
+                project: project.cloned(),
+                model: model.cloned(),
+            },
+            search: None,
+            session: None,
+        };
+        let (agent, project, model) = (
+            self.agent.as_ref(),
+            self.project.as_ref(),
+            self.model.as_ref(),
+        );
         Some(match self.section {
             Section::Overview => (
-                params(Dataset::Days, Some(days), project, model),
+                params(Dataset::Days, Some(days), (agent, project, model)),
                 "Export the days",
                 format!("Every day with requests{phrase}."),
                 span,
@@ -1072,7 +1212,7 @@ impl State {
                 (
                     ExportParams {
                         session: Some(detail.id.clone()),
-                        ..params(Dataset::Requests, None, None, None)
+                        ..params(Dataset::Requests, None, (None, None, None))
                     },
                     "Export the session's requests",
                     format!(
@@ -1085,7 +1225,7 @@ impl State {
             Section::Sessions => (
                 ExportParams {
                     search: (!self.search.applied.is_empty()).then(|| self.search.applied.clone()),
-                    ..params(Dataset::Sessions, Some(days), project, model)
+                    ..params(Dataset::Sessions, Some(days), (agent, project, model))
                 },
                 "Export the sessions",
                 format!(
@@ -1095,7 +1235,7 @@ impl State {
                 span,
             ),
             Section::Projects => (
-                params(Dataset::Projects, Some(days), None, model),
+                params(Dataset::Projects, Some(days), (agent, None, model)),
                 "Export the projects",
                 format!(
                     "All {}{phrase}.",
@@ -1108,7 +1248,7 @@ impl State {
                 span,
             ),
             Section::Models => (
-                params(Dataset::Models, Some(days), project, None),
+                params(Dataset::Models, Some(days), (agent, project, None)),
                 "Export the models",
                 format!(
                     "All {}{phrase}.",
@@ -1121,7 +1261,7 @@ impl State {
                 span,
             ),
             Section::Limits => (
-                params(Dataset::FiveHourWindows, None, None, None),
+                params(Dataset::FiveHourWindows, None, (None, None, None)),
                 "Export the five-hour windows",
                 format!(
                     "The {} of the last 7 days.",
@@ -1221,6 +1361,14 @@ fn picker_key(
 /// words, and the days it covers, for its file's name.
 type ExportWhat = (ExportParams, &'static str, String, Option<(Date, Date)>);
 
+/// The agent, project and model an export keeps to, each `None` for every one.
+type Chosen<'a> = (Option<&'a String>, Option<&'a String>, Option<&'a String>);
+
+/// An agent's name as people read it, by its id: `Copilot CLI`.
+pub fn agent_name(id: &str) -> String {
+    Agent::from_name(id).map_or_else(|| id.to_owned(), |agent| agent.display_name().to_owned())
+}
+
 /// A count and what it counts: `214 sessions`, `1 model`.
 fn counted(count: impl TryInto<u64>, one: &str, many: &str) -> String {
     let count = count.try_into().unwrap_or(u64::MAX);
@@ -1231,8 +1379,11 @@ pub fn status_request() -> Request {
     Request::new("status", Value::Null)
 }
 
-fn filters(project: Option<&str>, model: Option<&str>) -> Value {
-    json!({ "project": project, "model": model })
+/// `request` for `agent`'s requests alone.
+pub fn of_agent(request: &Request, agent: &str) -> Request {
+    let mut params = request.params.clone();
+    params["filters"]["agent"] = json!(agent);
+    Request::new(request.method, params)
 }
 
 pub fn overview_request(days: &Days, filters: &Value) -> Request {

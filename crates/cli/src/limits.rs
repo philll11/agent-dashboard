@@ -1,9 +1,10 @@
-//! `agent-dashboard limits`: each plan window and the recent five-hour windows; turning
-//! Anthropic's usage endpoint on or off; and what `doctor` says about it.
+//! `agent-dashboard limits`: each agent's plan windows and Claude Code's recent five-hour
+//! windows; turning Anthropic's usage endpoint on or off; and what `doctor` says about it.
 
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::History;
 use agent_dashboard_core::usage_endpoint::{self, Outcome, Refresh, State};
 use agent_dashboard_server::app::App;
@@ -11,22 +12,40 @@ use agent_dashboard_server::export::{WindowRow, csv_field};
 use agent_dashboard_server::fmt::{ago, clock, day_label, money, percent, resets};
 use agent_dashboard_server::glance::{in_order, window_name};
 use agent_dashboard_server::limits::{CONSENT, login_note, sentence, trouble, view};
-use agent_dashboard_server::protocol::{FiveHourWindow, Level, Limits, Provenance, WindowView};
+use agent_dashboard_server::protocol::{
+    FiveHourWindow, Level, Limits, Provenance, WindowReading, WindowView,
+};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
 use serde::Serialize;
 
 use crate::prompt;
-use crate::report::{Output, limits_line, print_json, ready_history};
+use crate::report::{Output, credits, limits_line, print_json, ready_history};
 use crate::style::Paint;
+
+/// What a window is called under its agent's heading, where Copilot CLI's allowance is its
+/// `Monthly allowance`.
+pub fn grouped_name(reading: &WindowReading) -> String {
+    if reading.window == "monthly" {
+        "Monthly allowance".to_owned()
+    } else {
+        window_name(reading)
+    }
+}
+
+/// The agent a window belongs to.
+pub fn agent_of(reading: &WindowReading) -> Option<Agent> {
+    Agent::from_name(&reading.agent)
+}
 
 /// Each plan window with its use, reset, source and age, and the recent five-hour windows, after
 /// giving the usage endpoint its turn.
 pub fn report(app: &App, output: Output) -> ExitCode {
-    let mut history = match ready_history(app) {
-        Ok(history) => history,
+    let (app, mut history) = match ready_history(app) {
+        Ok(ready) => ready,
         Err(code) => return code,
     };
+    let app = &app;
     refresh(app, &mut history);
     let limits = match view(app, &history) {
         Ok(limits) => limits,
@@ -39,7 +58,8 @@ pub fn report(app: &App, output: Output) -> ExitCode {
     match output {
         Output::Table => {
             let paint = Paint::for_stdout();
-            let mut out = limits_table(app, paint, &limits, &windows);
+            let agents = history.agents().unwrap_or_default();
+            let mut out = limits_table(app, paint, (&limits, &windows), &agents);
             let endpoint = history.usage_endpoint().unwrap_or_default();
             if let Some(note) = login_note(&endpoint) {
                 let _ = writeln!(
@@ -59,14 +79,17 @@ pub fn report(app: &App, output: Output) -> ExitCode {
                 .collect(),
         }),
         Output::Csv => {
+            // New columns go at the end, so that a script that reads the others by position
+            // keeps working.
             let mut out = String::from(
-                "window,model,used_percentage,resets_at,observed_at,provenance,stale,expired\n",
+                "window,model,used_percentage,resets_at,observed_at,provenance,stale,expired,agent,used_credits,entitlement_credits\n",
             );
+            let number = |value: Option<f64>| value.map(|value| value.to_string());
             for window in &windows {
                 let reading = &window.reading;
                 let _ = writeln!(
                     out,
-                    "{},{},{},{},{},{},{},{}",
+                    "{},{},{},{},{},{},{},{},{},{},{}",
                     csv_field(&reading.window),
                     csv_field(reading.model.as_deref().unwrap_or_default()),
                     reading.used_percentage,
@@ -74,7 +97,10 @@ pub fn report(app: &App, output: Output) -> ExitCode {
                     at(reading.observed_ms).unwrap_or_default(),
                     provenance(reading.provenance),
                     reading.stale,
-                    reading.expired
+                    reading.expired,
+                    csv_field(&reading.agent),
+                    number(reading.used).unwrap_or_default(),
+                    number(reading.entitlement).unwrap_or_default()
                 );
             }
             print!("{out}");
@@ -86,6 +112,7 @@ pub fn report(app: &App, output: Output) -> ExitCode {
 fn provenance(provenance: Provenance) -> &'static str {
     match provenance {
         Provenance::Official => "official",
+        Provenance::Recorded => "recorded",
         Provenance::Experimental => "experimental",
     }
 }
@@ -121,74 +148,141 @@ pub fn five_hour_span(zone: &TimeZone, window: &FiveHourWindow) -> String {
     format!("{} {}–{end}", day_label(start.date()), clock(&start))
 }
 
-fn limits_table(app: &App, paint: Paint, limits: &Limits, windows: &[&WindowView]) -> String {
+/// The windows by agent, each agent under its heading, Claude Code's with its recent five-hour
+/// windows. `agents` are those the history holds sessions of: Claude Code's heading says how to
+/// record its plan limits while it has none.
+fn limits_table(
+    app: &App,
+    paint: Paint,
+    (limits, windows): (&Limits, &[&WindowView]),
+    agents: &[Agent],
+) -> String {
     if windows.is_empty() {
-        return format!("{}\n", limits_line(app, paint, &[]));
+        return format!("{}\n", limits_line(app, paint, &[], agents));
     }
-    let mut out = format!(
-        "{}\n\n",
-        paint.muted("Plan limits · shared between Claude Code and claude.ai")
-    );
-    out.push_str(&windows_table(app, paint, windows));
-    if !limits.recent.is_empty() {
-        out.push('\n');
-        out.push_str(&recent_table(app, paint, &limits.recent));
+    let rows: Vec<Columns> = windows.iter().map(|window| columns(app, window)).collect();
+    let widths = Widths::of(&rows);
+    let mut groups = Vec::new();
+    for agent in Agent::ALL {
+        let group: Vec<(&WindowView, &Columns)> = windows
+            .iter()
+            .zip(&rows)
+            .filter(|(window, _)| agent_of(&window.reading) == Some(agent))
+            .map(|(window, row)| (*window, row))
+            .collect();
+        let claude_code = agent == Agent::ClaudeCode;
+        let mut out = match agent {
+            Agent::ClaudeCode => format!(
+                "{}{}\n\n",
+                paint.strong(agent.display_name()),
+                paint.muted(" · limits shared with claude.ai")
+            ),
+            Agent::CopilotCli => format!("{}\n\n", paint.strong(agent.display_name())),
+        };
+        if group.is_empty() {
+            if claude_code && agents.contains(&agent) {
+                let _ = writeln!(out, "{}", limits_line(app, paint, &[], &[agent]));
+                groups.push(out);
+            }
+            continue;
+        }
+        out.push_str(&windows_table(paint, &group, &widths));
+        if claude_code && !limits.recent.is_empty() {
+            out.push('\n');
+            out.push_str(&recent_table(app, paint, &limits.recent));
+        }
+        groups.push(out);
     }
-    out
+    groups.join("\n")
 }
 
-/// Each window with its use, reset, source and the age of its reading.
-fn windows_table(app: &App, paint: Paint, windows: &[&WindowView]) -> String {
+/// A window's columns as text: its name, when it resets, where its reading comes from, how old
+/// that is, and how many AI credits of the allowance are used, where the agent records them.
+struct Columns {
+    name: String,
+    resets: String,
+    source: &'static str,
+    age: String,
+    credits: Option<String>,
+}
+
+fn columns(app: &App, window: &WindowView) -> Columns {
+    let reading = &window.reading;
+    let now = app.now_zoned();
+    let resets = if reading.expired {
+        "no reading since it reset".to_owned()
+    } else {
+        reading
+            .resets_at_ms
+            .and_then(|ms| zoned(app, ms))
+            .map_or_else(
+                || "no reset time".to_owned(),
+                |at| {
+                    let text = resets(&at, &now);
+                    text.strip_prefix("Resets ").unwrap_or(&text).to_owned()
+                },
+            )
+    };
+    Columns {
+        name: grouped_name(reading),
+        resets,
+        source: provenance(reading.provenance),
+        age: Timestamp::from_millisecond(reading.observed_ms)
+            .map(|observed| ago(observed, app.now))
+            .unwrap_or_default(),
+        credits: credits(reading.used, reading.entitlement)
+            .map(|text| text.trim_end_matches(" AI credits").to_owned()),
+    }
+}
+
+/// The widths of the columns every agent's table shares, so that they line up.
+struct Widths {
+    name: usize,
+    resets: usize,
+    source: usize,
+}
+
+impl Widths {
+    fn of(rows: &[Columns]) -> Self {
+        let width = |column: fn(&Columns) -> &str, heading: &str| {
+            rows.iter()
+                .map(|row| column(row).chars().count())
+                .chain([heading.chars().count()])
+                .max()
+                .unwrap_or(0)
+        };
+        Self {
+            name: width(|row| &row.name, "Window"),
+            resets: width(|row| &row.resets, "Resets"),
+            source: width(|row| row.source, "Source"),
+        }
+    }
+}
+
+/// One agent's windows with their use, reset, source and the age of their readings, and the AI
+/// credits used where the agent records them.
+fn windows_table(paint: Paint, windows: &[(&WindowView, &Columns)], widths: &Widths) -> String {
     let mut out = String::new();
     let palette = paint.palette();
-    let now = app.now_zoned();
-    let rows: Vec<[String; 4]> = windows
+    let (name_width, resets_width, source_width) = (widths.name, widths.resets, widths.source);
+    let with_credits = windows.iter().any(|(_, row)| row.credits.is_some());
+    let age_width = windows
         .iter()
-        .map(|window| {
-            let reading = &window.reading;
-            let resets = if reading.expired {
-                "no reading since it reset".to_owned()
-            } else {
-                reading
-                    .resets_at_ms
-                    .and_then(|ms| zoned(app, ms))
-                    .map_or_else(
-                        || "no reset time".to_owned(),
-                        |at| {
-                            let text = resets(&at, &now);
-                            text.strip_prefix("Resets ").unwrap_or(&text).to_owned()
-                        },
-                    )
-            };
-            let age = Timestamp::from_millisecond(reading.observed_ms)
-                .map(|observed| ago(observed, app.now))
-                .unwrap_or_default();
-            [
-                window_name(reading),
-                resets,
-                provenance(reading.provenance).to_owned(),
-                age,
-            ]
-        })
-        .collect();
-    let width = |column: usize, heading: &str| {
-        rows.iter()
-            .map(|row| row[column].chars().count())
-            .chain([heading.chars().count()])
-            .max()
-            .unwrap_or(0)
-    };
-    let (name_width, resets_width, source_width) =
-        (width(0, "Window"), width(1, "Resets"), width(2, "Source"));
-    let _ = writeln!(
-        out,
-        "{}",
-        paint.muted(&format!(
-            "{:<name_width$}   {:>4}     {:<resets_width$}   {:<source_width$}   Reading",
-            "Window", "Used", "Resets", "Source"
-        ))
+        .map(|(_, row)| row.age.chars().count())
+        .chain(["Reading".chars().count()])
+        .max()
+        .unwrap_or(0);
+    let mut heading = format!(
+        "{:<name_width$}   {:>4}     {:<resets_width$}   {:<source_width$}   ",
+        "Window", "Used", "Resets", "Source"
     );
-    for (window, [name, resets, source, age]) in windows.iter().zip(&rows) {
+    if with_credits {
+        let _ = write!(heading, "{:<age_width$}   AI credits", "Reading");
+    } else {
+        heading.push_str("Reading");
+    }
+    let _ = writeln!(out, "{}", paint.muted(&heading));
+    for (window, row) in windows {
         let reading = &window.reading;
         let (used, marker) = if reading.expired {
             (paint.muted(&format!("{:>4}", "–")), "  ".to_owned())
@@ -207,15 +301,26 @@ fn windows_table(app: &App, paint: Paint, windows: &[&WindowView]) -> String {
                 ),
             }
         };
-        let age = if reading.stale {
-            paint.paint(age, palette.warning, false)
+        let age = if with_credits {
+            format!("{:<age_width$}", row.age)
         } else {
-            paint.muted(age)
+            row.age.clone()
+        };
+        let age = if reading.stale {
+            paint.paint(&age, palette.warning, false)
+        } else {
+            paint.muted(&age)
+        };
+        let credits = match (&row.credits, with_credits) {
+            (Some(credits), true) => format!("   {credits}"),
+            _ => String::new(),
         };
         let _ = writeln!(
             out,
-            "{name:<name_width$}   {used}{marker}   {resets:<resets_width$}   {}   {age}",
-            paint.muted(&format!("{source:<source_width$}")),
+            "{:<name_width$}   {used}{marker}   {:<resets_width$}   {}   {age}{credits}",
+            row.name,
+            row.resets,
+            paint.muted(&format!("{:<source_width$}", row.source)),
         );
     }
     out
@@ -294,9 +399,14 @@ struct LimitsJson {
 
 #[derive(Serialize)]
 struct WindowJson {
+    agent: String,
     window: String,
     model: Option<String>,
     used_percentage: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    used_credits: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    entitlement_credits: Option<f64>,
     resets_at: Option<String>,
     observed_at: Option<String>,
     provenance: &'static str,
@@ -316,9 +426,12 @@ struct PaceJson {
 fn window_json(window: &WindowView) -> WindowJson {
     let reading = &window.reading;
     WindowJson {
+        agent: reading.agent.clone(),
         window: reading.window.clone(),
         model: reading.model.clone(),
         used_percentage: reading.used_percentage,
+        used_credits: reading.used,
+        entitlement_credits: reading.entitlement,
         resets_at: reading.resets_at_ms.and_then(at),
         observed_at: at(reading.observed_ms),
         provenance: provenance(reading.provenance),
@@ -382,8 +495,13 @@ pub fn endpoint(app: &App, on: bool, yes: bool) -> ExitCode {
             paint.muted("It is asked whenever no plan-limit reading is newer than 5 minutes.")
         );
     } else if state.outcome == Some(Outcome::Answered) {
-        let limits = history.latest_limits().unwrap_or_default();
-        println!("{}", limits_line(app, paint, &limits));
+        let limits: Vec<_> = history
+            .latest_limits()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|limit| limit.source.agent() == Agent::ClaudeCode)
+            .collect();
+        println!("{}", limits_line(app, paint, &limits, &[Agent::ClaudeCode]));
     } else if let Some(note) = login_note(&state) {
         println!("{}", paint.paint(note, paint.palette().warning, false));
     } else if let Some(trouble) = trouble(app, &state) {

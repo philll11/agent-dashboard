@@ -8,7 +8,9 @@ use rusqlite::OptionalExtension;
 use rusqlite::types::ValueRef;
 
 use super::{History, HistoryError, ProjectKey, SessionKey};
+use crate::agent::Agent;
 use crate::limits::{LimitSnapshot, Source};
+use crate::pricing::Charge;
 use crate::tokens::Tokens;
 use crate::usage_endpoint::{Outcome, State};
 
@@ -17,6 +19,8 @@ use crate::usage_endpoint::{Outcome, State};
 pub struct StoredRequest<'a> {
     pub session: SessionKey,
     pub project: ProjectKey,
+    /// The agent the request's session ran in.
+    pub agent: Agent,
     /// The subagent that made the request; `None` for the session itself.
     pub subagent_id: Option<&'a str>,
     /// When the request was made, in milliseconds since the Unix epoch.
@@ -31,7 +35,13 @@ pub struct StoredRequest<'a> {
     pub mcp_server: Option<&'a str>,
     pub mcp_tool: Option<&'a str>,
     pub entrypoint: Option<&'a str>,
-    pub claude_code_version: Option<&'a str>,
+    pub agent_version: Option<&'a str>,
+    /// Reasoning tokens, which the output tokens already count.
+    pub reasoning_tokens: u64,
+    /// Who started the request, where the agent says: `user`, `agent` or `sub-agent`.
+    pub initiator: Option<&'a str>,
+    /// What the request cost, as the agent recorded it; `None` where it records no charge.
+    pub charge: Option<Charge>,
 }
 
 /// A session as the history holds it.
@@ -40,6 +50,7 @@ pub struct StoredSession {
     pub key: SessionKey,
     pub session_id: String,
     pub project: ProjectKey,
+    pub agent: Agent,
     /// The custom title, or else the AI title.
     pub title: Option<String>,
 }
@@ -91,7 +102,8 @@ macro_rules! request_columns {
         "requests.session, sessions.project, subagent_id, timestamp_ms, model, input_tokens,
          output_tokens, cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens,
          web_search_requests, speed, inference_geo, skill, mcp_server, mcp_tool, entrypoint,
-         claude_code_version, web_fetch_requests"
+         claude_code_version, web_fetch_requests, sessions.agent, reasoning_tokens, initiator,
+         charge_input_nano, charge_output_nano, charge_cache_read_nano, charge_cache_write_nano"
     };
 }
 
@@ -107,9 +119,26 @@ fn each_request<B>(
                 _ => None,
             })
         };
+        let charge = match (
+            row.get::<_, Option<u64>>(22)?,
+            row.get::<_, Option<u64>>(23)?,
+            row.get::<_, Option<u64>>(24)?,
+            row.get::<_, Option<u64>>(25)?,
+        ) {
+            (None, None, None, None) => None,
+            (input, output, cache_read, cache_write) => Some(Charge {
+                input: input.unwrap_or(0),
+                output: output.unwrap_or(0),
+                cache_read: cache_read.unwrap_or(0),
+                cache_write: cache_write.unwrap_or(0),
+            }),
+        };
         let flow = each(&StoredRequest {
             session: SessionKey(row.get(0)?),
             project: ProjectKey(row.get(1)?),
+            agent: text(19)?
+                .and_then(Agent::from_name)
+                .unwrap_or(Agent::ClaudeCode),
             subagent_id: text(2)?,
             timestamp_ms: row.get(3)?,
             model: text(4)?.unwrap_or_default(),
@@ -128,7 +157,10 @@ fn each_request<B>(
             mcp_server: text(14)?,
             mcp_tool: text(15)?,
             entrypoint: text(16)?,
-            claude_code_version: text(17)?,
+            agent_version: text(17)?,
+            reasoning_tokens: row.get(20)?,
+            initiator: text(21)?,
+            charge,
         });
         if flow.is_break() {
             return Ok(flow);
@@ -154,6 +186,7 @@ fn stored_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredSession> {
         session_id: row.get(1)?,
         project: ProjectKey(row.get(2)?),
         title: row.get(3)?,
+        agent: Agent::from_name(&row.get::<_, String>(4)?).unwrap_or(Agent::ClaudeCode),
     })
 }
 
@@ -325,7 +358,8 @@ impl History {
         to_ms: i64,
     ) -> Result<Vec<LimitSnapshot>, HistoryError> {
         let mut statement = self.conn.prepare_cached(
-            "SELECT source, observed_ms, used_percentage, resets_at_ms FROM limit_snapshots
+            "SELECT source, observed_ms, used_percentage, resets_at_ms, used, entitlement
+             FROM limit_snapshots
              WHERE window = ?1 AND observed_ms >= ?2 AND observed_ms < ?3
              ORDER BY observed_ms",
         )?;
@@ -339,6 +373,8 @@ impl History {
                     observed_ms: row.get(1)?,
                     used_percentage: row.get(2)?,
                     resets_at_ms: row.get(3)?,
+                    used: row.get(4)?,
+                    entitlement: row.get(5)?,
                 });
             }
         }
@@ -352,7 +388,7 @@ impl History {
     /// SQLite errors.
     pub fn sessions(&self) -> Result<Vec<StoredSession>, HistoryError> {
         let mut statement = self.conn.prepare_cached(
-            "SELECT id, session_id, project, coalesce(custom_title, ai_title) FROM sessions",
+            "SELECT id, session_id, project, coalesce(custom_title, ai_title), agent FROM sessions",
         )?;
         let sessions = statement
             .query_map([], stored_session)?
@@ -367,7 +403,7 @@ impl History {
     /// SQLite errors.
     pub fn session(&self, session_id: &str) -> Result<Option<StoredSession>, HistoryError> {
         let mut statement = self.conn.prepare_cached(
-            "SELECT id, session_id, project, coalesce(custom_title, ai_title) FROM sessions
+            "SELECT id, session_id, project, coalesce(custom_title, ai_title), agent FROM sessions
              WHERE session_id = ?1",
         )?;
         Ok(statement
@@ -519,7 +555,7 @@ impl History {
     /// SQLite errors.
     pub fn latest_limits(&self) -> Result<Vec<LimitSnapshot>, HistoryError> {
         let mut statement = self.conn.prepare_cached(
-            "SELECT window, source, observed_ms, used_percentage, resets_at_ms
+            "SELECT window, source, observed_ms, used_percentage, resets_at_ms, used, entitlement
              FROM limit_snapshots AS reading
              WHERE observed_ms = (
                  SELECT max(observed_ms) FROM limit_snapshots WHERE window = reading.window
@@ -541,6 +577,8 @@ impl History {
                     observed_ms: row.get(2)?,
                     used_percentage: row.get(3)?,
                     resets_at_ms: row.get(4)?,
+                    used: row.get(5)?,
+                    entitlement: row.get(6)?,
                 });
             }
         }
@@ -601,20 +639,61 @@ impl History {
         Ok(settings)
     }
 
-    /// The data folders the person added, in the order they were added.
+    /// The data folders the person added, each with the agent whose data it holds, in the order
+    /// they were added.
     ///
     /// # Errors
     ///
     /// SQLite errors.
-    pub fn data_folders(&self) -> Result<Vec<PathBuf>, HistoryError> {
+    pub fn data_folders(&self) -> Result<Vec<(PathBuf, Agent)>, HistoryError> {
         let mut statement = self
             .conn
-            .prepare_cached("SELECT path FROM data_folders ORDER BY added_ms, path")?;
+            .prepare_cached("SELECT path, agent FROM data_folders ORDER BY added_ms, path")?;
         let folders = statement
-            .query_map([], |row| row.get::<_, String>(0))?
-            .map(|path| path.map(PathBuf::from))
+            .query_map([], |row| {
+                Ok((
+                    PathBuf::from(row.get::<_, String>(0)?),
+                    Agent::from_name(&row.get::<_, String>(1)?).unwrap_or(Agent::ClaudeCode),
+                ))
+            })?
             .collect::<Result<_, _>>()?;
         Ok(folders)
+    }
+
+    /// The agents whose sessions the history holds.
+    ///
+    /// # Errors
+    ///
+    /// SQLite errors.
+    pub fn agents(&self) -> Result<Vec<Agent>, HistoryError> {
+        let mut statement = self
+            .conn
+            .prepare_cached("SELECT DISTINCT agent FROM sessions")?;
+        let mut agents: Vec<Agent> = statement
+            .query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(|name| name.ok().and_then(|name| Agent::from_name(&name)))
+            .collect();
+        agents.sort();
+        Ok(agents)
+    }
+
+    /// The names the agents show for their models, by agent and model id.
+    ///
+    /// # Errors
+    ///
+    /// SQLite errors.
+    pub fn model_names(&self) -> Result<HashMap<(Agent, String), String>, HistoryError> {
+        let mut statement = self
+            .conn
+            .prepare_cached("SELECT agent, model, name FROM model_names")?;
+        let mut names = HashMap::new();
+        let mut rows = statement.query([])?;
+        while let Some(row) = rows.next()? {
+            if let Some(agent) = Agent::from_name(&row.get::<_, String>(0)?) {
+                names.insert((agent, row.get(1)?), row.get(2)?);
+            }
+        }
+        Ok(names)
     }
 
     /// The import from `source`, if the history holds one.

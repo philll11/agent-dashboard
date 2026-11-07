@@ -60,18 +60,70 @@ fn short_names(paths: &[Option<&str>]) -> Vec<Option<String>> {
         .collect()
 }
 
-/// A model's short name, such as `Opus 5.5`, or its id when the price table does not know it.
+/// A model's short name, such as `Opus 5.5`: the price table's, or else the one its agent
+/// records, such as Copilot CLI's `GPT-6 Luna`, or else its id.
+///
+/// Copilot CLI's id for a model that Claude Code also uses, such as `claude-opus-5.5` beside
+/// `claude-opus-5-5`, is named with its agent, `Opus 5.5, Copilot CLI`, so that the two never
+/// share a name.
 #[must_use]
 pub fn model_name(app: &App, model: &str) -> String {
-    app.prices.model_name(model).map_or_else(
-        || model.to_owned(),
-        |name| name.strip_prefix("Claude ").unwrap_or(name).to_owned(),
+    model_name_from(
+        |id| app.prices.model_name(id),
+        app.model_names.get(model).map(String::as_str),
+        model,
     )
+}
+
+fn model_name_from<'a>(
+    priced: impl Fn(&str) -> Option<&'a str>,
+    recorded: Option<&str>,
+    model: &str,
+) -> String {
+    let short = |name: &str| name.strip_prefix("Claude ").unwrap_or(name).to_owned();
+    if let Some(name) = priced(model) {
+        return short(name);
+    }
+    let Some(recorded) = recorded else {
+        return model.to_owned();
+    };
+    let short = short(recorded);
+    if priced(&model.replace('.', "-")).is_some() {
+        format!("{short}, Copilot CLI")
+    } else {
+        short
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::short_names;
+    use super::{model_name_from, short_names};
+
+    fn priced(id: &str) -> Option<&'static str> {
+        (id == "claude-opus-5-5").then_some("Claude Opus 5.5")
+    }
+
+    #[test]
+    fn a_model_is_named_by_the_price_table_then_by_its_agent() {
+        assert_eq!(model_name_from(priced, None, "claude-opus-5-5"), "Opus 5.5");
+        assert_eq!(
+            model_name_from(priced, Some("GPT-5.5"), "gpt-5.5"),
+            "GPT-5.5"
+        );
+        assert_eq!(model_name_from(priced, None, "glm-4.6"), "glm-4.6");
+    }
+
+    #[test]
+    fn copilots_id_for_a_claude_code_model_is_named_with_its_agent() {
+        assert_eq!(
+            model_name_from(priced, Some("Claude Opus 5.5"), "claude-opus-5.5"),
+            "Opus 5.5, Copilot CLI"
+        );
+        assert_eq!(
+            model_name_from(priced, Some("Claude Opus 6"), "claude-opus-6"),
+            "Opus 6"
+        );
+    }
 
     #[test]
     fn a_project_is_named_by_as_much_of_its_folder_as_tells_it_apart() {

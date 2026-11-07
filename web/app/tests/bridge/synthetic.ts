@@ -1,7 +1,7 @@
-// A synthetic Claude Code data folder for the dashboard's previews and browser tests: ten weeks of
-// sessions across a dozen projects, shaped like the design's examples, and the plan limit readings
-// that a status line and the usage endpoint would have recorded. Fixed seeds make every run write
-// the same folder.
+// Synthetic Claude Code and Copilot CLI data folders for the dashboard's previews and browser
+// tests: ten weeks of Claude Code sessions across a dozen projects and a few weeks of Copilot CLI
+// sessions, shaped like the design's examples, and the plan limit readings that a status line and
+// the usage endpoint would have recorded. Fixed seeds make every run write the same folders.
 
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -37,8 +37,11 @@ const VERSION = "2.1.295";
 export interface Options {
   /** Claude Code's figure for every Opus session is 6% above the estimate. */
   opusDrift?: boolean;
-  /** Leaves out the status line's connection and every plan limit reading. */
+  /** Leaves out the status line's connection and every plan limit reading, Copilot CLI's
+   * allowance included. */
   noLimits?: boolean;
+  /** Leaves out Copilot CLI's data folder, as for someone who uses Claude Code alone. */
+  noCopilot?: boolean;
   /** Ends the plan limit readings at 09:05, so that they are more than three hours old. */
   staleLimits?: boolean;
   /** The usage endpoint's last turn found Claude Code's login expired. */
@@ -97,6 +100,8 @@ const PROJECTS: Record<string, Project> = {
   slides: { cwd: "/home/you/slides", share: 0.01 },
   scratch: { cwd: "/home/you/scratch", share: 0.009 },
   "terraform-modules": { cwd: "/home/you/code/terraform-modules", share: 0.008 },
+  // Only Copilot CLI works here.
+  walkthrough: { cwd: "/home/you/code/walkthrough", share: 0 },
 };
 
 interface Subagent {
@@ -806,6 +811,327 @@ export function writeClaudeFolder(root: string, options: Options = {}): Syntheti
     schema: options.newerSchema || options.tooNewSchema ? 99 : null,
     readableFrom: options.tooNewSchema ? 99 : null,
   };
+}
+
+/** A Copilot CLI session, as the design's boards show them. */
+interface CopilotSession {
+  title: string;
+  project: string;
+  day: string;
+  start: string;
+  minutes: number;
+  model: string;
+  /** Requests the person's prompts started, and those the agent made on its own. */
+  you: number;
+  agent: number;
+  /** A sub-agent's requests, on a model of its own. */
+  subAgent?: { name: string; model: string; requests: number };
+  /** What Copilot CLI recorded the session's requests as costing, in US dollars. */
+  usd: number;
+  tokens: number;
+  reasoning: number;
+}
+
+const COPILOT_VERSION = "1.0.106";
+const GPT = "gpt-5.5";
+const GEMINI = "gemini-3.1-pro";
+const COPILOT_OPUS = "claude-opus-5.5";
+
+/** The names Copilot CLI records for its models. */
+const COPILOT_MODELS: Record<string, string> = {
+  [GPT]: "GPT-5.5",
+  [GEMINI]: "Gemini 3.1 Pro",
+  [COPILOT_OPUS]: "Claude Opus 5.5",
+};
+
+/** AI credits per million tokens of each kind, before the scaling that makes a session cost what
+ * it should. */
+const CREDIT_RATES: Record<string, Record<string, number>> = {
+  [GPT]: { input: 138, cache_read: 14, cache_write: 0, output: 1100 },
+  [GEMINI]: { input: 220, cache_read: 22, cache_write: 0, output: 1320 },
+  [COPILOT_OPUS]: { input: 440, cache_read: 44, cache_write: 550, output: 2200 },
+};
+
+/** Today's $1.74, this week's $13.12 and this month's $15.77, as the design's tiles show. */
+const COPILOT_SESSIONS: CopilotSession[] = [
+  {
+    title: "Tidy the CI matrix",
+    project: "infra",
+    day: TODAY,
+    start: "10:52",
+    minutes: 23,
+    model: GPT,
+    you: 3,
+    agent: 28,
+    usd: 1.33,
+    tokens: 2_100_000,
+    reasoning: 9_800,
+  },
+  {
+    title: "Review the release notes",
+    project: "agent-dashboard",
+    day: TODAY,
+    start: "10:05",
+    minutes: 35,
+    model: COPILOT_OPUS,
+    you: 2,
+    agent: 16,
+    usd: 0.41,
+    tokens: 600_000,
+    reasoning: 0,
+  },
+  {
+    title: "Draft the importer's handbook",
+    project: "walkthrough",
+    day: "2026-10-08",
+    start: "14:10",
+    minutes: 95,
+    model: COPILOT_OPUS,
+    you: 2,
+    agent: 54,
+    subAgent: { name: "explore", model: GEMINI, requests: 6 },
+    usd: 5.98,
+    tokens: 6_300_000,
+    reasoning: 11_700,
+  },
+  {
+    title: "Port the backup script",
+    project: "infra",
+    day: "2026-10-07",
+    start: "16:20",
+    minutes: 48,
+    model: GPT,
+    you: 4,
+    agent: 33,
+    usd: 3.12,
+    tokens: 3_000_000,
+    reasoning: 21_400,
+  },
+  {
+    title: "Explain the flaky test",
+    project: "website",
+    day: "2026-10-05",
+    start: "09:40",
+    minutes: 30,
+    model: GEMINI,
+    you: 3,
+    agent: 19,
+    usd: 2.28,
+    tokens: 1_900_000,
+    reasoning: 6_100,
+  },
+  {
+    title: "Rename the config keys",
+    project: "cli-tools",
+    day: "2026-10-03",
+    start: "11:30",
+    minutes: 26,
+    model: COPILOT_OPUS,
+    you: 2,
+    agent: 20,
+    usd: 1.5,
+    tokens: 1_400_000,
+    reasoning: 0,
+  },
+  {
+    title: "Summarise the open issues",
+    project: "notes",
+    day: "2026-10-02",
+    start: "15:00",
+    minutes: 20,
+    model: GPT,
+    you: 2,
+    agent: 12,
+    usd: 1.15,
+    tokens: 1_000_000,
+    reasoning: 4_000,
+  },
+  {
+    title: "Sketch the release checklist",
+    project: "agent-dashboard",
+    day: "2026-09-24",
+    start: "10:15",
+    minutes: 40,
+    model: COPILOT_OPUS,
+    you: 3,
+    agent: 30,
+    usd: 3.1,
+    tokens: 2_900_000,
+    reasoning: 0,
+  },
+  {
+    title: "Compare two backup tools",
+    project: "infra",
+    day: "2026-09-18",
+    start: "13:45",
+    minutes: 35,
+    model: GPT,
+    you: 2,
+    agent: 24,
+    usd: 2.4,
+    tokens: 2_200_000,
+    reasoning: 15_000,
+  },
+];
+
+/** The AI credits a Copilot plan includes each month, and what Copilot used elsewhere each day,
+ * which the allowance counts too. */
+const ENTITLEMENT = 45_000;
+const ELSEWHERE_PER_DAY = 3.5;
+
+/** One request's tokens: mostly read from the prompt cache, as an agent's requests are. */
+function copilotTokens(total: number, reasoning: number) {
+  const input = Math.round(total * 0.01);
+  const cacheWrite = Math.round(total * 0.08);
+  const output = Math.max(Math.round(total * 0.01), reasoning);
+  return { input, cacheWrite, cacheRead: total - input - cacheWrite - output, output, reasoning };
+}
+
+/** Writes the synthetic Copilot CLI data folder into `root`, which must be empty: each session's
+ * `workspace.yaml` and `events.jsonl`, with the allowance GitHub reports as each session ends. */
+export function writeCopilotFolder(root: string, options: Options = {}): void {
+  const next = random(17);
+  const ordered = [...COPILOT_SESSIONS].sort((a, b) => at(a.day, a.start) - at(b.day, b.start));
+  const monthStart = Date.parse("2026-10-01T00:00:00Z");
+  let usedThisMonth = 0;
+  for (const session of ordered) {
+    const project = PROJECTS[session.project];
+    if (!project) throw new Error(`no project ${session.project}`);
+    const id = uuid(next);
+    const folder = join(root, "session-state", id);
+    mkdirSync(folder, { recursive: true });
+    const cwd = workingFolder(project.cwd, options);
+    const startMs = at(session.day, session.start);
+    const endMs = startMs + session.minutes * MINUTE;
+    const iso = (ms: number) => new Date(ms).toISOString();
+    writeFileSync(
+      join(folder, "workspace.yaml"),
+      [
+        `id: ${id}`,
+        `cwd: ${cwd}`,
+        "client_name: github/cli",
+        `name: ${JSON.stringify(session.title)}`,
+        "user_named: false",
+        `created_at: ${iso(startMs)}`,
+        `updated_at: ${iso(endMs)}`,
+        "",
+      ].join("\n"),
+    );
+    const sub = session.subAgent;
+    const count = session.you + session.agent + (sub?.requests ?? 0);
+    const charge = Math.round(session.usd * 1e11);
+    const events: unknown[] = [
+      {
+        type: "session.start",
+        id: `${id}-start`,
+        timestamp: iso(startMs),
+        data: { sessionId: id, copilotVersion: COPILOT_VERSION, context: { cwd } },
+      },
+    ];
+    // The person's prompts are spread through the session; the sub-agent runs after the first.
+    const userAt = new Set(
+      Array.from({ length: session.you }, (_, index) =>
+        Math.floor((index * (count - (sub?.requests ?? 0))) / session.you),
+      ),
+    );
+    const subId = sub ? uuid(next) : undefined;
+    const toolCallId = sub ? `toolu_${id.slice(0, 8)}` : undefined;
+    const subFrom = sub ? 3 : count;
+    const subTo = sub ? subFrom + sub.requests : count;
+    let charged = 0;
+    for (let index = 0; index < count; index += 1) {
+      const ms = startMs + Math.round(((endMs - startMs) * (index + 1)) / (count + 1));
+      const bySub = index >= subFrom && index < subTo;
+      if (sub && index === subFrom) {
+        events.push({
+          type: "subagent.started",
+          id: `${id}-sub`,
+          timestamp: iso(ms - 1000),
+          data: { agentName: sub.name, agentType: sub.name, toolCallId, model: sub.model },
+        });
+      }
+      const model = bySub && sub ? sub.model : session.model;
+      const share = Math.floor(session.tokens / count);
+      const reasoning = Math.floor(session.reasoning / count);
+      const tokens = copilotTokens(share, reasoning);
+      const nano = index === count - 1 ? charge - charged : Math.floor(charge / count);
+      charged += nano;
+      const rates = CREDIT_RATES[model] ?? {
+        input: 100,
+        cache_read: 10,
+        cache_write: 0,
+        output: 500,
+      };
+      const counts: Record<string, number> = {
+        input: tokens.input,
+        cache_read: tokens.cacheRead,
+        cache_write: tokens.cacheWrite,
+        output: tokens.output,
+      };
+      const natural = Object.entries(counts).reduce(
+        (sum, [kind, tokenCount]) => sum + (tokenCount * (rates[kind] ?? 0) * 1e9) / 1e6,
+        0,
+      );
+      const scale = natural > 0 ? nano / natural : 0;
+      const initiator = bySub ? "sub-agent" : userAt.has(index) ? "user" : "agent";
+      events.push({
+        type: "session.usage_record",
+        id: `${id}-usage-${String(index)}`,
+        timestamp: iso(ms),
+        data: {
+          usage: {
+            model,
+            modelDisplayName: COPILOT_MODELS[model] ?? model,
+            inputTokens: tokens.input + tokens.cacheRead + tokens.cacheWrite,
+            outputTokens: tokens.output,
+            cacheReadTokens: tokens.cacheRead,
+            cacheWriteTokens: tokens.cacheWrite,
+            reasoningTokens: tokens.reasoning,
+            initiator,
+            isByok: false,
+            ...(bySub ? { parentToolCallId: toolCallId } : {}),
+            accounting: {
+              sourceSessionId: bySub ? subId : id,
+              usageId: `${id}-${String(index)}`,
+            },
+            copilotUsage: {
+              tokenDetails: Object.entries(counts).map(([kind, tokenCount]) => ({
+                batchSize: 1_000_000,
+                costPerBatch: Math.floor((rates[kind] ?? 0) * 1e9 * scale),
+                tokenCount,
+                tokenType: kind,
+              })),
+              totalNanoAiu: nano,
+            },
+          },
+        },
+      });
+    }
+    if (!options.noLimits && endMs >= monthStart) {
+      usedThisMonth += session.usd * 100;
+      const days = (endMs - monthStart) / DAY;
+      const used = Math.round(usedThisMonth + days * ELSEWHERE_PER_DAY);
+      events.push({
+        type: "model.model_call_success",
+        id: `${id}-quota`,
+        timestamp: iso(endMs),
+        data: {
+          quotaSnapshots: {
+            chat: { isUnlimitedEntitlement: true },
+            premium_interactions: {
+              isUnlimitedEntitlement: false,
+              entitlementRequests: ENTITLEMENT,
+              usedRequests: used,
+              remainingPercentage: 100 - (used / ENTITLEMENT) * 100,
+              resetDate: "2026-11-01T00:00:00Z",
+              overage: 0,
+            },
+          },
+        },
+      });
+    }
+    writeLines(join(folder, "events.jsonl"), events);
+  }
 }
 
 /** A claude-usage dashboard database holding requests from July, before any transcript. */

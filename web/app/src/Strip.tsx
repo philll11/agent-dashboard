@@ -20,7 +20,7 @@ import { useHost } from "./context";
 import { useReadingProgress, useRequest } from "./data";
 import { addDays, ago, compact, duration, grouped, local, percent, resets, when } from "./format";
 import type { Host } from "./host";
-import { costText, tokensOf } from "./sections/common";
+import { COST_WORDS, costText, tokensOf } from "./sections/common";
 import { StatusLineDialog } from "./sections/dialogs";
 import { LevelIcon } from "./sections/provenance";
 import { isRunning, latestSession } from "./sessions";
@@ -28,7 +28,7 @@ import { Clock, Warning } from "./ui/icons";
 import { toTop } from "./ui/scroll";
 import { useNow } from "./ui/time";
 import { useView } from "./view";
-import { inOrder, LEVEL_TEXT, meterName, windowName } from "./windows";
+import { byAgent, LEVEL_TEXT, meterName, windowName } from "./windows";
 
 /** The sessions the latest is chosen from: enough for two busy days. */
 const SESSIONS = 200;
@@ -42,9 +42,10 @@ const DAY_MS = 24 * 60 * 60_000;
 /** What the strip shows, which it keeps in the view's state between showings. */
 interface Shown {
   timeZone: string;
-  /** The five-hour and weekly windows, as far as they have readings. */
+  /** Claude Code's five-hour and weekly windows and Copilot CLI's allowance, as far as they have
+   * readings. */
   windows: WindowReading[];
-  /** When Claude Code last passed a reading of any window. */
+  /** When Claude Code last passed a reading of any of its windows. */
   lastReadingMs?: number | undefined;
   /** The status line's connection, which the strip tells while there are no readings. */
   statusLine?: StatusLine["state"] | undefined;
@@ -101,8 +102,13 @@ export function Strip() {
     host.folders?.subscribe ?? NO_CHANGES,
     host.folders?.current ?? NO_FOLDERS,
   );
-  // The five-hour and weekly windows, or for a plan without them, the first windows it has.
-  const windows = status ? inOrder(status.limits).slice(0, 2) : undefined;
+  // Each agent's first windows: Claude Code's five-hour and weekly windows, or for a plan without
+  // them, the first two it has; then Copilot CLI's allowance.
+  const windows = status
+    ? byAgent(status.limits).flatMap((group) =>
+        group.readings.slice(0, group.agent === "claude-code" ? 2 : 1),
+      )
+    : undefined;
   const explain =
     windows !== undefined &&
     (windows.length === 0 || windows.some((reading) => reading.stale && !reading.expired));
@@ -119,8 +125,9 @@ export function Strip() {
   if (status && windows) {
     fresh.timeZone = status.timeZone;
     fresh.windows = windows;
-    if (status.limits.length > 0) {
-      fresh.lastReadingMs = Math.max(...status.limits.map((each) => each.observedMs));
+    const claude = status.limits.filter((each) => each.agent === "claude-code");
+    if (claude.length > 0) {
+      fresh.lastReadingMs = Math.max(...claude.map((each) => each.observedMs));
     }
     if (!status.readMs && reading && reading.done < reading.total) fresh.firstRead = reading;
   }
@@ -229,9 +236,9 @@ function StripCells({ shown, folders }: { shown: Shown; folders: OpenFolders | u
       {shown.windows.length > 0 ? (
         shown.windows.map((reading, index) => (
           <WindowCell
-            key={reading.window}
+            key={`${reading.agent}:${reading.window}`}
             reading={reading}
-            first={index === 0}
+            first={shown.windows.findIndex((other) => other.agent === reading.agent) === index}
             shown={shown}
             now={now}
           />
@@ -259,7 +266,8 @@ function WindowCell({
   now,
 }: {
   reading: WindowReading;
-  /** The first window, which also says where the readings come from or why they are old. */
+  /** Its agent's first window, which also says where the readings come from or why they are
+   * old. */
   first: boolean;
   shown: Shown;
   now: number;
@@ -287,6 +295,8 @@ function WindowCell({
   }
   if (reading.expired) {
     facts.push("No reading since it reset");
+  } else if (old && first && reading.agent === "copilot-cli") {
+    facts.push(`Copilot CLI hasn't run for ${duration(now - reading.observedMs)}`);
   } else if (old && first) {
     const last = local(shown.lastReadingMs ?? reading.observedMs, shown.timeZone).time;
     facts.push(
@@ -397,7 +407,7 @@ function FirstRead({ progress }: { progress: Progress }) {
   return (
     <div className="strip-cell session">
       <div className="strip-head">
-        <span>Reading your Claude Code history</span>
+        <span>Reading your history</span>
         <span className="strip-count">
           {grouped(progress.done)} of {grouped(progress.total)} files
         </span>
@@ -436,7 +446,7 @@ function SessionCell({
   if (session === null) {
     return (
       <div className="strip-cell session">
-        <span>No Claude Code session today yet.</span>
+        <span>No session today yet.</span>
         <span className="strip-detail">
           It shows here as soon as one starts{inFolder ? " in this folder" : ""}.
         </span>
@@ -487,7 +497,8 @@ function SessionCell({
             </span>
           ) : (
             <span>
-              <span className="strip-cost">{costText(totals)}</span> API-equivalent
+              <span className="strip-cost">{costText(totals)}</span>{" "}
+              {totals.costProvenance ? COST_WORDS[totals.costProvenance] : "API-equivalent"}
             </span>
           ),
           `${grouped(totals.requests)} ${totals.requests === 1 ? "request" : "requests"}`,

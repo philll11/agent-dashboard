@@ -115,41 +115,48 @@ describe(`${NAME}, installed from its package`, function () {
     await VSBrowser.instance.waitForWorkbench();
   });
 
-  it("shows the five-hour window in the status bar", async () => {
+  it("shows the five-hour window and Copilot's allowance in the status bar", async () => {
     const item = await driver.wait(
       until.elementLocated(By.css('[id$="agentDashboard.status"]')),
       30_000,
     );
     await driver.wait(async () => (await item.getText()).includes("5h"), 30_000);
-    assert.equal((await item.getText()).trim(), "5h 42% · 14:20");
+    assert.equal((await item.getText()).trim(), "5h 42% · 14:20 · Copilot 4%");
     const link = await item.findElement(By.css("[aria-label]"));
     assert.equal(
       await link.getAttribute("aria-label"),
-      "Five-hour window 42% used, resets at 14:20. Open the usage dashboard.",
+      "Five-hour window 42% used, resets at 14:20; Copilot allowance 4% used. Open the usage dashboard.",
     );
   });
 
-  it("summarises the usage in the sidebar", async () => {
+  it("summarises each agent's usage apart in the sidebar", async () => {
     const section = await summary();
     const items = await driver.wait(async () => {
       const visible = await section.getVisibleItems();
       return visible.length > 4 ? visible : undefined;
     }, 30_000);
     const shown = await rows(items ?? []);
-    assert.deepEqual(shown.slice(0, 10), [
+    assert.deepEqual(shown.slice(0, 17), [
       "Plan limits | official · 2 min ago",
       "Five-hour window | 42% · resets 14:20",
       "Weekly, all models | 71% · resets Thu 09:00",
       "Weekly, Fable | 18% · resets Thu 09:00",
-      "Today | $5.10 estimate",
+      "Copilot allowance | 4% · 1,608 of 45,000 AI credits",
+      "Today | $6.84 · includes estimate",
+      "Claude Code | $5.10 · estimate",
       "Opus 5.5 | $2.10",
       "Fable 5.1 | $1.83",
       "Sonnet 5.5 | $1.11",
       "Haiku 5.5 | $0.06",
-      "This week | $69.46 + unpriced estimate",
+      "Copilot CLI | $1.74 · recorded",
+      "GPT-5.5 | $1.33",
+      "Opus 5.5 | $0.41",
+      "This week | $82.58 + unpriced · includes estimate",
+      "Top projects | this week",
+      "Claude Code | $69.46 + unpriced",
     ]);
-    assert.equal(shown[10], "Top projects | this week");
-    assert.equal(shown.length, 16, "five projects follow");
+    assert.equal(shown[20], "Copilot CLI | $13.12");
+    assert.equal(shown.length, 24, "three projects of each agent follow");
   });
 
   it("opens the matching section of the dashboard from the sidebar", async () => {

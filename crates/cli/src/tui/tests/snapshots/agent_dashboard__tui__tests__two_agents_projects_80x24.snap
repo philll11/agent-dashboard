@@ -1,0 +1,69 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits                  │
+ 1 │                                                                                │
+ 2 │┌─ Projects · 30 days ─────────────────────────────────────────────────────────┐│
+ 3 ││   Project           Sessions       Cost   Daily cost                         ││
+ 4 ││     api-gateway           41     $64.12   ▃▃▃▃▅▅▄▆▃▃█▅▇▆▄▃▃▄▄▅▃▇▃▃▆▄▅▇▅▃     ││
+ 5 ││     website               28     $43.72   ▃▃▂▆▃▇▅▆▃▃█▆█▄▇▃▄▄▅▄▅▅▄▃▆▅▆▇▆▃     ││
+ 6 ││     infra                 22     $34.98   ▃▄▂▅▅▄▇▅▃▃▆█▅▆▆▃▄▄▅▅▅█▃▄▅▆▇▅█▂     ││
+ 7 ││     notes                  9     $14.57   ▃▃▃▄▄▇▅▄▃▃▅▆█▅▄▄▃▄▄▆▄▅▄▃▄▅▆▄▆▃     ││
+ 8 ││     Other projects        18     $23.32   ▃▃▃▅▅▆▆▆▄▄█▇▇▆▇▄▃▄▄▆▅▇▄▃▆▇▇▇▆▃     ││
+ 9 ││   ■ Copilot CLI           23     $17.18   ▄▄▄▃▄▅▆▇▃▃▄▄▅▅▆▄▄▂▄▆▄▄▃▃█▇▃▅▅▃     ││
+10 ││ ›   agent-dashboard       14     $10.31   ▄▃▄▄▃▅▇▇▃▃▄▅▄▄▇▄▄▂▄▆▄▄▃▄█▆▃▅▆▃     ││
+11 ││   Total                  237    $308.65                                      ││
+12 │└──────────────────────────────────────────────────────────────────────────────┘│
+13 │┌─ agent-dashboard · Copilot CLI · cost per day by model · 30 days ────────────┐│
+14 ││ $1.00                                                                        ││
+15 ││                                                                              ││
+16 ││                                                       █ █                    ││
+17 ││ $0.50 █           █ █           █ █                   █ █                    ││
+18 ││       █   █   █ █ █ █   █   █ █ █ █   █   █ █ █ █     █ █   █ █              ││
+19 ││    $0 █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █            ││
+20 ││       11        16        21        26        1         6       10           ││
+21 ││ ■ GPT-5.5                                                                    ││
+22 │└──────────────────────────────────────────────────────────────────────────────┘│
+23 │ q quit  ←→ sections  Enter filter  t table view  e export        Read just now │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb bbbbbbbbbb cccccccccc bbbbbbbb bbbbbbbb                 │
+ 1 │                                                                                │
+ 2 │ddaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+ 3 │d   bbbbbbb           bbbbbbbb       bbbb   bbbbbbbbbb                         d│
+ 4 │d     eeeeeeeeeee           ee     aaaaaa   ffffffffffffffffffffffffffffff     d│
+ 5 │d     eeeeeee               ee     aaaaaa   ffffffffffffffffffffffffffffff     d│
+ 6 │d     eeeee                 ee     aaaaaa   ffffffffffffffffffffffffffffff     d│
+ 7 │d     eeeee                  e     aaaaaa   ffffffffffffffffffffffffffffff     d│
+ 8 │d     bbbbbbbbbbbbbb        ee     aaaaaa   ffffffffffffffffffffffffffffff     d│
+ 9 │d   g aaaaaaaaaaa           ee     aaaaaa   ffffffffffffffffffffffffffffff     d│
+10 │dhihhhjjjjjjjjjjjjjjjhhhhhhhjjhhhhhkkkkkkhhhllllllllllllllllllllllllllllllhhhhhd│
+11 │d   aaaaa                  eee    aaaaaaa                                      d│
+12 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+13 │ddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddd│
+14 │d bbbbb                                                                        d│
+15 │d                                                                              d│
+16 │d                                                       m m                    d│
+17 │d bbbbb m           m m           m m                   m m                    d│
+18 │d       m   m   m m m m   m   m m m m   m   m m m m     m m   m m              d│
+19 │d    bb m m m m m m m m m m m m m m m m m m m m m m m m m m m m m m            d│
+20 │d       bb        bb        bb        bb        b         b       bb           d│
+21 │d m eeeeeee                                                                    d│
+22 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+23 │ n bbbb  nn bbbbbbbb  nnnnn bbbbbb  n bbbbbbbbbb  n bbbbbb        bbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #3a404a
+e = #d7dae0
+f = #5cc8e8
+g = #d95926
+h = on #1c2128
+i = #5cc8e8 on #1c2128 bold
+j = #d7dae0 on #1c2128
+k = #f0f2f5 on #1c2128 bold
+l = #5cc8e8 on #1c2128
+m = #d55181
+n = #5cc8e8 bold

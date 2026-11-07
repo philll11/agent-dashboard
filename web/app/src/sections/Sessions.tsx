@@ -7,6 +7,7 @@ import type { Model, SessionRow } from "@agent-dashboard/protocol";
 
 import { useStatus } from "../context";
 import { useRequest } from "../data";
+import { agentName } from "../agents";
 import { compact, dayAndTime, duration, grouped, money } from "../format";
 import { seriesFill } from "../models";
 import { isRunning } from "../sessions";
@@ -17,15 +18,20 @@ import { toTop } from "../ui/scroll";
 import { useNow } from "../ui/time";
 import { useView } from "../view";
 import {
+  AgentMenu,
+  COST_WORDS,
+  costName,
   costText,
   ModelMenu,
   ProjectMenu,
   RangeMenu,
   SectionHead,
   tokensOf,
+  useAgents,
   useDays,
   useFilters,
   useExportScope,
+  useProvenance,
   useRangeText,
   useSeries,
 } from "./common";
@@ -57,11 +63,17 @@ function SessionList() {
     limit: PAGE,
   }).data;
   const overview = useRequest("overview", { days, filters }).data;
+  const provenance = useProvenance(overview?.totals);
+  const agents = useAgents();
+  // With both agents in view, each row says whose session it is; Claude Code's own figure applies
+  // to Claude Code's sessions only.
+  const both = agents.length > 1;
+  const claude = agents.includes("claude-code");
   const summary =
     page && overview && view.search === ""
       ? `${grouped(page.total)} ${page.total === 1 ? "session" : "sessions"} ${
           rangeText === "today" ? "today" : `in the ${rangeText}`
-        } · ${money(overview.totals.cost.total)} API-equivalent`
+        } · ${money(overview.totals.cost.total)} ${COST_WORDS[provenance]}`
       : page
         ? `${grouped(page.total)} ${page.total === 1 ? "session matches" : "sessions match"}`
         : undefined;
@@ -84,6 +96,7 @@ function SessionList() {
           }}
         />
         <RangeMenu />
+        <AgentMenu />
         <ProjectMenu />
         <ModelMenu />
         <ExportMenu
@@ -103,6 +116,11 @@ function SessionList() {
             <thead>
               <tr>
                 <th scope="col">Session</th>
+                {both && (
+                  <th scope="col" className="left">
+                    Agent
+                  </th>
+                )}
                 <th scope="col" aria-sort="descending">
                   <span className="sorted">
                     Started
@@ -116,15 +134,17 @@ function SessionList() {
                 <th scope="col">Requests</th>
                 <th scope="col">Subagents</th>
                 <th scope="col">Tokens</th>
-                <th scope="col">API-equivalent cost</th>
-                <th scope="col" className="left">
-                  Claude Code's own figure
-                </th>
+                <th scope="col">{costName(provenance)}</th>
+                {claude && (
+                  <th scope="col" className="left">
+                    Claude Code's own figure
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {page?.rows.map((row) => (
-                <Row key={row.id} row={row} />
+                <Row key={row.id} row={row} agent={both} ownFigure={claude} />
               ))}
             </tbody>
           </table>
@@ -166,16 +186,30 @@ function SessionList() {
           </div>
         )}
       </section>
-      <p className="footnote">
-        "Claude Code's own figure" compares our estimate with the session cost Claude Code records
-        itself, which it writes as each of its processes ends. A figure that counts other requests
-        than the history holds is not compared.
-      </p>
+      {claude && (
+        <p className="footnote">
+          "Claude Code's own figure" compares our estimate with the session cost Claude Code records
+          itself, which it writes as each of its processes ends. A figure that counts other requests
+          than the history holds is not compared.
+          {both &&
+            " Copilot CLI's sessions cost what Copilot CLI recorded, so there is nothing to compare."}
+        </p>
+      )}
     </div>
   );
 }
 
-function Row({ row }: { row: SessionRow }) {
+function Row({
+  row,
+  agent,
+  ownFigure,
+}: {
+  row: SessionRow;
+  /** Shows whose session it is, which also tells whether its cost is an estimate or recorded. */
+  agent: boolean;
+  /** Shows how the estimate compares with Claude Code's own figure. */
+  ownFigure: boolean;
+}) {
   const status = useStatus();
   const { change } = useView();
   const now = useNow(60_000);
@@ -199,6 +233,7 @@ function Row({ row }: { row: SessionRow }) {
           <span className="mono session-project">{row.project.name}</span>
         </a>
       </th>
+      {agent && <td className="left nowrap">{agentName(row.agent)}</td>}
       <td className="nowrap">{dayAndTime(row.firstMs, now, status.timeZone)}</td>
       <td className="nowrap">{duration(row.lastMs - row.firstMs)}</td>
       <td className="left">
@@ -223,15 +258,21 @@ function Row({ row }: { row: SessionRow }) {
       <td>{grouped(row.totals.requests)}</td>
       <td>{grouped(row.subagents)}</td>
       <td>{compact(tokensOf(row.totals))}</td>
-      <td className="strong">{costText(row.totals)}</td>
-      <td className="left nowrap">
-        <OwnFigure
-          reported={row.reportedUsd}
-          drift={row.drift}
-          running={running}
-          unpricedModels={unpricedCount}
-        />
-      </td>
+      <td className="strong nowrap">{costText(row.totals)}</td>
+      {ownFigure && (
+        <td className="left own-figure">
+          {row.agent === "claude-code" ? (
+            <OwnFigure
+              reported={row.reportedUsd}
+              drift={row.drift}
+              running={running}
+              unpricedModels={unpricedCount}
+            />
+          ) : (
+            <span className="figure-check muted">Recorded cost</span>
+          )}
+        </td>
+      )}
     </tr>
   );
 }

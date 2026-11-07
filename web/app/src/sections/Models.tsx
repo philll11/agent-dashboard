@@ -3,7 +3,9 @@
 
 import { useState } from "react";
 
-import type { ModelRow, PriceRow } from "@agent-dashboard/protocol";
+import type { CostProvenance, ModelRow, PriceRow, Totals } from "@agent-dashboard/protocol";
+
+import { type AgentOverview, agentFill, agentName, nameUnder } from "../agents";
 
 import { LineChart } from "../charts/lines";
 import { moneyTick, niceScale } from "../charts/scale";
@@ -14,18 +16,25 @@ import { seriesFill } from "../models";
 import { ChartIcon, TableIcon, Warning } from "../ui/icons";
 import { Panel, Pause, TableScroll } from "../ui/panels";
 import {
+  AgentMenu,
+  COST_WORDS,
+  costName,
+  costSource,
   costText,
   ProjectMenu,
   RangeMenu,
   SectionHead,
+  useAgents,
+  useByAgent,
   useDays,
   useFilters,
   useExportScope,
+  useProvenance,
   useRangeText,
   useSeries,
 } from "./common";
 import { ExportMenu } from "../exports";
-import { costColumns, costSeries } from "./series";
+import { agentChart, costColumns, costSeries } from "./series";
 import { unpriced } from "./Sessions";
 
 export function Models() {
@@ -34,16 +43,19 @@ export function Models() {
   const rangeText = useRangeText();
   const overview = useRequest("overview", { days, filters: { ...filters, model: null } }).data;
   const models = overview?.models ?? [];
+  const byAgent = useByAgent(days, { ...filters, model: null });
+  const provenance = useProvenance(overview?.totals);
   const summary = overview
     ? `${grouped(models.length)} ${models.length === 1 ? "model" : "models"} ${
         rangeText === "today" ? "today" : `in the ${rangeText}`
-      } · ${money(overview.totals.cost.total)} API-equivalent`
+      } · ${money(overview.totals.cost.total)} ${COST_WORDS[provenance]}`
     : undefined;
   const exportScope = useExportScope(models.length, "model", "models");
   return (
     <div className="section">
       <SectionHead title="Models" summary={summary}>
         <RangeMenu />
+        <AgentMenu />
         <ProjectMenu />
         <ExportMenu
           what={{ dataset: "models", days, filters: { ...filters, model: null } }}
@@ -51,14 +63,15 @@ export function Models() {
           className="button export-button"
         />
       </SectionHead>
-      <DailyLines />
-      <TokensAndCost models={models} />
+      <DailyLines byAgent={byAgent} />
+      <TokensAndCost models={models} provenance={provenance} byAgent={byAgent} />
       <PricesUsed models={models} />
     </div>
   );
 }
 
-function DailyLines() {
+/** Cost per day, a line for each model, or for each agent while the view covers several. */
+function DailyLines({ byAgent }: { byAgent: AgentOverview[] | undefined }) {
   const status = useStatus();
   const days = useDays();
   const filters = useFilters();
@@ -66,11 +79,17 @@ function DailyLines() {
   const series = useSeries();
   const [asTable, setAsTable] = useState(false);
   const overview = useRequest("overview", { days, filters: { ...filters, model: null } }).data;
-  if (!overview)
-    return <section className="panel" aria-label="API-equivalent cost per day, by model" />;
-  const chart = costSeries(overview.models, series);
+  const provenance = useProvenance(overview?.totals);
+  const name = costName(provenance);
+  const by = byAgent ? "agent" : "model";
+  if (!overview || byAgent?.length === 0) {
+    return <section className="panel" aria-label={`${name} per day, by ${by}`} />;
+  }
+  const { chart, byDay } = byAgent
+    ? agentChart(overview.byDay, byAgent)
+    : { chart: costSeries(overview.models, series), byDay: overview.byDay };
   const { bucket, columns } = costColumns(
-    overview.byDay,
+    byDay,
     chart,
     overview.days.first,
     overview.days.last,
@@ -91,13 +110,13 @@ function DailyLines() {
         ]
       : [],
   );
-  const label = `${chart.series.length === 1 ? "A line" : `${String(chart.series.length)} lines`} of API-equivalent cost per ${per}, ${rangeText}: ${chart.series
+  const label = `${chart.series.length === 1 ? "A line" : `${String(chart.series.length)} lines`} of ${name.toLowerCase()} per ${per}, ${rangeText}: ${chart.series
     .map((item) => `${item.name} ${money(item.total)}`)
     .join(", ")}.`;
   return (
     <Panel
-      title={`API-equivalent cost per ${per}, by model`}
-      subtitle={`Estimate at Anthropic's list prices · ${rangeText}`}
+      title={`${name} per ${per}, by ${by}`}
+      subtitle={`${costSource(provenance)} · ${rangeText}`}
       actions={
         <button
           type="button"
@@ -124,7 +143,7 @@ function DailyLines() {
         </ul>
       )}
       {asTable ? (
-        <TableScroll label="Cost per day by model">
+        <TableScroll label={`Cost per day by ${by}`}>
           <table className="data">
             <thead>
               <tr>
@@ -197,69 +216,127 @@ function lineColour(series: string): string {
   return series === "other" ? "var(--series-other)" : `var(--series-${series})`;
 }
 
-function TokensAndCost({ models }: { models: readonly ModelRow[] }) {
+/** One row of the tokens and cost table: a model's, or while the view covers several agents, an
+ * agent's with its subtotals. */
+function UsageRow({
+  name,
+  fill,
+  totals,
+  reasoning,
+  plain = false,
+  agent = false,
+  indent = false,
+}: {
+  name: string;
+  fill?: string | undefined;
+  totals: Totals;
+  /** Shows the reasoning tokens' column. */
+  reasoning: boolean;
+  /** Names a model the price table does not list, by its id. */
+  plain?: boolean;
+  /** An agent's row, heading its models' rows. */
+  agent?: boolean;
+  /** A model's row under its agent's. */
+  indent?: boolean;
+}) {
+  const isUnpriced = totals.requests > 0 && totals.unpricedRequests === totals.requests;
+  return (
+    <tr className={agent ? "agent-row" : undefined}>
+      <th scope={agent ? "rowgroup" : "row"} className="strong">
+        <span className={indent ? "swatch-name nested" : "swatch-name"}>
+          {fill && <span className="swatch" style={{ background: fill }} />}
+          <span className={plain ? "mono plain" : undefined}>{name}</span>
+        </span>
+      </th>
+      <td>{grouped(totals.requests)}</td>
+      <td>{compact(totals.tokens.input)}</td>
+      <td>{compact(totals.tokens.output)}</td>
+      {reasoning && <td>{compact(totals.reasoningTokens)}</td>}
+      <td>{compact(totals.tokens.cacheWrite5m)}</td>
+      <td>{compact(totals.tokens.cacheWrite1h)}</td>
+      <td>{compact(totals.tokens.cacheRead)}</td>
+      <td>{percent(totals.requests > 0 ? (totals.fastRequests / totals.requests) * 100 : 0)}</td>
+      <td className="strong">
+        {isUnpriced ? (
+          <span className="unpriced">
+            <Warning size={13} />
+            Unpriced
+          </span>
+        ) : (
+          costText(totals)
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function TokensAndCost({
+  models,
+  provenance,
+  byAgent,
+}: {
+  models: readonly ModelRow[];
+  provenance: CostProvenance;
+  byAgent: AgentOverview[] | undefined;
+}) {
   const rangeText = useRangeText();
   const series = useSeries();
+  // Only Copilot CLI records reasoning tokens, which its output tokens already count.
+  const reasoning = models.some((row) => row.totals.reasoningTokens > 0);
   return (
     <Panel title="Tokens and cost" aside={`· ${rangeText}`}>
       <TableScroll label="Tokens and cost">
         <table className="data wider">
           <thead>
             <tr>
-              <th scope="col">Model</th>
+              <th scope="col">{byAgent ? "Agent and model" : "Model"}</th>
               <th scope="col">Requests</th>
               <th scope="col">Input</th>
               <th scope="col">Output</th>
+              {reasoning && <th scope="col">Of it reasoning</th>}
               <th scope="col">Cache writes, 5 min</th>
               <th scope="col">Cache writes, 1 h</th>
               <th scope="col">Cache reads</th>
               <th scope="col">Fast mode</th>
-              <th scope="col">API-equivalent cost</th>
+              <th scope="col">{costName(provenance)}</th>
             </tr>
           </thead>
-          <tbody>
-            {models.map((row) => {
-              const isUnpriced = unpriced(row.model);
-              return (
-                <tr key={row.model.id}>
-                  <th scope="row" className="strong">
-                    <span className="swatch-name">
-                      <span
-                        className="swatch"
-                        style={{ background: seriesFill(series.get(row.model.id) ?? "other") }}
-                      />
-                      <span className={isUnpriced ? "mono plain" : undefined}>
-                        {row.model.name}
-                      </span>
-                    </span>
-                  </th>
-                  <td>{grouped(row.totals.requests)}</td>
-                  <td>{compact(row.totals.tokens.input)}</td>
-                  <td>{compact(row.totals.tokens.output)}</td>
-                  <td>{compact(row.totals.tokens.cacheWrite5m)}</td>
-                  <td>{compact(row.totals.tokens.cacheWrite1h)}</td>
-                  <td>{compact(row.totals.tokens.cacheRead)}</td>
-                  <td>
-                    {percent(
-                      row.totals.requests > 0
-                        ? (row.totals.fastRequests / row.totals.requests) * 100
-                        : 0,
-                    )}
-                  </td>
-                  <td className="strong">
-                    {isUnpriced ? (
-                      <span className="unpriced">
-                        <Warning size={13} />
-                        Unpriced
-                      </span>
-                    ) : (
-                      costText(row.totals)
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
+          {byAgent ? (
+            byAgent.map((group) => (
+              <tbody key={group.agent} className="agent-group">
+                <UsageRow
+                  name={agentName(group.agent)}
+                  fill={agentFill(group.agent)}
+                  totals={group.overview.totals}
+                  reasoning={reasoning}
+                  agent
+                />
+                {group.overview.models.map((row) => (
+                  <UsageRow
+                    key={row.model.id}
+                    name={nameUnder(group.agent, row.model.name)}
+                    totals={row.totals}
+                    reasoning={reasoning}
+                    plain={unpriced(row.model)}
+                    indent
+                  />
+                ))}
+              </tbody>
+            ))
+          ) : (
+            <tbody>
+              {models.map((row) => (
+                <UsageRow
+                  key={row.model.id}
+                  name={row.model.name}
+                  fill={seriesFill(series.get(row.model.id) ?? "other")}
+                  totals={row.totals}
+                  reasoning={reasoning}
+                  plain={unpriced(row.model)}
+                />
+              ))}
+            </tbody>
+          )}
         </table>
       </TableScroll>
     </Panel>
@@ -270,6 +347,7 @@ function PricesUsed({ models }: { models: readonly ModelRow[] }) {
   const ids = models.filter((row) => !unpriced(row.model)).map((row) => row.model.id);
   const prices = useRequest("prices", { models: ids }).data;
   const rows = (prices?.models ?? []).flatMap((row) => tiers(row));
+  const copilot = useAgents().includes("copilot-cli");
   return (
     <Panel
       title="Prices used"
@@ -314,6 +392,8 @@ function PricesUsed({ models }: { models: readonly ModelRow[] }) {
         {models.some((row) => unpriced(row.model)) && prices && !prices.refresh.enabled
           ? "; Settings can check this project's repository for a newer table once a day."
           : "."}
+        {copilot &&
+          " Copilot CLI's requests cost what Copilot CLI recorded, at $0.01 an AI credit, so they need no price."}
       </p>
     </Panel>
   );

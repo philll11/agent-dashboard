@@ -281,14 +281,14 @@ fn import_turn(
             let project = match cwd.as_deref() {
                 Some(cwd) => match w.project_with_path(cwd)? {
                     Some(project) => project,
-                    None => w.project(&transcript_folder(cwd), Some(cwd))?,
+                    None => w.project(&crate::transcript::project_folder(cwd), Some(cwd))?,
                 },
                 None => w.project("unknown", None)?,
             };
             known.projects.insert(cwd, project);
             project
         };
-        let session = w.session(&turn.session_id, project)?;
+        let session = w.session(&turn.session_id, project, crate::agent::Agent::ClaudeCode)?;
         known.sessions.insert(turn.session_id.clone(), session);
         session
     };
@@ -319,7 +319,10 @@ fn import_turn(
         inference_geo: None,
         attribution: Attribution::default(),
         entrypoint: None,
-        claude_code_version: None,
+        agent_version: None,
+        reasoning_tokens: 0,
+        initiator: None,
+        charge: None,
         imported_from: Some(CLAUDE_USAGE),
     })?;
     known
@@ -329,14 +332,6 @@ fn import_turn(
         .insert(turn.message_id.clone());
     report.imported += 1;
     Ok(())
-}
-
-/// The folder Claude Code keeps a working folder's transcripts in: the path with every character
-/// other than an ASCII letter or digit replaced by `-`.
-fn transcript_folder(cwd: &str) -> String {
-    cwd.chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect()
 }
 
 fn table_columns(conn: &Connection, table: &str) -> rusqlite::Result<HashSet<String>> {
@@ -436,21 +431,4 @@ fn read_turns(conn: &Connection, after: i64, has_agent_id: bool) -> rusqlite::Re
 pub fn claude_usage_database(root: &Path) -> Option<PathBuf> {
     let path = root.join("usage.db");
     path.is_file().then_some(path)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::transcript_folder;
-
-    #[test]
-    fn working_folders_map_to_claude_codes_transcript_folders() {
-        assert_eq!(
-            transcript_folder(r"C:\Users\ada\Documents\Development\ClaudeDashboard"),
-            "C--Users-ada-Documents-Development-ClaudeDashboard"
-        );
-        assert_eq!(
-            transcript_folder("/home/ada/code/my_app.v2"),
-            "-home-ada-code-my-app-v2"
-        );
-    }
 }

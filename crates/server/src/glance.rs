@@ -8,31 +8,35 @@ use jiff::Timestamp;
 use jiff::tz::TimeZone;
 
 use crate::app::App;
-use crate::fmt::{ago, money, percent, when};
+use crate::fmt::{ago, grouped, money, percent, when};
 use crate::protocol::{Level, Provenance, WindowReading};
 use crate::requests::window_reading;
 
 /// What the app is called in the notification area, the menu bar and its menu.
 pub const NAME: &str = "Dashboard for Coding Agents";
 
-/// What a window is called: `Five-hour window`, `Weekly, all models`, `Weekly, Fable`.
+/// What a window is called: `Five-hour window`, `Weekly, all models`, `Weekly, Fable`, or Copilot
+/// CLI's `Copilot allowance`.
 #[must_use]
 pub fn window_name(reading: &WindowReading) -> String {
     match (reading.window.as_str(), &reading.model) {
         ("five_hour", _) => "Five-hour window".to_owned(),
         ("seven_day", _) => "Weekly, all models".to_owned(),
+        ("monthly", _) => "Copilot allowance".to_owned(),
         (_, Some(model)) => format!("Weekly, {model}"),
         ("spend_limit", None) => "Spend limit".to_owned(),
         (window, None) => window.to_owned(),
     }
 }
 
-/// Five-hour first, then weekly, then each model's weekly window, then any other.
+/// Claude Code's windows first: five-hour, then weekly, then each model's weekly window, then any
+/// other; then Copilot CLI's allowance.
 #[must_use]
 pub fn in_order<T>(items: &[T], reading: impl Fn(&T) -> &WindowReading) -> Vec<&T> {
     let rank = |reading: &WindowReading| match reading.window.as_str() {
         "five_hour" => 0,
         "seven_day" => 1,
+        "monthly" => 4,
         _ if reading.model.is_some() => 2,
         _ => 3,
     };
@@ -67,9 +71,10 @@ impl Line {
     }
 }
 
-/// The five-hour window's use, while a reading of it is current.
+/// The use the icon shows: the five-hour window's, while a reading of it is current, at the more
+/// urgent level of the five-hour window and Copilot CLI's allowance.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FiveHour {
+pub struct Figure {
     /// The share of the limit used, in percent.
     pub used: f64,
     pub level: Level,
@@ -78,21 +83,22 @@ pub struct FiveHour {
 /// Everything the glance shows.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Glance {
-    /// The five-hour window, while its reading is current; without it, the icon shows the gauge
-    /// and the title today's cost.
-    pub five_hour: Option<FiveHour>,
-    /// A line per plan window, five-hour first, then today's cost.
+    /// The figure the icon shows; without a current reading, the icon shows the gauge and the
+    /// title today's cost.
+    pub figure: Option<Figure>,
+    /// A line per plan window, Claude Code's first, then today's cost.
     pub lines: Vec<Line>,
-    /// Where the newest reading comes from and how old it is: `Official, status line, 2 min ago`.
-    pub source: Option<String>,
+    /// Where each agent's newest reading comes from and how old it is, Claude Code's first:
+    /// `Official, status line, 2 min ago`, `Recorded, Copilot CLI, 1 h ago`.
+    pub sources: Vec<String>,
     /// The tooltip, in Microsoft's "name - status" form: `Dashboard for Coding Agents - 5h 42% ·
-    /// resets 14:20`.
+    /// resets 14:20 · Copilot 4%`.
     pub tooltip: String,
     /// The title beside the menu bar symbol on macOS: `42%`, `71% ▲`, or `$5.05`.
     pub title: String,
 }
 
-/// Today's API-equivalent cost, as the glance needs it.
+/// Today's cost, as the glance needs it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Today {
     pub usd: f64,
@@ -145,7 +151,8 @@ fn moment(ms: i64, zone: &TimeZone, now_ms: i64) -> String {
     when(&zoned(ms), &zoned(now_ms))
 }
 
-/// How much of a window is used, marked from 70%, and when it resets: `71% ▲ · resets Thu 09:00`.
+/// How much of a window is used, marked from 70%, and when it resets: `71% ▲ · resets Thu 09:00`;
+/// for an allowance whose credits are known, how many of them: `4% · 1,608 of 45,000 AI credits`.
 fn value(reading: &WindowReading, zone: &TimeZone, now_ms: i64) -> String {
     if expired(reading, now_ms) {
         return reading.resets_at_ms.map_or_else(
@@ -159,10 +166,33 @@ fn value(reading: &WindowReading, zone: &TimeZone, now_ms: i64) -> String {
         " ▲"
     };
     let used = format!("{}{mark}", percent(reading.used_percentage));
+    if let (Some(credits), Some(entitlement)) = (reading.used, reading.entitlement) {
+        return format!(
+            "{used} · {} of {} AI credits",
+            whole(credits),
+            whole(entitlement)
+        );
+    }
     match reading.resets_at_ms {
         Some(resets_at_ms) => format!("{used} · resets {}", moment(resets_at_ms, zone, now_ms)),
         None => used,
     }
+}
+
+/// A count of credits, to the whole credit: `45,000`.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn whole(credits: f64) -> String {
+    grouped(credits.round().max(0.0) as u64)
+}
+
+/// The more urgent of two levels.
+fn higher(a: Level, b: Level) -> Level {
+    let rank = |level: Level| match level {
+        Level::Normal => 0,
+        Level::Warning => 1,
+        Level::Critical => 2,
+    };
+    if rank(b) > rank(a) { b } else { a }
 }
 
 /// A cost as the dashboard writes it, saying when some requests have no price.
@@ -189,49 +219,69 @@ pub fn compose(readings: &[WindowReading], today: Today, zone: &TimeZone, now_ms
         label: "Today".to_owned(),
         value: cost(today),
     });
-    let source = ordered
-        .iter()
-        .max_by_key(|reading| reading.observed_ms)
-        .and_then(|latest| {
+    let sources = ["claude-code", "copilot-cli"]
+        .into_iter()
+        .filter_map(|agent| {
+            let latest = ordered
+                .iter()
+                .filter(|reading| reading.agent == agent)
+                .max_by_key(|reading| reading.observed_ms)?;
             let observed = Timestamp::from_millisecond(latest.observed_ms).ok()?;
             let now = Timestamp::from_millisecond(now_ms).ok()?;
             let from = match latest.provenance {
                 Provenance::Official => "Official, status line",
+                Provenance::Recorded => "Recorded, Copilot CLI",
                 Provenance::Experimental => "Experimental, usage endpoint",
             };
             Some(format!("{from}, {}", ago(observed, now)))
-        });
-    let current = ordered
-        .iter()
-        .find(|reading| reading.window == "five_hour" && !expired(reading, now_ms));
-    let (five_hour, tooltip, title) = match current {
-        Some(reading) => {
-            let value = value(reading, zone, now_ms);
-            let title = match reading.level {
-                Level::Normal => percent(reading.used_percentage),
-                Level::Warning | Level::Critical => {
-                    format!("{} ▲", percent(reading.used_percentage))
-                }
-            };
-            (
-                Some(FiveHour {
-                    used: reading.used_percentage,
-                    level: reading.level,
-                }),
-                format!("{NAME} - 5h {value}"),
-                title,
-            )
-        }
-        None => (
-            None,
-            format!("{NAME} - {} today", cost(today)),
-            money(today.usd),
-        ),
+        })
+        .collect();
+    let current = |window: &str| {
+        ordered
+            .iter()
+            .find(|reading| reading.window == window && !expired(reading, now_ms))
+    };
+    let five_hour = current("five_hour");
+    let allowance = current("monthly");
+    // The figure is the person's own five-hour window; Copilot CLI's allowance, which an employer
+    // may pay for, only lends it its level, so that it never passes 70% unseen.
+    let figure = five_hour.map(|reading| Figure {
+        used: reading.used_percentage,
+        level: allowance.map_or(reading.level, |allowance| {
+            higher(reading.level, allowance.level)
+        }),
+    });
+    let mut status: Vec<String> = Vec::new();
+    if let Some(reading) = five_hour {
+        status.push(format!("5h {}", value(reading, zone, now_ms)));
+    }
+    if let Some(reading) = allowance {
+        let mark = if reading.level == Level::Normal {
+            ""
+        } else {
+            " ▲"
+        };
+        status.push(format!(
+            "Copilot {}{mark}",
+            percent(reading.used_percentage)
+        ));
+    }
+    let tooltip = if status.is_empty() {
+        format!("{NAME} - {} today", cost(today))
+    } else {
+        format!("{NAME} - {}", status.join(" · "))
+    };
+    let title = match figure {
+        Some(figure) => match figure.level {
+            Level::Normal => percent(figure.used),
+            Level::Warning | Level::Critical => format!("{} ▲", percent(figure.used)),
+        },
+        None => money(today.usd),
     };
     Glance {
-        five_hour,
+        figure,
         lines,
-        source,
+        sources,
         tooltip,
         title,
     }
@@ -266,7 +316,7 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct Expect {
         lines: Vec<[String; 2]>,
-        source: Option<String>,
+        sources: Vec<String>,
         tooltip: String,
         title: String,
         icon: Option<f64>,
@@ -295,11 +345,11 @@ mod tests {
                 .map(|line| [line.label.clone(), line.value.clone()])
                 .collect();
             assert_eq!(lines, example.expect.lines, "{}", example.name);
-            assert_eq!(glance.source, example.expect.source, "{}", example.name);
+            assert_eq!(glance.sources, example.expect.sources, "{}", example.name);
             assert_eq!(glance.tooltip, example.expect.tooltip, "{}", example.name);
             assert_eq!(glance.title, example.expect.title, "{}", example.name);
             assert_eq!(
-                glance.five_hour.map(|five_hour| five_hour.used),
+                glance.figure.map(|figure| figure.used),
                 example.expect.icon,
                 "{}",
                 example.name

@@ -41,6 +41,8 @@ export const RANGE_NAMES: Record<Range, { short: string; long: string; phrase: s
 export interface View {
   section: Section;
   range: Range;
+  /** An agent's id, or `null` for every agent. */
+  agent: string | null;
   /** A project's id, or `null` for every project. */
   project: string | null;
   /** A model's id, or `null` for every model. */
@@ -55,6 +57,7 @@ export interface View {
 export const FIRST_VIEW: View = {
   section: "overview",
   range: "30-days",
+  agent: null,
   project: null,
   model: null,
   session: null,
@@ -70,6 +73,7 @@ export function rememberedView(state: unknown): View {
   return {
     section: SECTIONS.find((section) => section === saved.section) ?? FIRST_VIEW.section,
     range: RANGES.find((range) => range === saved.range) ?? FIRST_VIEW.range,
+    agent: text(saved.agent),
     project: text(saved.project),
     model: text(saved.model),
     session: text(saved.session),
@@ -90,6 +94,7 @@ export function shown(view: View, show: Show): View {
     session: null,
     offset: 0,
     range: show.range ?? view.range,
+    agent: show.agent === undefined ? view.agent : show.agent,
     project: show.project === undefined ? view.project : show.project,
     model: show.model === undefined ? view.model : show.model,
   };

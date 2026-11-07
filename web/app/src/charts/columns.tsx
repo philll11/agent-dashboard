@@ -23,7 +23,6 @@ export interface Column {
   values: Map<string, number>;
 }
 
-const HEIGHT = 176;
 const TOOLTIP = 184;
 
 export function StackedColumns({
@@ -83,7 +82,10 @@ export function StackedColumns({
     <div className="columns">
       <div className="axis-labels" aria-hidden="true">
         {scale.ticks.map((tick) => (
-          <span key={tick} style={{ top: HEIGHT - (tick / scale.top) * HEIGHT - 7 }}>
+          <span
+            key={tick}
+            style={{ top: `calc(${String(100 - (tick / scale.top) * 100)}% - 7px)` }}
+          >
             {moneyTick(tick, scale.ticks)}
           </span>
         ))}
@@ -134,7 +136,7 @@ export function StackedColumns({
                     key={item.id}
                     className={index === 0 ? "segment top" : "segment"}
                     style={{
-                      height: Math.max(1, Math.round((value / scale.top) * HEIGHT)),
+                      height: `max(1px, ${String((value / scale.top) * 100)}%)`,
                       background: item.fill,
                     }}
                   />

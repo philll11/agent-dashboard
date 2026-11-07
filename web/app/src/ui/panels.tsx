@@ -119,19 +119,28 @@ export function Tile({
   label,
   value,
   note,
+  badge,
+  breakdown,
   children,
 }: {
   label: string;
   value: ReactNode;
   note?: ReactNode;
+  /** A mark beside the label, such as where the figure comes from. */
+  badge?: ReactNode;
+  /** The figure's parts, under it. */
+  breakdown?: ReactNode;
   children?: ReactNode;
 }) {
   const id = useId();
   return (
     <section className="panel tile" aria-labelledby={id}>
-      <h2 id={id} className="tile-label">
-        {label}
-      </h2>
+      <div className="tile-head">
+        <h2 id={id} className="tile-label">
+          {label}
+        </h2>
+        {badge}
+      </div>
       <div className="tile-body">
         <div className="tile-figures">
           <span className="tile-value">{value}</span>
@@ -139,6 +148,7 @@ export function Tile({
         </div>
         {children}
       </div>
+      {breakdown}
     </section>
   );
 }

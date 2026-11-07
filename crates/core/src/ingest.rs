@@ -1,4 +1,4 @@
-//! Ingest: reading what Claude Code's transcripts added since the last ingest into the history.
+//! Ingest: reading what the agents' transcripts added since the last ingest into the history.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::num::NonZero;
@@ -9,12 +9,15 @@ use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::agent::Agent;
+use crate::copilot;
 use crate::history::{
-    Attribution, History, HistoryError, Identity, ReadPosition, ReportedCost, Request, SessionKey,
-    SessionTitle, Writer,
+    Attribution, History, HistoryError, Identity, ProjectKey, ReadPosition, ReportedCost, Request,
+    SessionKey, SessionTitle, Writer,
 };
+use crate::roots::DataRoot;
 use crate::stats_cache;
-use crate::transcript::{self, ModelUsage, Read, Record, RequestRecord, Transcript};
+use crate::transcript::{self, ModelUsage, Parser, Read, Record, RequestRecord, Transcript};
 
 /// How much of a transcript one read takes in, so that a large transcript is written in parts.
 const CHUNK_BYTES: u64 = 8 << 20;
@@ -60,7 +63,7 @@ pub struct Report {
 ///
 /// [`HistoryError`] when the history cannot be written. A transcript that cannot be read is
 /// listed in the report instead.
-pub fn ingest(history: &mut History, roots: &[PathBuf]) -> Result<Option<Report>, HistoryError> {
+pub fn ingest(history: &mut History, roots: &[DataRoot]) -> Result<Option<Report>, HistoryError> {
     ingest_with_progress(history, roots, |_| ControlFlow::Continue(()))
 }
 
@@ -87,7 +90,7 @@ pub struct Progress {
 /// As for [`ingest`].
 pub fn ingest_with_progress(
     history: &mut History,
-    roots: &[PathBuf],
+    roots: &[DataRoot],
     progress: impl FnMut(Progress) -> ControlFlow<()>,
 ) -> Result<Option<Report>, HistoryError> {
     let Some(_lock) = history.try_lock_ingest()? else {
@@ -95,7 +98,10 @@ pub fn ingest_with_progress(
     };
     let mut transcripts: Vec<Transcript> = roots
         .iter()
-        .flat_map(|root| transcript::find(root))
+        .flat_map(|root| match root.agent {
+            Agent::ClaudeCode => transcript::find(&root.path),
+            Agent::CopilotCli => copilot::find(&root.path),
+        })
         .collect();
     transcripts.sort_by(|a, b| {
         b.modified
@@ -118,7 +124,8 @@ pub fn ingest_with_progress(
     }
 
     let mut totals: BTreeMap<(String, String), u64> = BTreeMap::new();
-    for root in roots {
+    for root in roots.iter().filter(|root| root.agent == Agent::ClaudeCode) {
+        let root = &root.path;
         match stats_cache::daily_totals(root) {
             Ok(days) => {
                 for day in days {
@@ -174,12 +181,12 @@ pub fn ingest_transcripts(
 }
 
 /// The transcripts that the history has read but that are no longer there, such as those Claude
-/// Code deleted after its clean-up period, in the data roots whose projects folder is there.
+/// Code deleted after its clean-up period, in the data roots whose transcripts folder is there.
 ///
 /// Forgetting how far they were read keeps the read positions from growing for ever. A data root
 /// that cannot be reached, such as a WSL distribution that is not running, keeps its positions.
 fn gone(
-    roots: &[PathBuf],
+    roots: &[DataRoot],
     found: &[Transcript],
     positions: &HashMap<String, ReadPosition>,
 ) -> Vec<String> {
@@ -189,7 +196,12 @@ fn gone(
         .collect();
     let folders: Vec<String> = roots
         .iter()
-        .map(|root| root.join("projects"))
+        .map(|root| {
+            root.path.join(match root.agent {
+                Agent::ClaudeCode => "projects",
+                Agent::CopilotCli => copilot::SESSIONS,
+            })
+        })
         .filter(|folder| folder.is_dir())
         .map(|folder| path_key(&folder.join("")))
         .collect();
@@ -212,6 +224,8 @@ struct Changed<'a> {
     modified_ms: i64,
     /// Where reading starts.
     from: u64,
+    /// The hash of its first line when it was last read.
+    first_line: Option<i64>,
 }
 
 /// What a reading thread found in a transcript.
@@ -223,6 +237,8 @@ enum Found {
         last: bool,
         /// The kind of agent a subagent is, with the first part of its transcript.
         agent_type: Option<String>,
+        /// What a Copilot CLI session says about itself, with every part of its transcript.
+        session: Option<copilot::Session>,
     },
     /// Transcript `index` could not be read, or not to the end.
     Failed { index: usize, error: String },
@@ -262,6 +278,7 @@ fn read_transcripts(
                 key,
                 modified_ms,
                 from: known.map_or(0, |known| known.read_to),
+                first_line: known.and_then(|known| known.first_line),
             }),
         }
     }
@@ -337,33 +354,48 @@ fn read_changed(changed: &[Changed<'_>], next: &AtomicUsize, sender: &SyncSender
     loop {
         let index = next.fetch_add(1, Ordering::Relaxed);
         let Some(Changed {
-            transcript, from, ..
+            transcript,
+            from,
+            first_line,
+            ..
         }) = changed.get(index)
         else {
             return;
         };
         let mut from = *from;
+        let mut first_line = *first_line;
         let mut agent_type = transcript
             .subagent_id
             .as_ref()
             .and_then(|_| transcript::agent_type(&transcript.path));
+        let (parse, session): (Parser, _) = match transcript.agent {
+            Agent::ClaudeCode => (transcript::parse_line, None),
+            Agent::CopilotCli => (
+                copilot::parse_line,
+                Some(copilot::session(&transcript.path)),
+            ),
+        };
         loop {
-            let found = match transcript::read_from(&transcript.path, from, CHUNK_BYTES) {
-                Ok(read) => {
-                    let last = read.end == from || read.end >= transcript.len;
-                    from = read.end;
-                    Found::Part {
-                        index,
-                        read,
-                        last,
-                        agent_type: agent_type.take(),
+            let found =
+                match transcript::read_from(&transcript.path, from, CHUNK_BYTES, parse, first_line)
+                {
+                    Ok(read) => {
+                        let last = read.end == from || read.end >= transcript.len;
+                        from = read.end;
+                        first_line = read.first_line;
+                        Found::Part {
+                            index,
+                            read,
+                            last,
+                            agent_type: agent_type.take(),
+                            session: session.clone(),
+                        }
                     }
-                }
-                Err(error) => Found::Failed {
-                    index,
-                    error: error.to_string(),
-                },
-            };
+                    Err(error) => Found::Failed {
+                        index,
+                        error: error.to_string(),
+                    },
+                };
             let more = matches!(found, Found::Part { last: false, .. });
             if sender.send(found).is_err() {
                 return;
@@ -400,6 +432,7 @@ fn write_found(
                     read,
                     last,
                     agent_type,
+                    session,
                 } = found
                 {
                     let changed = &changed[*index];
@@ -413,12 +446,14 @@ fn write_found(
                             read.end
                         },
                         modified_ms: changed.modified_ms,
+                        first_line: read.first_line,
                     };
                     let kept = Kept {
                         records: &read.records,
                         agent_type: agent_type.as_deref(),
+                        session: session.as_ref(),
                     };
-                    record(w, changed.transcript, kept, &changed.key, position)?;
+                    record(w, changed.transcript, &kept, &changed.key, position)?;
                 }
             }
             Ok(())
@@ -441,64 +476,158 @@ struct Kept<'a> {
     records: &'a [Record],
     /// The kind of agent a subagent is.
     agent_type: Option<&'a str>,
+    /// What a Copilot CLI session says about itself.
+    session: Option<&'a copilot::Session>,
 }
 
 /// Records what one read of a transcript found, and where the next read starts.
 fn record(
     w: &mut Writer<'_>,
     transcript: &Transcript,
-    Kept {
-        records,
-        agent_type,
-    }: Kept<'_>,
+    kept: &Kept<'_>,
     key: &str,
     position: ReadPosition,
 ) -> Result<(), HistoryError> {
-    if !records.is_empty() {
-        // A subagent may work in another folder, such as a worktree, so only the session's own
-        // transcript names the project's working folder.
-        let cwd = if transcript.subagent_id.is_none() {
-            records.iter().find_map(|record| match record {
-                Record::Request(request) => request.cwd.as_deref(),
-                _ => None,
-            })
-        } else {
-            None
-        };
-        let project = w.project(&transcript.project_folder, cwd)?;
-        let session = w.session(&transcript.session_id, project)?;
-        if let (Some(subagent_id), Some(agent_type)) = (&transcript.subagent_id, agent_type) {
-            w.subagent_type(session, subagent_id, agent_type)?;
-        }
-        for record in records {
-            match record {
-                Record::Request(request) => {
-                    record_request(w, session, transcript.subagent_id.as_deref(), request)?;
-                }
-                Record::AiTitle(title) => w.session_title(session, SessionTitle::Ai(title))?,
-                Record::CustomTitle(title) => {
-                    w.session_title(session, SessionTitle::Custom(title))?;
-                }
-                Record::CostState(state) => {
-                    for cost in &state.models {
-                        w.reported_cost(
-                            session,
-                            state.started_ms,
-                            &ReportedCost {
-                                model: &cost.model,
-                                cost_usd: cost.cost_usd,
-                                input: cost.input,
-                                output: cost.output,
-                                cache_read: cost.cache_read,
-                                cache_write: cost.cache_write,
-                            },
-                        )?;
-                    }
-                }
-            }
-        }
+    match transcript.agent {
+        Agent::ClaudeCode => record_claude_code(w, transcript, kept)?,
+        Agent::CopilotCli => record_copilot(w, transcript, kept)?,
     }
     w.transcript_read(key, position)
+}
+
+fn record_claude_code(
+    w: &mut Writer<'_>,
+    transcript: &Transcript,
+    Kept {
+        records,
+        agent_type,
+        ..
+    }: &Kept<'_>,
+) -> Result<(), HistoryError> {
+    if records.is_empty() {
+        return Ok(());
+    }
+    // A subagent may work in another folder, such as a worktree, so only the session's own
+    // transcript names the project's working folder.
+    let cwd = if transcript.subagent_id.is_none() {
+        records.iter().find_map(|record| match record {
+            Record::Request(request) => request.cwd.as_deref(),
+            _ => None,
+        })
+    } else {
+        None
+    };
+    let project = w.project(&transcript.project_folder, cwd)?;
+    let session = w.session(&transcript.session_id, project, Agent::ClaudeCode)?;
+    if let (Some(subagent_id), Some(agent_type)) = (&transcript.subagent_id, agent_type) {
+        w.subagent_type(session, subagent_id, agent_type)?;
+    }
+    let context = Context {
+        agent: Agent::ClaudeCode,
+        subagent_id: transcript.subagent_id.as_deref(),
+        entrypoint: None,
+        agent_version: None,
+    };
+    for record in *records {
+        match record {
+            Record::Request(request) => record_request(w, session, &context, request)?,
+            Record::AiTitle(title) => w.session_title(session, SessionTitle::Ai(title))?,
+            Record::CustomTitle(title) => {
+                w.session_title(session, SessionTitle::Custom(title))?;
+            }
+            Record::CostState(state) => {
+                for cost in &state.models {
+                    w.reported_cost(
+                        session,
+                        state.started_ms,
+                        &ReportedCost {
+                            model: &cost.model,
+                            cost_usd: cost.cost_usd,
+                            input: cost.input,
+                            output: cost.output,
+                            cache_read: cost.cache_read,
+                            cache_write: cost.cache_write,
+                        },
+                    )?;
+                }
+            }
+            Record::Limit(_) | Record::SubagentType { .. } => {}
+        }
+    }
+    Ok(())
+}
+
+/// Records a part of a Copilot CLI session's transcript. Its project is the working folder the
+/// session names, shared with Claude Code's sessions in the same folder; a session with nothing
+/// new to record only takes its latest title, once the history holds it.
+fn record_copilot(
+    w: &mut Writer<'_>,
+    transcript: &Transcript,
+    Kept {
+        records, session, ..
+    }: &Kept<'_>,
+) -> Result<(), HistoryError> {
+    let details = session.cloned().unwrap_or_default();
+    let key = if records.is_empty() {
+        match w.known_session(&transcript.session_id)? {
+            Some(key) => key,
+            None => return Ok(()),
+        }
+    } else {
+        let project = project_of(w, details.cwd.as_deref())?;
+        w.session(&transcript.session_id, project, Agent::CopilotCli)?
+    };
+    if let Some(title) = &details.title {
+        let title = if details.user_named {
+            SessionTitle::Custom(title)
+        } else {
+            SessionTitle::Ai(title)
+        };
+        w.session_title(key, title)?;
+    }
+    for record in *records {
+        match record {
+            Record::Request(request) => {
+                let context = Context {
+                    agent: Agent::CopilotCli,
+                    subagent_id: request.subagent_id.as_deref(),
+                    entrypoint: details.client.as_deref(),
+                    agent_version: details.version.as_deref(),
+                };
+                record_request(w, key, &context, request)?;
+            }
+            Record::Limit(snapshot) => w.limit_snapshot(snapshot)?,
+            Record::SubagentType {
+                subagent_id,
+                agent_type,
+            } => w.subagent_type(key, subagent_id, agent_type)?,
+            Record::AiTitle(_) | Record::CustomTitle(_) | Record::CostState(_) => {}
+        }
+    }
+    Ok(())
+}
+
+/// The project whose working folder is `cwd`: the one the history already knows by it, or one
+/// known by the folder Claude Code would keep its transcripts in.
+fn project_of(w: &mut Writer<'_>, cwd: Option<&str>) -> Result<ProjectKey, HistoryError> {
+    match cwd {
+        Some(cwd) => match w.project_with_path(cwd)? {
+            Some(project) => Ok(project),
+            None => w.project(&transcript::project_folder(cwd), Some(cwd)),
+        },
+        None => w.project(UNKNOWN_PROJECT, None),
+    }
+}
+
+/// The project of a session that names no working folder.
+const UNKNOWN_PROJECT: &str = "unknown";
+
+/// What a request takes from where it was read, besides its record.
+struct Context<'a> {
+    agent: Agent,
+    subagent_id: Option<&'a str>,
+    entrypoint: Option<&'a str>,
+    agent_version: Option<&'a str>,
 }
 
 /// Records the request a transcript record holds: one request per model it used.
@@ -509,9 +638,12 @@ fn record(
 fn record_request(
     w: &mut Writer<'_>,
     session: SessionKey,
-    subagent_id: Option<&str>,
+    context: &Context<'_>,
     request: &RequestRecord,
 ) -> Result<(), HistoryError> {
+    if let (Some(name), Some(usage)) = (&request.model_name, request.usage.first()) {
+        w.model_name(context.agent, &usage.model, name)?;
+    }
     for (index, ModelUsage { model, tokens }) in request.usage.iter().enumerate() {
         let tag = |id: &str| {
             if index == 0 {
@@ -531,7 +663,7 @@ fn record_request(
             session,
             identity: Identity::from_ids(message_id.as_deref(), request_id.as_deref()),
             record_id: &record_id,
-            subagent_id,
+            subagent_id: context.subagent_id,
             timestamp_ms: request.timestamp_ms,
             model,
             tokens: *tokens,
@@ -549,9 +681,12 @@ fn record_request(
                 mcp_server: request.mcp_server.as_deref(),
                 mcp_tool: request.mcp_tool.as_deref(),
             },
-            entrypoint: request.entrypoint.as_deref(),
-            claude_code_version: request.claude_code_version.as_deref(),
+            entrypoint: request.entrypoint.as_deref().or(context.entrypoint),
+            agent_version: request.agent_version.as_deref().or(context.agent_version),
             imported_from: None,
+            reasoning_tokens: if first { request.reasoning_tokens } else { 0 },
+            initiator: request.initiator.as_deref(),
+            charge: if first { request.charge } else { None },
         })?;
     }
     Ok(())

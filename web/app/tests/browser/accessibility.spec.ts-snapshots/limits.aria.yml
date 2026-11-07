@@ -14,35 +14,51 @@
   - text: /History since \d+ July \d+ · read just now/
 - main:
   - heading "Limits" [level=1]
-  - text: Limits are shared between Claude Code and claude.ai Official · status line · 2 min ago
+  - text: Claude Code's limits are shared with claude.ai, and Copilot's allowance with Copilot everywhere
   - button "Export"
-  - region "Five-hour window":
-    - heading "Five-hour window" [level=2]
-    - text: /\d+:\d+ to \d+:\d+ \d+% used · resets in 2 h \d+ min/
-    - meter /Five-hour window, \d+% used/
-    - paragraph: /At the pace of this window so far, about \d+% when it resets \(estimate\)/
-    - img /Five-hour window use rises from 0% today at \d+:\d+ to \d+% today at \d+:\d+\. At the same pace it reaches about \d+% when it resets\./
-    - button "Show as table"
-  - region "Weekly, all models":
-    - heading "Weekly, all models" [level=2]
-    - text: /Thu 8 Oct \d+:\d+ to Thu \d+ Oct \d+:\d+ \d+% Over \d+% · resets in 5 days/
-    - meter /Weekly window, \d+% used/
-    - paragraph: /At the pace of the last \d+ hours, you reach the limit on Sunday around \d+:\d+ \(estimate\)/
-    - img /Weekly, all models use rises from 0% on 8 October \d+ at \d+:\d+ to \d+% today at \d+:\d+\. At the same pace it reaches \d+% on Sunday around \d+:\d+\./
-    - button "Show as table"
-  - region "Weekly, Fable":
-    - heading "Weekly, Fable" [level=2]
-    - text: /Same week \d+% used · resets in 5 days/
-    - meter /Weekly Fable window, \d+% used/
-    - paragraph: A separate weekly limit for Fable.
+  - region "Claude Code":
+    - heading "Claude Code" [level=2]
+    - text: Official · status line · 2 min ago
+    - region "Five-hour window":
+      - heading "Five-hour window" [level=2]
+      - text: /\d+:\d+ to \d+:\d+ \d+% used · resets in 2 h \d+ min/
+      - meter /Five-hour window, \d+% used/
+      - paragraph: /At the pace of this window so far, about \d+% when it resets \(estimate\)/
+      - img /Five-hour window use rises from 0% today at \d+:\d+ to \d+% today at \d+:\d+\. At the same pace it reaches about \d+% when it resets\./
+      - button "Show as table"
+    - region "Weekly, all models":
+      - heading "Weekly, all models" [level=2]
+      - text: /Thu 8 Oct \d+:\d+ to Thu \d+ Oct \d+:\d+ \d+% Over \d+% · resets in 5 days/
+      - meter /Weekly window, \d+% used/
+      - paragraph: /At the pace of the last \d+ hours, you reach the limit on Sunday around \d+:\d+ \(estimate\)/
+      - img /Weekly, all models use rises from 0% on 8 October \d+ at \d+:\d+ to \d+% today at \d+:\d+\. At the same pace it reaches \d+% on Sunday around \d+:\d+\./
+      - button "Show as table"
+    - region "Weekly, Fable":
+      - heading "Weekly, Fable" [level=2]
+      - text: /Same week \d+% used · resets in 5 days/
+      - meter /Weekly Fable window, \d+% used/
+      - paragraph: A separate weekly limit for Fable.
+  - region "Copilot CLI":
+    - heading "Copilot CLI" [level=2]
+    - text: Recorded · Copilot CLI · 1 h ago
+    - region "Monthly allowance":
+      - heading "Monthly allowance" [level=2]
+      - text: /Thu 1 Oct \d+:\d+ to Sun 1 Nov \d+:\d+ 4% used · resets in \d+ days/
+      - meter "Copilot CLI's monthly allowance, 4% used"
+      - paragraph: /\d+,\d+ of \d+,\d+ AI credits\. It counts Copilot wherever you use it, not just the CLI\./
+      - paragraph: /At the pace since on 8 October \d+ at \d+:\d+, about 8% when it resets \(estimate\)/
+      - img /Copilot allowance use rises from 0% on 1 October \d+ at \d+:\d+ to 4% today at \d+:\d+\. At the same pace it reaches about 8% when it resets\./
+      - button "Show as table"
   - region "Where the limits come from":
     - heading "Where the limits come from" [level=2]
     - text: Claude Code's status line Connected
     - button "Disconnect"
     - paragraph: Official. Updates while Claude Code runs in a terminal; last reading 2 min ago.
+    - text: Copilot CLI's session files Read
+    - paragraph: Recorded. Copilot CLI notes the allowance GitHub reports with each request it makes, so there is nothing to connect; last reading 1 h ago.
     - text: Anthropic's usage endpoint On Experimental
     - button "Turn off"
-    - paragraph: Fills the gaps when no terminal session is running. It reads your Claude Code login without changing it and asks at most once every 5 minutes. The endpoint is undocumented, so it may stop working without notice. Last asked 5 min ago.
+    - paragraph: Fills the gaps in Claude Code's windows when no terminal session is running. It reads your Claude Code login without changing it and asks at most once every 5 minutes. The endpoint is undocumented, so it may stop working without notice. Last asked 5 min ago.
   - region "Recent five-hour windows":
     - heading "Recent five-hour windows" [level=2]
     - table:

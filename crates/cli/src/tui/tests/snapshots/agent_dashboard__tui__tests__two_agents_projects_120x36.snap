@@ -1,0 +1,94 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits         30 days · all agents · all projects · all models │
+ 1 │                                                                                                                        │
+ 2 │┌─ Projects · 30 days ─────────────────────────────────────────────────────────── Enter filters the dashboard to one ──┐│
+ 3 ││   Project                 Sessions    Last active       Requests   Tokens   Daily cost                          Cost ││
+ 4 ││     agent-dashboard             96    Sat 10 Oct 13:42     2,769    41.3M   ▃▃▃▅▃▅▆▆▃▃█▇▆▄▆▄▃▄▄▆▅▄▃▄▆▄▅▇▇▃   $110.76 ││
+ 5 ││     api-gateway                 41    Fri 9 Oct 11:42      1,603    23.9M   ▃▃▃▃▅▅▄▆▃▃█▅▇▆▄▃▃▄▄▅▃▇▃▃▆▄▅▇▅▃    $64.12 ││
+ 6 ││     website                     28    Thu 8 Oct 09:42      1,093    16.3M   ▃▃▂▆▃▇▅▆▃▃█▆█▄▇▃▄▄▅▄▅▅▄▃▆▅▆▇▆▃    $43.72 ││
+ 7 ││     infra                       22    Wed 7 Oct 07:42        874    13.1M   ▃▄▂▅▅▄▇▅▃▃▆█▅▆▆▃▄▄▅▅▅█▃▄▅▆▇▅█▂    $34.98 ││
+ 8 ││     notes                        9    Tue 6 Oct 05:42        364     5.4M   ▃▃▃▄▄▇▅▄▃▃▅▆█▅▄▄▃▄▄▆▄▅▄▃▄▅▆▄▆▃    $14.57 ││
+ 9 ││     Other projects              18    Mon 5 Oct 03:42        582     8.7M   ▃▃▃▅▅▆▆▆▄▄█▇▇▆▇▄▃▄▄▆▅▇▄▃▆▇▇▇▆▃    $23.32 ││
+10 ││   ■ Copilot CLI                 23    Sat 10 Oct 13:42       292     6.4M   ▄▄▄▃▄▅▆▇▃▃▄▄▅▅▆▄▄▂▄▆▄▄▃▃█▇▃▅▅▃    $17.18 ││
+11 ││ ›   agent-dashboard             14    Sat 10 Oct 13:42       175     3.8M   ▄▃▄▄▃▅▇▇▃▃▄▅▄▄▇▄▄▂▄▆▄▄▃▄█▆▃▅▆▃    $10.31 ││
+12 ││   Total                        237                         7,577     115M                                    $308.65 ││
+13 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+14 │┌─ agent-dashboard · Copilot CLI · cost per day by model · 30 days ────────────────────────────────────────────────────┐│
+15 ││ $1.00                                                                                                                ││
+16 ││                                                                                                                      ││
+17 ││                                                                                                                      ││
+18 ││                                                                                                                      ││
+19 ││                                                                                                                      ││
+20 ││                                                                                                                      ││
+21 ││                                                                                  █                                   ││
+22 ││                                                                               █  █                                   ││
+23 ││ $0.50 █                    █                    █                             █  █                                   ││
+24 ││       █                 █  █                 █  █                             █  █                                   ││
+25 ││       █              █  █  █              █  █  █              █     █        █  █        █                          ││
+26 ││       █              █  █  █              █  █  █              █     █        █  █        █                          ││
+27 ││       █     █     █  █  █  █     █     █  █  █  █     █     █  █  █  █        █  █     █  █                          ││
+28 ││       █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █     █  █  █  █  █  █                          ││
+29 ││       █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █                       ││
+30 ││       █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █                       ││
+31 ││    $0 █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █                       ││
+32 ││       11             16             21             26             1              6           10                      ││
+33 ││ ■ GPT-5.5                                                                                                            ││
+34 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+35 │ q quit  ←→ sections  Enter filter  t table view  e export       Read just now · costs include API-equivalent estimates │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb bbbbbbbbbb cccccccccc bbbbbbbb bbbbbbbb        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+ 1 │                                                                                                                        │
+ 2 │ddaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbddd│
+ 3 │d   bbbbbbb                 bbbbbbbb    bbbbbbbbbbb       bbbbbbbb   bbbbbb   bbbbbbbbbb                          bbbb d│
+ 4 │d     eeeeeeeeeeeeeee             ee    bbbbbbbbbbbbbbbb     eeeee    eeeee   ffffffffffffffffffffffffffffff   aaaaaaa d│
+ 5 │d     eeeeeeeeeee                 ee    bbbbbbbbbbbbbbb      eeeee    eeeee   ffffffffffffffffffffffffffffff    aaaaaa d│
+ 6 │d     eeeeeee                     ee    bbbbbbbbbbbbbbb      eeeee    eeeee   ffffffffffffffffffffffffffffff    aaaaaa d│
+ 7 │d     eeeee                       ee    bbbbbbbbbbbbbbb        eee    eeeee   ffffffffffffffffffffffffffffff    aaaaaa d│
+ 8 │d     eeeee                        e    bbbbbbbbbbbbbbb        eee     eeee   ffffffffffffffffffffffffffffff    aaaaaa d│
+ 9 │d     bbbbbbbbbbbbbb              ee    bbbbbbbbbbbbbbb        eee     eeee   ffffffffffffffffffffffffffffff    aaaaaa d│
+10 │d   g aaaaaaaaaaa                 ee    bbbbbbbbbbbbbbbb       eee     eeee   ffffffffffffffffffffffffffffff    aaaaaa d│
+11 │dhihhhjjjjjjjjjjjjjjjhhhhhhhhhhhhhjjhhhhkkkkkkkkkkkkkkkkhhhhhhhjjjhhhhhjjjjhhhllllllllllllllllllllllllllllllhhhhmmmmmmhd│
+12 │d   aaaaa                        eee                         eeeee     eeee                                    aaaaaaa d│
+13 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+14 │ddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+15 │d bbbbb                                                                                                                d│
+16 │d                                                                                                                      d│
+17 │d                                                                                                                      d│
+18 │d                                                                                                                      d│
+19 │d                                                                                                                      d│
+20 │d                                                                                                                      d│
+21 │d                                                                                  n                                   d│
+22 │d                                                                               n  n                                   d│
+23 │d bbbbb n                    n                    n                             n  n                                   d│
+24 │d       n                 n  n                 n  n                             n  n                                   d│
+25 │d       n              n  n  n              n  n  n              n     n        n  n        n                          d│
+26 │d       n              n  n  n              n  n  n              n     n        n  n        n                          d│
+27 │d       n     n     n  n  n  n     n     n  n  n  n     n     n  n  n  n        n  n     n  n                          d│
+28 │d       n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n     n  n  n  n  n  n                          d│
+29 │d       n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n                       d│
+30 │d       n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n                       d│
+31 │d    bb n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n  n                       d│
+32 │d       bb             bb             bb             bb             b              b           bb                      d│
+33 │d n eeeeeee                                                                                                            d│
+34 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+35 │ o bbbb  oo bbbbbbbb  ooooo bbbbbb  o bbbbbbbbbb  o bbbbbb       bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #3a404a
+e = #d7dae0
+f = #5cc8e8
+g = #d95926
+h = on #1c2128
+i = #5cc8e8 on #1c2128 bold
+j = #d7dae0 on #1c2128
+k = #8a919c on #1c2128
+l = #5cc8e8 on #1c2128
+m = #f0f2f5 on #1c2128 bold
+n = #d55181
+o = #5cc8e8 bold

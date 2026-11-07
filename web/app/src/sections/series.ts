@@ -1,7 +1,9 @@
 // The series of a cost chart: one per model family, in the design's fixed order, and one for every
 // other model together.
 
-import type { Day, ModelRow } from "@agent-dashboard/protocol";
+import type { Day, ModelDay, ModelRow } from "@agent-dashboard/protocol";
+
+import { type AgentOverview, agentName, agentSeries } from "../agents";
 
 import type { Column, SeriesInfo } from "../charts/columns";
 import { dayLabel, daysBetween, monthYear, shortDate, startOfWeek } from "../format";
@@ -32,7 +34,8 @@ export function costSeries(
     const existing = bySeries.get(series);
     if (existing) {
       existing.total += row.totals.cost.total;
-      existing.name = "Other models";
+      // One family's newest version under each agent's id keeps its name.
+      if (series === "other" || existing.name !== row.model.name) existing.name = "Other models";
     } else {
       bySeries.set(series, {
         id: series,
@@ -46,6 +49,40 @@ export function costSeries(
   return {
     series: [...bySeries.values()].sort((a, b) => seriesRank(a.series) - seriesRank(b.series)),
     seriesOfModel: chosen,
+  };
+}
+
+/** A cost chart of agents rather than models, bottom to top in the agents' order: each agent's
+ * days from `groups` take the place of the models in `byDay`, so that `costColumns` adds them up
+ * as it adds up models. */
+export function agentChart(
+  byDay: readonly Day[],
+  groups: readonly AgentOverview[],
+): { chart: CostChart; byDay: Day[] } {
+  const parts = new Map<string, ModelDay[]>();
+  const series: CostSeries[] = [];
+  const seriesOfModel = new Map<string, Series>();
+  for (const { agent, overview } of groups) {
+    const kind = agentSeries(agent);
+    for (const day of overview.byDay) {
+      const list = parts.get(day.date) ?? [];
+      list.push({ model: agent, totals: day.totals });
+      parts.set(day.date, list);
+    }
+    if (overview.totals.cost.total > 0) {
+      seriesOfModel.set(agent, kind);
+      series.push({
+        id: kind,
+        series: kind,
+        name: agentName(agent),
+        fill: seriesFill(kind),
+        total: overview.totals.cost.total,
+      });
+    }
+  }
+  return {
+    chart: { series, seriesOfModel },
+    byDay: byDay.map((day) => ({ ...day, models: parts.get(day.date) ?? [] })),
   };
 }
 

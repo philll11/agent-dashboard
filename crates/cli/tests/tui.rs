@@ -49,6 +49,7 @@ impl Terminal {
         command.cwd(fixture.dir.path());
         for (name, value) in [
             ("CLAUDE_CONFIG_DIR", fixture.root().into_os_string()),
+            ("COPILOT_HOME", fixture.copilot_root().into_os_string()),
             (
                 "AGENT_DASHBOARD_HISTORY",
                 fixture.history().into_os_string(),

@@ -3,8 +3,10 @@ use std::io::Write;
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{History, HistoryError};
 use agent_dashboard_core::ingest::{self, Progress, Report};
+use agent_dashboard_core::roots::DataRoot;
 use agent_dashboard_core::transcript;
 use proptest::prelude::*;
 use rusqlite::{Connection, OpenFlags};
@@ -91,9 +93,12 @@ impl Fixture {
     }
 
     fn ingest(&mut self) -> Report {
-        ingest::ingest(&mut self.history, std::slice::from_ref(&self.root))
-            .unwrap()
-            .expect("no other process holds the ingest lock")
+        ingest::ingest(
+            &mut self.history,
+            &[DataRoot::added(&self.root, Agent::ClaudeCode)],
+        )
+        .unwrap()
+        .expect("no other process holds the ingest lock")
     }
 
     fn query<T: rusqlite::types::FromSql>(&self, sql: &str) -> Vec<T> {
@@ -350,8 +355,11 @@ fn only_one_process_ingests_at_a_time() {
     let other = History::open(fixture.history.path()).unwrap();
     let lock = other.try_lock_ingest().unwrap();
 
-    let skipped =
-        ingest::ingest(&mut fixture.history, std::slice::from_ref(&fixture.root)).unwrap();
+    let skipped = ingest::ingest(
+        &mut fixture.history,
+        &[DataRoot::added(&fixture.root, Agent::ClaudeCode)],
+    )
+    .unwrap();
 
     assert_eq!(skipped, None);
     assert_eq!(fixture.requests().len(), 0);
@@ -406,7 +414,7 @@ fn many_transcripts_are_read_at_once_and_progress_counts_each() {
 
     let report = ingest::ingest_with_progress(
         &mut fixture.history,
-        std::slice::from_ref(&fixture.root),
+        &[DataRoot::added(&fixture.root, Agent::ClaudeCode)],
         |progress| {
             seen.push(progress);
             ControlFlow::Continue(())
@@ -478,7 +486,7 @@ fn an_ingest_stops_when_asked_and_the_next_carries_on() {
 
     let stopped = ingest::ingest_with_progress(
         &mut fixture.history,
-        std::slice::from_ref(&fixture.root),
+        &[DataRoot::added(&fixture.root, Agent::ClaudeCode)],
         |progress| {
             if progress.request_records > 0 {
                 ControlFlow::Break(())
@@ -513,7 +521,7 @@ fn an_ingest_asked_to_stop_at_once_reads_nothing() {
 
     let report = ingest::ingest_with_progress(
         &mut fixture.history,
-        std::slice::from_ref(&fixture.root),
+        &[DataRoot::added(&fixture.root, Agent::ClaudeCode)],
         |_| ControlFlow::Break(()),
     )
     .unwrap()
@@ -535,8 +543,11 @@ fn an_ingest_that_cannot_write_stops_reading_and_says_why() {
         .unwrap();
     drop(conn);
 
-    let error =
-        ingest::ingest(&mut fixture.history, std::slice::from_ref(&fixture.root)).unwrap_err();
+    let error = ingest::ingest(
+        &mut fixture.history,
+        &[DataRoot::added(&fixture.root, Agent::ClaudeCode)],
+    )
+    .unwrap_err();
 
     assert!(
         matches!(error, HistoryError::ReadOnly { schema: 999 }),
@@ -718,9 +729,15 @@ fn daily_totals_from_every_data_root_add_up() {
         );
     }
 
-    let report = ingest::ingest(&mut fixture.history, &[fixture.root.clone(), wsl])
-        .unwrap()
-        .unwrap();
+    let report = ingest::ingest(
+        &mut fixture.history,
+        &[
+            DataRoot::added(&fixture.root, Agent::ClaudeCode),
+            DataRoot::added(wsl, Agent::ClaudeCode),
+        ],
+    )
+    .unwrap()
+    .unwrap();
 
     assert_eq!(report.daily_totals, 1);
     assert_eq!(

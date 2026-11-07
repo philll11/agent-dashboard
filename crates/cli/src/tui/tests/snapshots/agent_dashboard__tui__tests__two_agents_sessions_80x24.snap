@@ -1,0 +1,66 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits                  │
+ 1 │                                                                                │
+ 2 │┌─ Sessions · 30 days ─────────────────────────────────── 214 · newest first ──┐│
+ 3 ││ / searches titles and projects                                               ││
+ 4 ││                                                                              ││
+ 5 ││   Session              Project           Agent    Started             Cost   ││
+ 6 ││   Refactor ingest ba…  agent-dashboard   Claude   10 Oct 13:42       $0.60   ││
+ 7 ││ › Fix flaky serve te…  agent-dashboard   Copilot  10 Oct 11:52       $1.98   ││
+ 8 ││   Desktop updater si…  api-gateway       Claude   10 Oct 10:02       $1.00   ││
+ 9 ││   Add weekly and mon…  agent-dashboard   Claude   10 Oct 08:12       $8.30   ││
+10 ││   Review pull reques…  website           Copilot  10 Oct 06:22       $0.35   ││
+11 ││   Price table for Op…  agent-dashboard   Claude   10 Oct 04:32       $8.70   ││
+12 ││   Status line colour…  infra             Claude   10 Oct 02:42       $1.80   ││
+13 ││   Investigate the We…  notes             Copilot  10 Oct 00:52       $2.28   ││
+14 ││   Session detail lay…  agent-dashboard   Claude   9 Oct 23:02        $2.20   ││
+15 ││   Explain the dist w…  agent-dashboard   Claude   9 Oct 21:12        $9.50   ││
+16 ││   Sparkline widths a…  api-gateway       Copilot  9 Oct 19:22        $0.65   ││
+17 ││   Limits pace estima…  agent-dashboard   Claude   9 Oct 17:32        $9.90   ││
+18 ││   Import the claude-…  website           Claude   9 Oct 15:42        $3.00   ││
+19 ││   Untitled session     agent-dashboard   Copilot  9 Oct 13:52        $2.57   ││
+20 ││   Windows key events   infra             Claude   9 Oct 12:02        $3.40   ││
+21 ││ 1–15 of 214 · PgDn for more                                                  ││
+22 │└──────────────────────────────────────────────────────────────────────────────┘│
+23 │ q quit  ←→ sections  Enter open  / search  e export  ? help      Read just now │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb cccccccccc bbbbbbbbbb bbbbbbbb bbbbbbbb                 │
+ 1 │                                                                                │
+ 2 │ddaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbddd│
+ 3 │d e bbbbbbbbbbbbbbbbbbbbbbbbbbbb                                               d│
+ 4 │d                                                                              d│
+ 5 │d   bbbbbbb              bbbbbbb           bbbbb    bbbbbbb             bbbb   d│
+ 6 │d   fffffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbbb       aaaaa   d│
+ 7 │dghgiiiiiiiiiiiiiiiiiiiggjjjjjjjjjjjjjjjgggjjjjjjjggjjjjjjjjjjjjgggggggkkkkkgggd│
+ 8 │d   fffffffffffffffffff  bbbbbbbbbbb       bbbbbb   bbbbbbbbbbbb       aaaaa   d│
+ 9 │d   fffffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbbb       aaaaa   d│
+10 │d   fffffffffffffffffff  bbbbbbb           bbbbbbb  bbbbbbbbbbbb       aaaaa   d│
+11 │d   fffffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbbb       aaaaa   d│
+12 │d   fffffffffffffffffff  bbbbb             bbbbbb   bbbbbbbbbbbb       aaaaa   d│
+13 │d   fffffffffffffffffff  bbbbb             bbbbbbb  bbbbbbbbbbbb       aaaaa   d│
+14 │d   fffffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbb        aaaaa   d│
+15 │d   fffffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbb        aaaaa   d│
+16 │d   fffffffffffffffffff  bbbbbbbbbbb       bbbbbbb  bbbbbbbbbbb        aaaaa   d│
+17 │d   fffffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbb        aaaaa   d│
+18 │d   fffffffffffffffffff  bbbbbbb           bbbbbb   bbbbbbbbbbb        aaaaa   d│
+19 │d   bbbbbbbbbbbbbbbb     bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbb        aaaaa   d│
+20 │d   ffffffffffffffffff   bbbbb             bbbbbb   bbbbbbbbbbb        aaaaa   d│
+21 │d bbbbbbbbbbbbbbbbbbbbbbbbbbb                                                  d│
+22 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+23 │ e bbbb  ee bbbbbbbb  eeeee bbbb  e bbbbbb  e bbbbbb  e bbbb      bbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #3a404a
+e = #5cc8e8 bold
+f = #d7dae0
+g = on #1c2128
+h = #5cc8e8 on #1c2128 bold
+i = #d7dae0 on #1c2128
+j = #8a919c on #1c2128
+k = #f0f2f5 on #1c2128 bold

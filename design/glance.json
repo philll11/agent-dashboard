@@ -7,6 +7,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
+          "agent": "claude-code",
           "window": "seven_day:claude-fable",
           "model": "Fable",
           "usedPercentage": 18,
@@ -18,6 +19,7 @@
           "expired": false
         },
         {
+          "agent": "claude-code",
           "window": "five_hour",
           "usedPercentage": 42,
           "resetsAtMs": 1791595200000,
@@ -28,6 +30,7 @@
           "expired": false
         },
         {
+          "agent": "claude-code",
           "window": "seven_day",
           "usedPercentage": 71,
           "resetsAtMs": 1792008000000,
@@ -38,7 +41,10 @@
           "expired": false
         }
       ],
-      "today": { "usd": 5.049, "unpricedRequests": 0 },
+      "today": {
+        "usd": 5.049,
+        "unpricedRequests": 0
+      },
       "expect": {
         "lines": [
           ["Five-hour window", "42% · resets 14:20"],
@@ -46,10 +52,163 @@
           ["Weekly, Fable", "18% · resets Thu 09:00"],
           ["Today", "$5.05"]
         ],
-        "source": "Official, status line, 2 min ago",
+        "sources": ["Official, status line, 2 min ago"],
         "statusText": "5h 42% · 14:20",
         "tooltip": "Dashboard for Coding Agents - 5h 42% · resets 14:20",
         "title": "42%",
+        "icon": 42
+      }
+    },
+    {
+      "name": "both agents: the five-hour window, and Copilot CLI's allowance beside it",
+      "nowMs": 1791587700000,
+      "timeZone": "Pacific/Auckland",
+      "limits": [
+        {
+          "agent": "copilot-cli",
+          "window": "monthly",
+          "usedPercentage": 3.6,
+          "resetsAtMs": 1793491200000,
+          "observedMs": 1791584100000,
+          "provenance": "recorded",
+          "level": "normal",
+          "used": 1620,
+          "entitlement": 45000,
+          "stale": false,
+          "expired": false
+        },
+        {
+          "agent": "claude-code",
+          "window": "five_hour",
+          "usedPercentage": 42,
+          "resetsAtMs": 1791595200000,
+          "observedMs": 1791587580000,
+          "provenance": "official",
+          "level": "normal",
+          "stale": false,
+          "expired": false
+        },
+        {
+          "agent": "claude-code",
+          "window": "seven_day",
+          "usedPercentage": 71,
+          "resetsAtMs": 1792008000000,
+          "observedMs": 1791587580000,
+          "provenance": "official",
+          "level": "warning",
+          "stale": false,
+          "expired": false
+        }
+      ],
+      "today": {
+        "usd": 6.79,
+        "unpricedRequests": 0
+      },
+      "expect": {
+        "lines": [
+          ["Five-hour window", "42% · resets 14:20"],
+          ["Weekly, all models", "71% ▲ · resets Thu 09:00"],
+          ["Copilot allowance", "4% · 1,620 of 45,000 AI credits"],
+          ["Today", "$6.79"]
+        ],
+        "sources": ["Official, status line, 2 min ago", "Recorded, Copilot CLI, 1 h ago"],
+        "statusText": "5h 42% · 14:20 · Copilot 4%",
+        "tooltip": "Dashboard for Coding Agents - 5h 42% · resets 14:20 · Copilot 4%",
+        "title": "42%",
+        "icon": 42
+      }
+    },
+    {
+      "name": "Copilot CLI's allowance alone, over 70%",
+      "nowMs": 1791587700000,
+      "timeZone": "Pacific/Auckland",
+      "limits": [
+        {
+          "agent": "copilot-cli",
+          "window": "monthly",
+          "usedPercentage": 81.2,
+          "resetsAtMs": 1793491200000,
+          "observedMs": 1791584100000,
+          "provenance": "recorded",
+          "level": "warning",
+          "used": 36540,
+          "entitlement": 45000,
+          "stale": false,
+          "expired": false
+        }
+      ],
+      "today": {
+        "usd": 1.74,
+        "unpricedRequests": 0
+      },
+      "expect": {
+        "lines": [
+          ["Copilot allowance", "81% ▲ · 36,540 of 45,000 AI credits"],
+          ["Today", "$1.74"]
+        ],
+        "sources": ["Recorded, Copilot CLI, 1 h ago"],
+        "statusText": "Copilot 81%",
+        "tooltip": "Dashboard for Coding Agents - Copilot 81% ▲",
+        "title": "$1.74",
+        "icon": null
+      }
+    },
+    {
+      "name": "an allowance over 70% marks the five-hour window's figure",
+      "nowMs": 1791587700000,
+      "timeZone": "Pacific/Auckland",
+      "limits": [
+        {
+          "agent": "copilot-cli",
+          "window": "monthly",
+          "usedPercentage": 75.4,
+          "resetsAtMs": 1793491200000,
+          "observedMs": 1791584100000,
+          "provenance": "recorded",
+          "level": "warning",
+          "used": 33930,
+          "entitlement": 45000,
+          "stale": false,
+          "expired": false
+        },
+        {
+          "agent": "claude-code",
+          "window": "five_hour",
+          "usedPercentage": 42,
+          "resetsAtMs": 1791595200000,
+          "observedMs": 1791587580000,
+          "provenance": "official",
+          "level": "normal",
+          "stale": false,
+          "expired": false
+        },
+        {
+          "agent": "claude-code",
+          "window": "seven_day",
+          "usedPercentage": 71,
+          "resetsAtMs": 1792008000000,
+          "observedMs": 1791587580000,
+          "provenance": "official",
+          "level": "warning",
+          "stale": false,
+          "expired": false
+        }
+      ],
+      "today": {
+        "usd": 6.79,
+        "unpricedRequests": 0
+      },
+      "expect": {
+        "lines": [
+          ["Five-hour window", "42% · resets 14:20"],
+          ["Weekly, all models", "71% ▲ · resets Thu 09:00"],
+          ["Copilot allowance", "75% ▲ · 33,930 of 45,000 AI credits"],
+          ["Today", "$6.79"]
+        ],
+        "sources": ["Official, status line, 2 min ago", "Recorded, Copilot CLI, 1 h ago"],
+        "statusText": "5h 42% · 14:20 · Copilot 75%",
+        "tooltip": "Dashboard for Coding Agents - 5h 42% · resets 14:20 · Copilot 75% ▲",
+        "title": "42% ▲",
         "icon": 42
       }
     },
@@ -59,6 +218,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
+          "agent": "claude-code",
           "window": "five_hour",
           "usedPercentage": 93.4,
           "resetsAtMs": 1791595200000,
@@ -69,13 +229,16 @@
           "expired": false
         }
       ],
-      "today": { "usd": 12.3, "unpricedRequests": 2 },
+      "today": {
+        "usd": 12.3,
+        "unpricedRequests": 2
+      },
       "expect": {
         "lines": [
           ["Five-hour window", "93% ▲ · resets 14:20"],
           ["Today", "$12.30 + unpriced"]
         ],
-        "source": "Experimental, usage endpoint, 4 min ago",
+        "sources": ["Experimental, usage endpoint, 4 min ago"],
         "statusText": "5h 93% · 14:20",
         "tooltip": "Dashboard for Coding Agents - 5h 93% ▲ · resets 14:20",
         "title": "93% ▲",
@@ -88,6 +251,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
+          "agent": "claude-code",
           "window": "five_hour",
           "usedPercentage": 104,
           "resetsAtMs": 1791595200000,
@@ -98,13 +262,16 @@
           "expired": false
         }
       ],
-      "today": { "usd": 5.049, "unpricedRequests": 0 },
+      "today": {
+        "usd": 5.049,
+        "unpricedRequests": 0
+      },
       "expect": {
         "lines": [
           ["Five-hour window", "104% ▲ · resets 14:20"],
           ["Today", "$5.05"]
         ],
-        "source": "Official, status line, 2 min ago",
+        "sources": ["Official, status line, 2 min ago"],
         "statusText": "5h 104% · 14:20",
         "tooltip": "Dashboard for Coding Agents - 5h 104% ▲ · resets 14:20",
         "title": "104% ▲",
@@ -117,6 +284,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
+          "agent": "claude-code",
           "window": "five_hour",
           "usedPercentage": 42,
           "resetsAtMs": 1791584400000,
@@ -127,6 +295,7 @@
           "expired": false
         },
         {
+          "agent": "claude-code",
           "window": "seven_day",
           "usedPercentage": 71,
           "resetsAtMs": 1792008000000,
@@ -137,14 +306,17 @@
           "expired": false
         }
       ],
-      "today": { "usd": 5.049, "unpricedRequests": 0 },
+      "today": {
+        "usd": 5.049,
+        "unpricedRequests": 0
+      },
       "expect": {
         "lines": [
           ["Five-hour window", "reset at 11:20"],
           ["Weekly, all models", "71% ▲ · resets Thu 09:00"],
           ["Today", "$5.05"]
         ],
-        "source": "Official, status line, 1 h ago",
+        "sources": ["Official, status line, 1 h ago"],
         "statusText": "$5.05 today",
         "tooltip": "Dashboard for Coding Agents - $5.05 today",
         "title": "$5.05",
@@ -156,10 +328,13 @@
       "nowMs": 1791587700000,
       "timeZone": "Pacific/Auckland",
       "limits": [],
-      "today": { "usd": 0, "unpricedRequests": 0 },
+      "today": {
+        "usd": 0,
+        "unpricedRequests": 0
+      },
       "expect": {
         "lines": [["Today", "$0.00"]],
-        "source": null,
+        "sources": [],
         "statusText": "$0.00 today",
         "tooltip": "Dashboard for Coding Agents - $0.00 today",
         "title": "$0.00",

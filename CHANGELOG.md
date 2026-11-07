@@ -1,7 +1,43 @@
 # Changelog
 
-Every release of claude-dashboard, newest first.
+Every release of agent-dashboard, called claude-dashboard before version 2, newest first.
 A release's notes on GitHub come from its section here.
+
+## Version 2.0.0 (2026-11-07)
+
+GitHub Copilot CLI joins Claude Code, and the dashboard becomes agent-dashboard, "Dashboard for Coding Agents", with the short name `agd`.
+Every surface has the same version number.
+The binaries are not signed.
+
+### What is new
+
+- **Copilot CLI**, read from the session files it keeps in `~/.copilot`, or under `COPILOT_HOME`:
+  - its sessions, requests, models, tokens and sub-agents, in every section, filter and export, beside Claude Code's, with projects shared by working folder;
+  - what each request cost, as Copilot CLI recorded it in AI credits, at $0.01 a credit, including what GitHub adds for data residency;
+  - its monthly allowance, with the credits used of those the plan includes and when it resets, on the Overview, in Limits, in VS Code's strip and status bar, and in the desktop app's item;
+  - a session's requests by who started them: the person's prompts, the agent on its own, or a sub-agent, and the reasoning tokens its output includes.
+- **One cost across agents**: Claude Code's API-equivalent estimate and Copilot CLI's recorded charges add up to one figure, which says whether it is an estimate, recorded, or includes an estimate.
+  The Overview's tiles split it by agent.
+- **An agent filter** beside the project and model filters, once the history holds more than one agent: in the dashboard, as `a` in the terminal UI, and as `--agent` on every report and on `export`.
+- **Plan limits by agent**: the Overview and Limits group the windows under each agent, and Limits lists Copilot CLI's session files among the sources, with nothing to connect.
+- **Each agent's usage apart**: with both agents in view, cost per day stacks Claude Code against Copilot CLI, and the models, projects and top projects group under each agent with its subtotal; with one agent chosen, everything is by model.
+  Claude Code and Copilot CLI are often paid for by different people, so one agent's spend never hides in the other's.
+- **The glance with two agents**: VS Code's status bar reads `5h 42% · 14:20 · Copilot 4%`, and its sidebar lists each agent's usage apart.
+  The desktop app's item shows the five-hour window, marked once Copilot's allowance passes 70%, and its menu lists the allowance with its AI credits and where each agent's readings come from.
+- **Data folders by agent** in Settings, where an added folder says which agent's data it holds.
+- **GPT and Gemini colours** for Copilot CLI's models, from the same validated palette; each family's newest version keeps its colour under both agents' ids, and a model both agents use is named with its agent where they would share a name, such as "Opus 5.5, Copilot CLI".
+- **Switching from Dashboard for Claude Code**: the first time agent-dashboard opens its history, it starts from a copy of claude-dashboard's, which stays as it is.
+  A Claude Code status line that still runs claude-dashboard shows as such, with a **Switch…** button, and switching brings in the plan limits claude-dashboard recorded meanwhile.
+  The README says how to switch over on each machine.
+
+### Changed
+
+- The product is agent-dashboard everywhere: the program `agent-dashboard` and `agd`, the VS Code extension `philll11.agent-dashboard` and its `agentDashboard.*` commands and setting, the desktop app's identifier and name, the data folder `agent-dashboard`, the `AGENT_DASHBOARD_*` environment variables and the export file names.
+- Exports of models and projects list each agent's rows apart, a model or project that both agents used once for each, with a last `agent` column.
+- Exports gain the columns `agent`, `charge_credits`, `reasoning_tokens` and `initiator`; `claude_code_cost_usd` is `reported_session_cost_usd`, and `claude_code_version` is `agent_version`.
+- Desktop apps before version 2 find no update to install, so install the new app beside the old one and remove the old one, as the README says.
+- A spend limit's window lasts a calendar month, as it does in Claude Code, so its pace looks a month ahead.
+- A transcript that was rewritten from its start is read again from its start.
 
 ## Version 1.1.0 (2026-10-14)
 

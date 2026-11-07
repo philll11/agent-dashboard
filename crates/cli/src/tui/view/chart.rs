@@ -1,15 +1,15 @@
-//! The cost chart: API-equivalent cost per day, week or month, stacked by model series, with its
-//! legend; and the same as a table.
+//! The cost chart: cost per day, week or month, stacked by model series, or by agent while usage
+//! splits by agent, with its legend; and the same as a table.
 
 use std::collections::HashMap;
 
 use agent_dashboard_core::report::Bucket;
 use agent_dashboard_server::fmt::{day_label, money, month_year};
-use agent_dashboard_server::protocol::{Day, ModelRow};
+use agent_dashboard_server::protocol::{Day, ModelRow, Overview};
 use jiff::ToSpan;
 use jiff::civil::{Date, Weekday};
 
-use super::series::SeriesNames;
+use super::series::{SeriesNames, agent_series};
 use crate::tui::canvas::{Canvas, money_tick, nice_scale, round, width};
 use crate::tui::state::day;
 use crate::tui::theme::Series;
@@ -46,11 +46,74 @@ pub struct Chart {
     pub series: Vec<(Series, f64)>,
     pub names: SeriesNames,
     pub bucket: Bucket,
+    /// Whether the series are agents, which the legend names in full with their cost.
+    pub agents: bool,
+}
+
+/// How finely the days from `first` to `last` are added up so that `room` columns show them: by
+/// day as the web dashboard would, unless the days do not fit, and then by week or by month; with
+/// the first day of each column.
+fn columns_of((first, last): (Date, Date), week_start: Weekday, room: i32) -> (Bucket, Vec<Date>) {
+    let days = (last - first).get_days() + 1;
+    let mut bucket = Bucket::of(i64::from(days));
+    let starts = |bucket: Bucket| {
+        let mut starts = Vec::new();
+        let mut at = bucket.start(first, week_start);
+        while at <= last {
+            starts.push(at);
+            at = bucket.end(at).checked_add(1.day()).unwrap_or(Date::MAX);
+            if at == Date::MAX {
+                break;
+            }
+        }
+        starts
+    };
+    let mut columns = starts(bucket);
+    while i32::try_from(columns.len()).unwrap_or(i32::MAX) > room && bucket != Bucket::Month {
+        bucket = if bucket == Bucket::Day {
+            Bucket::Week
+        } else {
+            Bucket::Month
+        };
+        columns = starts(bucket);
+    }
+    (bucket, columns)
+}
+
+/// The columns starting on `starts`, each with its series' costs from `values`.
+fn columns(
+    bucket: Bucket,
+    starts: Vec<Date>,
+    mut values: HashMap<Date, HashMap<Series, f64>>,
+) -> Vec<Column> {
+    starts
+        .into_iter()
+        .map(|start| {
+            let mut column_values: Vec<(Series, f64)> = values
+                .remove(&start)
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            column_values.sort_by_key(|(series, _)| *series);
+            Column {
+                label: match bucket {
+                    Bucket::Day | Bucket::Week => start.day().to_string(),
+                    Bucket::Month => month_year(start).chars().take(3).collect(),
+                },
+                title: match bucket {
+                    Bucket::Day => day_label(start),
+                    Bucket::Week => format!("Week of {}", day_label(start)),
+                    Bucket::Month => month_year(start),
+                },
+                values: column_values,
+            }
+        })
+        .collect()
 }
 
 impl Chart {
-    /// The days from `first` to `last`, as finely as `room` columns show them: by day as the
-    /// web dashboard would, unless the days do not fit, and then by week or by month.
+    /// The days from `first` to `last`, stacked by model series, as finely as `room` columns
+    /// show them.
     pub fn new(
         (first, last): (&str, &str),
         by_day: &[Day],
@@ -59,30 +122,7 @@ impl Chart {
         week_start: Weekday,
         room: i32,
     ) -> Self {
-        let (first, last) = (day(first), day(last));
-        let days = (last - first).get_days() + 1;
-        let mut bucket = Bucket::of(i64::from(days));
-        let starts = |bucket: Bucket| {
-            let mut starts = Vec::new();
-            let mut at = bucket.start(first, week_start);
-            while at <= last {
-                starts.push(at);
-                at = bucket.end(at).checked_add(1.day()).unwrap_or(Date::MAX);
-                if at == Date::MAX {
-                    break;
-                }
-            }
-            starts
-        };
-        let mut columns = starts(bucket);
-        while i32::try_from(columns.len()).unwrap_or(i32::MAX) > room && bucket != Bucket::Month {
-            bucket = if bucket == Bucket::Day {
-                Bucket::Week
-            } else {
-                Bucket::Month
-            };
-            columns = starts(bucket);
-        }
+        let (bucket, starts) = columns_of((day(first), day(last)), week_start, room);
         let priced: Vec<ModelRow> = models
             .iter()
             .filter(|row| row.totals.cost.total > 0.0)
@@ -106,34 +146,52 @@ impl Chart {
                 }
             }
         }
-        let columns = columns
-            .into_iter()
-            .map(|start| {
-                let mut column_values: Vec<(Series, f64)> = values
-                    .remove(&start)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .collect();
-                column_values.sort_by_key(|(series, _)| *series);
-                Column {
-                    label: match bucket {
-                        Bucket::Day | Bucket::Week => start.day().to_string(),
-                        Bucket::Month => month_year(start).chars().take(3).collect(),
-                    },
-                    title: match bucket {
-                        Bucket::Day => day_label(start),
-                        Bucket::Week => format!("Week of {}", day_label(start)),
-                        Bucket::Month => month_year(start),
-                    },
-                    values: column_values,
-                }
-            })
-            .collect();
         Self {
-            columns,
+            columns: columns(bucket, starts, values),
             series,
             names: SeriesNames::of(&priced, series_of),
             bucket,
+            agents: false,
+        }
+    }
+
+    /// The days from `first` to `last`, stacked by agent from each agent's overview, by id and
+    /// with its name, as finely as `room` columns show them.
+    pub fn by_agent(
+        (first, last): (&str, &str),
+        agents: &[(&str, String, &Overview)],
+        week_start: Weekday,
+        room: i32,
+    ) -> Self {
+        let (bucket, starts) = columns_of((day(first), day(last)), week_start, room);
+        let mut values: HashMap<Date, HashMap<Series, f64>> = HashMap::new();
+        for (agent, _, overview) in agents {
+            for day_totals in &overview.by_day {
+                if day_totals.totals.cost.total > 0.0 {
+                    let start = bucket.start(day(&day_totals.date), week_start);
+                    *values
+                        .entry(start)
+                        .or_default()
+                        .entry(agent_series(agent))
+                        .or_default() += day_totals.totals.cost.total;
+                }
+            }
+        }
+        let mut series: Vec<(Series, f64)> = agents
+            .iter()
+            .map(|(agent, _, overview)| (agent_series(agent), overview.totals.cost.total))
+            .collect();
+        series.sort_by_key(|(series, _)| *series);
+        Self {
+            columns: columns(bucket, starts, values),
+            series,
+            names: SeriesNames::named(
+                agents
+                    .iter()
+                    .map(|(agent, name, _)| (agent_series(agent), name.clone())),
+            ),
+            bucket,
+            agents: true,
         }
     }
 
@@ -144,6 +202,11 @@ impl Chart {
             Bucket::Week => "week",
             Bucket::Month => "month",
         }
+    }
+
+    /// What the chart stacks by, for its title: `model`, or `agent`.
+    pub fn by(&self) -> &'static str {
+        if self.agents { "agent" } else { "model" }
     }
 }
 
@@ -221,13 +284,18 @@ pub fn scale_room(labels: &[&str]) -> i32 {
 }
 
 /// The series' marks and names, in a row from `x`: full names when `long`, otherwise the
-/// family's alone.
+/// family's alone; and each agent's full name with its cost, for a chart by agent.
 pub fn legend(c: &mut Canvas, x: i32, y: i32, chart: &Chart, long: bool) {
     let theme = c.theme;
     let mut x = x;
-    for (series, _) in &chart.series {
+    for (series, usd) in &chart.series {
         c.put(x, y, theme.swatch(*series), theme.series(*series));
         let name = chart.names.get(*series);
+        if chart.agents {
+            x = c.text(x + 2, y, name, theme.text());
+            x = c.text(x + 1, y, &money(*usd), theme.strong()) + 2;
+            continue;
+        }
         let name = if long {
             name.to_owned()
         } else {

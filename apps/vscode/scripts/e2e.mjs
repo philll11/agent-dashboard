@@ -47,7 +47,13 @@ copyFileSync(join(root, "test/e2e/settings.json"), settings);
 // VS Code opens the project whose session is running, which the view's strip shows.
 const prepared = await prepare({ home: true });
 const project = join(prepared.home, "code", "agent-dashboard");
-for (const key of ["CLAUDE_CONFIG_DIR", "AGENT_DASHBOARD_HISTORY", "AGENT_DASHBOARD_NOW", "TZ"]) {
+for (const key of [
+  "CLAUDE_CONFIG_DIR",
+  "COPILOT_HOME",
+  "AGENT_DASHBOARD_HISTORY",
+  "AGENT_DASHBOARD_NOW",
+  "TZ",
+]) {
   process.env[key] = prepared.env[key];
 }
 process.env.E2E_SETTINGS = join(storage, "settings", "User", "settings.json");

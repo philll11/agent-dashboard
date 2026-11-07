@@ -1011,6 +1011,91 @@ a:hover {
   gap: 6px;
 }
 
+/* An agent's row heads its models' or projects' rows, which sit indented under it. */
+.data .agent-row > * {
+  font-weight: 600;
+}
+
+.data .nested {
+  padding-left: 20px;
+}
+
+.ranking-group + .ranking-group {
+  margin-top: 14px;
+}
+
+.add-folder {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.folder-group + .folder-group {
+  margin-top: 12px;
+}
+
+.tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.tile-breakdown {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-breakdown dt {
+  color: var(--ink-2);
+}
+
+.tile-breakdown dd {
+  margin: 0;
+  text-align: right;
+}
+
+.tile-breakdown .muted {
+  color: var(--muted);
+}
+
+.limit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.limit-group + .limit-group {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.limit-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.limit-group-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.limit-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .tile-label {
   margin: 0;
   font-size: 12px;
@@ -1092,16 +1177,21 @@ a:hover {
   gap: 8px;
 }
 
+/* The chart takes the height its panel has, 176 pixels of plot at least, so that it fills a panel
+   that a taller one beside it stretches. The plot and its axis leave the column labels' 20 pixels
+   below them. */
 .columns {
   display: flex;
+  flex: 1 0 auto;
   gap: 10px;
+  min-height: 196px;
 }
 
 .axis-labels {
   position: relative;
   flex: none;
   width: 34px;
-  height: 180px;
+  margin-bottom: 20px;
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -1116,7 +1206,9 @@ a:hover {
 
 .plot {
   position: relative;
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
   border-radius: var(--ctl-radius-in);
 }
@@ -1125,11 +1217,11 @@ a:hover {
   position: absolute;
   top: 0;
   right: 0;
+  bottom: 20px;
   left: 0;
   display: flex;
   flex-direction: column-reverse;
   justify-content: space-between;
-  height: 176px;
 }
 
 .gridlines div {
@@ -1143,7 +1235,7 @@ a:hover {
 .band {
   position: absolute;
   top: 0;
-  height: 176px;
+  bottom: 20px;
   border-radius: 4px;
   background: var(--band);
 }
@@ -1151,8 +1243,9 @@ a:hover {
 .stacks {
   position: relative;
   display: grid;
-  align-items: end;
-  height: 176px;
+  flex: 1;
+  align-items: stretch;
+  min-height: 176px;
 }
 
 .stack {
@@ -1161,7 +1254,6 @@ a:hover {
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
-  height: 176px;
 }
 
 .segment {
@@ -1175,7 +1267,9 @@ a:hover {
 
 .column-labels {
   display: grid;
+  height: 14px;
   margin-top: 6px;
+  line-height: 14px;
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -1473,6 +1567,12 @@ a:hover {
   align-items: center;
   gap: 6px;
   color: var(--ink-2);
+}
+
+/* The last column's longer notes wrap rather than widen a table that has no room for them. */
+.own-figure {
+  min-width: 160px;
+  text-wrap: balance;
 }
 
 .figure-check.muted {
@@ -1968,6 +2068,32 @@ a.project-link:hover .project-title {
 }
 
 /* Sources of plan limits. */
+
+.agent-windows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agent-windows-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* A lone card under an agent's heading keeps the width of a card beside two others. */
+.agent-windows .window-card:only-child {
+  min-width: min(280px, 100%);
+  max-width: calc((100% - 32px) / 3);
+}
+
+.agent-windows-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
 
 .window-cards {
   display: grid;

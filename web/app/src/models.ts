@@ -1,8 +1,9 @@
 // Which colour each model gets. Colours follow the model family, in the fixed order the design
-// validated (ADR 0007); a family's newest model gets its colour, and every other model shares the
-// neutral colour of "other models".
+// validated (ADR 0007); a family's newest version gets its colour, and every other model shares
+// the neutral colour of "other models". Copilot CLI names Claude's models with dots, as in
+// `claude-opus-5.5`, so the same version under both agents' ids shares the family's colour.
 
-export const SERIES = ["fable", "opus", "sonnet", "haiku"] as const;
+export const SERIES = ["fable", "opus", "sonnet", "haiku", "gpt", "gemini"] as const;
 export type Family = (typeof SERIES)[number];
 export type Series = Family | "other";
 
@@ -11,13 +12,25 @@ interface Parsed {
   version: number[];
 }
 
+const FAMILIES: [Family, RegExp][] = [
+  ["fable", /claude-fable-(\d+)(?:[-.](\d{1,2}))?(?!\d)/],
+  ["opus", /claude-opus-(\d+)(?:[-.](\d{1,2}))?(?!\d)/],
+  ["sonnet", /claude-sonnet-(\d+)(?:[-.](\d{1,2}))?(?!\d)/],
+  ["haiku", /claude-haiku-(\d+)(?:[-.](\d{1,2}))?(?!\d)/],
+  ["gpt", /^gpt-(\d+)(?:\.(\d{1,2}))?/],
+  ["gemini", /^gemini-(\d+)(?:\.(\d{1,2}))?/],
+];
+
 function parse(model: string): Parsed | undefined {
-  const match = /claude-(fable|opus|sonnet|haiku)-(\d+)(?:-(\d{1,2}))?(?!\d)/.exec(model);
-  if (!match) return undefined;
-  return {
-    family: match[1] as Family,
-    version: [Number(match[2]), Number(match[3] ?? 0)],
-  };
+  for (const [family, pattern] of FAMILIES) {
+    const match = pattern.exec(model);
+    if (match) return { family, version: [Number(match[1]), Number(match[2] ?? 0)] };
+  }
+  return undefined;
+}
+
+function same(a: number[], b: number[]): boolean {
+  return !newer(a, b) && !newer(b, a);
 }
 
 function newer(a: number[], b: number[]): boolean {
@@ -28,22 +41,21 @@ function newer(a: number[], b: number[]): boolean {
   return false;
 }
 
-/** The series of each of `models`: each family's newest model gets the family's colour. */
+/** The series of each of `models`: each family's newest version gets the family's colour. */
 export function seriesOf(models: Iterable<string>): Map<string, Series> {
-  const newest = new Map<Family, { model: string; version: number[] }>();
+  const newest = new Map<Family, number[]>();
   const all = [...models];
   for (const model of all) {
     const parsed = parse(model);
     if (!parsed) continue;
     const best = newest.get(parsed.family);
-    if (!best || newer(parsed.version, best.version)) {
-      newest.set(parsed.family, { model, version: parsed.version });
-    }
+    if (!best || newer(parsed.version, best)) newest.set(parsed.family, parsed.version);
   }
   const series = new Map<string, Series>();
   for (const model of all) {
-    const family = parse(model)?.family;
-    series.set(model, family && newest.get(family)?.model === model ? family : "other");
+    const parsed = parse(model);
+    const best = parsed && newest.get(parsed.family);
+    series.set(model, parsed && best && same(parsed.version, best) ? parsed.family : "other");
   }
   return series;
 }

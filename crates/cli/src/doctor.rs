@@ -3,14 +3,15 @@
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{Access, History};
 use agent_dashboard_core::import::{self, CLAUDE_USAGE};
 use agent_dashboard_core::limits::Source;
 use agent_dashboard_core::price_refresh::{self, Outcome};
 use agent_dashboard_core::pricing::PriceTable;
 use agent_dashboard_core::reconcile;
-use agent_dashboard_core::report::{self, Range};
-use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, RootSource, RootStatus};
+use agent_dashboard_core::report::{self, Filter, Range};
+use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, COPILOT_HOME_ENV, RootSource, RootStatus};
 use jiff::Timestamp;
 
 use agent_dashboard_server::app::App;
@@ -70,9 +71,10 @@ pub fn run(app: &App) -> ExitCode {
 
     let paint = Paint::for_stdout();
     print!("{}", render(paint, &lines));
+    // Only data folder lines have a path.
     let found = lines
         .iter()
-        .any(|line| line.label == "Data folder" && line.mark == Mark::Good);
+        .any(|line| line.path.is_some() && line.mark == Mark::Good);
     if found && lines.iter().all(|line| line.mark != Mark::Failed) {
         ExitCode::SUCCESS
     } else {
@@ -89,6 +91,8 @@ fn failed(label: &'static str, detail: String) -> Line {
     }
 }
 
+/// A line for each data root, labelled with its agent. Copilot CLI's folder is missing until
+/// Copilot CLI first runs, which is no fault; a missing Claude Code folder is.
 fn data_folders(app: &App) -> Vec<Line> {
     if app.roots.is_empty() {
         return vec![failed(
@@ -99,7 +103,7 @@ fn data_folders(app: &App) -> Vec<Line> {
     app.roots
         .iter()
         .map(|root| {
-            let (mark, detail) = match roots::inspect(&root.path) {
+            let (mark, detail) = match roots::inspect(&root.path, root.agent) {
                 RootStatus::Found { transcripts, bytes } => (
                     Mark::Good,
                     format!(
@@ -113,7 +117,13 @@ fn data_folders(app: &App) -> Vec<Line> {
                         human_bytes(bytes)
                     ),
                 ),
-                RootStatus::Missing => (Mark::Failed, "not found".to_owned()),
+                RootStatus::Missing => match root.agent {
+                    Agent::ClaudeCode => (Mark::Failed, "not found".to_owned()),
+                    Agent::CopilotCli => (
+                        Mark::Off,
+                        "not found; Copilot CLI makes it when it first runs".to_owned(),
+                    ),
+                },
                 RootStatus::Unreachable { reason } => {
                     (Mark::Warning, format!("not reachable: {reason}"))
                 }
@@ -121,13 +131,17 @@ fn data_folders(app: &App) -> Vec<Line> {
                     (Mark::Failed, format!("cannot be read: {reason}"))
                 }
             };
+            let variable = match root.agent {
+                Agent::ClaudeCode => CONFIG_DIR_ENV,
+                Agent::CopilotCli => COPILOT_HOME_ENV,
+            };
             let detail = match root.source {
-                RootSource::Environment => format!("{detail} ({CONFIG_DIR_ENV})"),
+                RootSource::Environment => format!("{detail} ({variable})"),
                 RootSource::Default | RootSource::Added => detail,
             };
             Line {
                 mark,
-                label: "Data folder",
+                label: root.agent.display_name(),
                 path: Some(root.path.display().to_string()),
                 detail,
             }
@@ -186,7 +200,13 @@ fn prices_line(app: &App, history: &History) -> Line {
         from_ms: i64::MIN,
         to_ms: i64::MAX,
     };
-    let models = match report::by_model(history, &app.prices, all_time) {
+    // The price table covers Claude Code's models; Copilot CLI records its own charges.
+    let models = match report::by_model(
+        history,
+        &app.prices,
+        all_time,
+        &Filter::agent(Agent::ClaudeCode),
+    ) {
         Ok(models) => models,
         Err(error) => return failed("Prices", format!("cannot be checked: {error}")),
     };

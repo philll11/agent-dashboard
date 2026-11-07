@@ -21,9 +21,10 @@ use std::io::{self, BufWriter, Write};
 use std::ops::ControlFlow;
 use std::path::Path;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{History, HistoryError, SessionKey, StoredRequest};
 use agent_dashboard_core::limits;
-use agent_dashboard_core::pricing;
+use agent_dashboard_core::pricing::Charge;
 use agent_dashboard_core::report::{self, Bucket, DayTotals, Range, Totals};
 use jiff::civil::Date;
 use jiff::{Span, Timestamp};
@@ -32,7 +33,9 @@ use serde::Serialize;
 use crate::Fault;
 use crate::app::{self, App};
 use crate::fmt::grouped;
-use crate::protocol::{Dataset, ExportFormat, ExportParams, Exported, Filters, FiveHourWindow};
+use crate::protocol::{
+    self, Dataset, ExportFormat, ExportParams, Exported, Filters, FiveHourWindow,
+};
 use crate::requests::{self, Names, matching_sessions};
 
 /// The most an export returned as content holds: the VS Code extension writes that itself, where
@@ -311,35 +314,8 @@ pub fn write(
                 PeriodRow::of(&app, bucket, period)
             }))
         }
-        Dataset::Models => {
-            let summary = summary(&app, &history, range, &params.filters)?;
-            out.table(&rows(&summary.models, |model| ModelRow {
-                model: model.model.clone(),
-                name: app.prices.model_name(&model.model).map(str::to_owned),
-                requests: model.totals.requests,
-                tokens: TokensJson::of(&model.totals),
-                cost: CostJson::of(&app, &model.totals),
-            }))
-        }
-        Dataset::Projects => {
-            let summary = summary(&app, &history, range, &params.filters)?;
-            let names = crate::names::project_names(&history);
-            out.table(&rows(&summary.projects, |project| {
-                let project = &project.totals;
-                let (name, path, transcript_folder) =
-                    names.get(&project.project).cloned().unwrap_or_default();
-                ProjectRow {
-                    name,
-                    path,
-                    transcript_folder,
-                    sessions: project.sessions,
-                    requests: project.totals.requests,
-                    tokens: TokensJson::of(&project.totals),
-                    cost: CostJson::of(&app, &project.totals),
-                    last_request_at: at(project.last_ms),
-                }
-            }))
-        }
+        Dataset::Models => out.table(&model_rows(&app, &history, range, &params.filters)?),
+        Dataset::Projects => out.table(&project_rows(&app, &history, range, &params.filters)?),
         Dataset::Sessions => {
             let sessions = matching_sessions(
                 &app,
@@ -413,6 +389,86 @@ pub fn csv_field(text: &str) -> String {
 
 fn failed_write(error: &io::Error) -> ExportError {
     ExportError::Failed(format!("Cannot write the export: {error}"))
+}
+
+/// Each agent's models, one agent after the other.
+fn model_rows(
+    app: &App,
+    history: &History,
+    range: Range,
+    filters: &Filters,
+) -> Result<Vec<ModelRow>, ExportError> {
+    let mut models = Vec::new();
+    for (agent, summary) in by_agent(app, history, range, filters)? {
+        models.extend(summary.models.iter().map(|model| ModelRow {
+            model: model.model.clone(),
+            name: app.prices.model_name(&model.model).map(str::to_owned),
+            requests: model.totals.requests,
+            tokens: TokensJson::of(&model.totals),
+            cost: CostJson::of(app, &model.totals),
+            agent: agent.as_str(),
+        }));
+    }
+    Ok(models)
+}
+
+/// Each agent's projects, one agent after the other.
+fn project_rows(
+    app: &App,
+    history: &History,
+    range: Range,
+    filters: &Filters,
+) -> Result<Vec<ProjectRow>, ExportError> {
+    let names = crate::names::project_names(history);
+    let mut projects = Vec::new();
+    for (agent, summary) in by_agent(app, history, range, filters)? {
+        projects.extend(summary.projects.iter().map(|project| {
+            let project = &project.totals;
+            let (name, path, transcript_folder) =
+                names.get(&project.project).cloned().unwrap_or_default();
+            ProjectRow {
+                name,
+                path,
+                transcript_folder,
+                sessions: project.sessions,
+                requests: project.totals.requests,
+                tokens: TokensJson::of(&project.totals),
+                cost: CostJson::of(app, &project.totals),
+                last_request_at: at(project.last_ms),
+                agent: agent.as_str(),
+            }
+        }));
+    }
+    Ok(projects)
+}
+
+/// Each agent's summary, in the agents' order: the agent `filters` names, or every agent the
+/// history holds. Models and projects are listed by agent, since each agent may be paid for by
+/// someone else.
+fn by_agent(
+    app: &App,
+    history: &History,
+    range: Range,
+    filters: &Filters,
+) -> Result<Vec<(Agent, report::Summary)>, ExportError> {
+    let agents = match filters.agent.as_deref() {
+        Some(name) => match Agent::from_name(name) {
+            Some(agent) => vec![agent],
+            // The filter says why it names no agent.
+            None => return summary(app, history, range, filters).map(|_| Vec::new()),
+        },
+        None => history.agents()?,
+    };
+    agents
+        .into_iter()
+        .map(|agent| {
+            let filters = Filters {
+                agent: Some(agent.as_str().to_owned()),
+                ..filters.clone()
+            };
+            Ok((agent, summary(app, history, range, &filters)?))
+        })
+        .collect()
 }
 
 fn summary(
@@ -655,21 +711,12 @@ impl RequestContext<'_> {
                 .get(&(request.session, subagent.to_owned()))
                 .map(String::as_str)
         });
-        let cost = self
-            .app
-            .prices
-            .cost(&pricing::Request {
-                model: request.model,
-                timestamp_ms: request.timestamp_ms,
-                tokens: request.tokens,
-                speed: request.speed,
-                inference_geo: request.inference_geo,
-                web_search_requests: request.web_search_requests,
-            })
-            .map(|cost| cost.total());
+        let cost = report::price(&self.app.prices, request).map(|cost| cost.total());
+        let charged = request.agent == Agent::CopilotCli && request.charge.is_some();
         let tokens = request.tokens;
         RequestRow {
             at: at(request.timestamp_ms),
+            agent: request.agent.as_str(),
             session_id,
             title,
             project,
@@ -691,12 +738,15 @@ impl RequestContext<'_> {
             mcp_server: request.mcp_server,
             mcp_tool: request.mcp_tool,
             entrypoint: request.entrypoint,
-            claude_code_version: request.claude_code_version,
+            agent_version: request.agent_version,
             cost: RequestCostJson {
                 usd: cost,
-                provenance: "estimate",
+                provenance: if charged { "recorded" } else { "estimate" },
                 price_table: &self.price_table,
+                charge_credits: request.charge.filter(|_| charged).map(Charge::credits),
             },
+            reasoning_tokens: request.reasoning_tokens,
+            initiator: request.initiator,
         }
     }
 }
@@ -725,13 +775,15 @@ impl TokensJson {
     }
 }
 
-/// An API-equivalent cost in US dollars to the cent, as JSON, leaving out `unpriced_requests`
-/// whose cost is unknown.
+/// A cost in US dollars to the cent, as JSON, leaving out `unpriced_requests` whose cost is
+/// unknown: `estimate` when it is Claude Code's API-equivalent cost, `recorded` when it is
+/// Copilot CLI's charge, and `mixed` when it adds both.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CostJson {
     pub usd: f64,
     pub provenance: &'static str,
-    /// The day the price table was checked against Anthropic's pricing page.
+    /// The day the price table that estimates are made from was checked against Anthropic's
+    /// pricing page.
     pub price_table: String,
     pub unpriced_requests: u64,
 }
@@ -739,19 +791,43 @@ pub struct CostJson {
 impl CostJson {
     #[must_use]
     pub fn of(app: &App, totals: &Totals) -> Self {
-        Self::new(app, totals.cost.total(), totals.unpriced_requests)
+        Self::new(
+            app,
+            totals.cost.total(),
+            totals.unpriced_requests,
+            provenance_name(totals.cost_provenance()),
+        )
     }
 
-    /// An API-equivalent cost of `usd`, leaving out `unpriced_requests` whose cost is unknown.
+    /// A cost of `usd` from `provenance`, leaving out `unpriced_requests` whose cost is unknown.
     #[must_use]
-    pub fn new(app: &App, usd: f64, unpriced_requests: u64) -> Self {
+    pub fn new(app: &App, usd: f64, unpriced_requests: u64, provenance: &'static str) -> Self {
         Self {
             usd: cents(usd),
-            provenance: "estimate",
+            provenance,
             price_table: app.prices.checked().to_string(),
             unpriced_requests,
         }
     }
+}
+
+/// How an export names where a cost comes from; a cost with nothing priced counts as an
+/// estimate, as the price table decided it.
+fn provenance_name(provenance: Option<report::CostProvenance>) -> &'static str {
+    match provenance {
+        Some(report::CostProvenance::Recorded) => "recorded",
+        Some(report::CostProvenance::Mixed) => "mixed",
+        Some(report::CostProvenance::Estimate) | None => "estimate",
+    }
+}
+
+/// [`provenance_name`] for the protocol's totals.
+fn protocol_provenance_name(provenance: Option<protocol::CostProvenance>) -> &'static str {
+    provenance_name(provenance.map(|provenance| match provenance {
+        protocol::CostProvenance::Estimate => report::CostProvenance::Estimate,
+        protocol::CostProvenance::Recorded => report::CostProvenance::Recorded,
+        protocol::CostProvenance::Mixed => report::CostProvenance::Mixed,
+    }))
 }
 
 /// The CSV fields every total ends its columns with in the reports: the tokens by kind, then the
@@ -879,6 +955,8 @@ struct ModelRow {
     requests: u64,
     tokens: TokensJson,
     cost: CostJson,
+    /// The agent whose requests these are: a model that two agents used is a row for each.
+    agent: &'static str,
 }
 
 impl Row for ModelRow {
@@ -894,6 +972,7 @@ impl Row for ModelRow {
         "unpriced_requests",
         "price_table",
         "name",
+        "agent",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
@@ -903,6 +982,7 @@ impl Row for ModelRow {
         ];
         cells.extend(total_cells(&self.tokens, &self.cost));
         cells.push(text(self.name.as_deref()));
+        cells.push(plain(&self.agent));
         cells
     }
 }
@@ -918,6 +998,8 @@ struct ProjectRow {
     tokens: TokensJson,
     cost: CostJson,
     last_request_at: String,
+    /// The agent whose requests these are: a project that two agents worked in is a row for each.
+    agent: &'static str,
 }
 
 impl Row for ProjectRow {
@@ -936,6 +1018,7 @@ impl Row for ProjectRow {
         "price_table",
         "last_request_at",
         "transcript_folder",
+        "agent",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
@@ -954,6 +1037,7 @@ impl Row for ProjectRow {
             plain(&self.cost.price_table),
             plain(&self.last_request_at),
             Cell::Text(Cow::Borrowed(&self.transcript_folder)),
+            plain(&self.agent),
         ]
     }
 }
@@ -962,6 +1046,7 @@ impl Row for ProjectRow {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 struct SessionRow {
     session_id: String,
+    agent: String,
     title: Option<String>,
     project: String,
     first_request_at: String,
@@ -973,7 +1058,7 @@ struct SessionRow {
     models: Vec<String>,
     subagents: u64,
     /// The cost Claude Code reports for the session, once it has written one.
-    claude_code_cost_usd: Option<f64>,
+    reported_session_cost_usd: Option<f64>,
 }
 
 impl SessionRow {
@@ -989,6 +1074,7 @@ impl SessionRow {
         };
         Self {
             session_id: row.id.clone(),
+            agent: row.agent.clone(),
             title: row.title.clone(),
             project: row.project.name.clone(),
             first_request_at: at(row.first_ms),
@@ -996,10 +1082,15 @@ impl SessionRow {
             requests: totals.requests,
             subagent_requests: session.subagent_requests,
             tokens,
-            cost: CostJson::new(app, totals.cost.total, totals.unpriced_requests),
+            cost: CostJson::new(
+                app,
+                totals.cost.total,
+                totals.unpriced_requests,
+                protocol_provenance_name(totals.cost_provenance),
+            ),
             models: row.models.iter().map(|model| model.id.clone()).collect(),
             subagents: row.subagents,
-            claude_code_cost_usd: row.reported_usd.map(cents),
+            reported_session_cost_usd: row.reported_usd.map(cents),
         }
     }
 }
@@ -1007,6 +1098,7 @@ impl SessionRow {
 impl Row for SessionRow {
     const COLUMNS: &'static [&'static str] = &[
         "session_id",
+        "agent",
         "title",
         "project",
         "first_request_at",
@@ -1023,12 +1115,14 @@ impl Row for SessionRow {
         "price_table",
         "models",
         "subagents",
-        "claude_code_cost_usd",
+        "reported_session_cost_usd",
+        "cost_provenance",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
         vec![
             Cell::Text(Cow::Borrowed(&self.session_id)),
+            plain(&self.agent),
             text(self.title.as_deref()),
             Cell::Text(Cow::Borrowed(&self.project)),
             plain(&self.first_request_at),
@@ -1045,8 +1139,9 @@ impl Row for SessionRow {
             plain(&self.cost.price_table),
             Cell::Text(Cow::Owned(self.models.join(";"))),
             plain(&self.subagents),
-            self.claude_code_cost_usd
+            self.reported_session_cost_usd
                 .map_or(Cell::Plain(String::new()), usd),
+            plain(&self.cost.provenance),
         ]
     }
 }
@@ -1072,7 +1167,12 @@ impl WindowRow {
             resets_at: at(window.resets_at_ms),
             highest_percentage: window.highest,
             requests: totals.requests,
-            cost: CostJson::new(app, totals.cost.total, totals.unpriced_requests),
+            cost: CostJson::new(
+                app,
+                totals.cost.total,
+                totals.unpriced_requests,
+                protocol_provenance_name(totals.cost_provenance),
+            ),
             tokens: TokensJson {
                 input: totals.tokens.input,
                 output: totals.tokens.output,
@@ -1112,18 +1212,22 @@ impl Row for WindowRow {
     }
 }
 
-/// One request's API-equivalent cost, unrounded; `None` for an unpriced model.
+/// One request's cost, unrounded: its API-equivalent cost, or the charge Copilot CLI recorded;
+/// `None` when neither is known.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 struct RequestCostJson<'a> {
     usd: Option<f64>,
     provenance: &'static str,
     price_table: &'a str,
+    /// The recorded charge in AI credits.
+    charge_credits: Option<f64>,
 }
 
 /// One request.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 struct RequestRow<'a> {
     at: String,
+    agent: &'static str,
     session_id: &'a str,
     title: Option<&'a str>,
     project: &'a str,
@@ -1141,13 +1245,18 @@ struct RequestRow<'a> {
     mcp_server: Option<&'a str>,
     mcp_tool: Option<&'a str>,
     entrypoint: Option<&'a str>,
-    claude_code_version: Option<&'a str>,
+    agent_version: Option<&'a str>,
     cost: RequestCostJson<'a>,
+    /// Reasoning tokens, which the output tokens already count.
+    reasoning_tokens: u64,
+    /// Who started the request, where the agent says: `user`, `agent` or `sub-agent`.
+    initiator: Option<&'a str>,
 }
 
 impl Row for RequestRow<'_> {
     const COLUMNS: &'static [&'static str] = &[
         "at",
+        "agent",
         "session_id",
         "title",
         "project",
@@ -1167,14 +1276,19 @@ impl Row for RequestRow<'_> {
         "mcp_server",
         "mcp_tool",
         "entrypoint",
-        "claude_code_version",
+        "agent_version",
         "cost_usd",
         "price_table",
+        "cost_provenance",
+        "charge_credits",
+        "reasoning_tokens",
+        "initiator",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
         vec![
             plain(&self.at),
+            plain(&self.agent),
             Cell::Text(Cow::Borrowed(self.session_id)),
             text(self.title),
             Cell::Text(Cow::Borrowed(self.project)),
@@ -1194,11 +1308,17 @@ impl Row for RequestRow<'_> {
             text(self.mcp_server),
             text(self.mcp_tool),
             text(self.entrypoint),
-            text(self.claude_code_version),
+            text(self.agent_version),
             self.cost
                 .usd
                 .map_or(Cell::Plain(String::new()), |usd| plain(&usd)),
             plain(&self.cost.price_table),
+            plain(&self.cost.provenance),
+            self.cost
+                .charge_credits
+                .map_or(Cell::Plain(String::new()), |credits| plain(&credits)),
+            plain(&self.reasoning_tokens),
+            text(self.initiator),
         ]
     }
 }

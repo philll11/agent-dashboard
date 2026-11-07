@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{
     Access, Attribution, Counts, History, HistoryError, Identity, Request, SessionKey,
 };
@@ -34,7 +35,10 @@ fn request<'a>(
         inference_geo: None,
         attribution: Attribution::default(),
         entrypoint: Some("cli"),
-        claude_code_version: Some("2.1.296"),
+        agent_version: Some("2.1.296"),
+        reasoning_tokens: 0,
+        initiator: None,
+        charge: None,
         imported_from: None,
     }
 }
@@ -51,8 +55,8 @@ fn new_history(dir: &Path) -> (History, SessionKey, SessionKey) {
         .write(|w| {
             let project = w.project("C--code-app", Some(r"C:\code\app"))?;
             Ok((
-                w.session("session-1", project)?,
-                w.session("session-2", project)?,
+                w.session("session-1", project, Agent::ClaudeCode)?,
+                w.session("session-2", project, Agent::ClaudeCode)?,
             ))
         })
         .unwrap();
@@ -366,7 +370,7 @@ fn a_failed_write_records_nothing() {
 
     let result: Result<(), HistoryError> = history.write(|w| {
         let project = w.project("C--code-app", None)?;
-        let session = w.session("session-1", project)?;
+        let session = w.session("session-1", project, Agent::ClaudeCode)?;
         w.request(&request(session, MESSAGE, "rec-1", 50))?;
         Err(HistoryError::NotAHistory { path: path.clone() })
     });
@@ -512,8 +516,8 @@ fn a_session_is_found_by_claude_codes_id() {
         .write(|w| {
             let project = w.project("C--code-app", None)?;
             Ok((
-                w.session("session-1", project)?,
-                w.session("session-2", project)?,
+                w.session("session-1", project, Agent::ClaudeCode)?,
+                w.session("session-2", project, Agent::ClaudeCode)?,
             ))
         })
         .unwrap();

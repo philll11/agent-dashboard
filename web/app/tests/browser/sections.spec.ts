@@ -21,9 +21,7 @@ for (const theme of THEMES) {
     );
     test("overview", async ({ dashboard, page }) => {
       await dashboard.open({ theme });
-      await expect(
-        page.getByRole("heading", { name: "API-equivalent cost per day" }),
-      ).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Cost per day" })).toBeVisible();
       await expect(page.getByText("Resets 14:20, in 2 h 05 min")).toBeVisible();
       await dashboard.check(`${theme}-overview`);
     });
@@ -42,6 +40,18 @@ for (const theme of THEMES) {
       await expect(page.getByRole("heading", { name: "Models and subagents" })).toBeVisible();
       await expect(page.getByText("Explore subagent", { exact: true }).first()).toBeVisible();
       await dashboard.check(`${theme}-session`);
+    });
+
+    test("Copilot CLI session detail", async ({ dashboard, page }) => {
+      await dashboard.open({ theme });
+      await dashboard.section("Sessions");
+      await page.getByRole("searchbox", { name: "Search sessions" }).fill("handbook");
+      await page.getByRole("link", { name: /Draft the importer's handbook/ }).click();
+      await expect(page.getByRole("heading", { name: "Models and sub-agents" })).toBeVisible();
+      await expect(
+        page.getByText("2 you sent · 54 the agent made · 6 a sub-agent made"),
+      ).toBeVisible();
+      await dashboard.check(`${theme}-copilot-session`);
     });
 
     test("projects", async ({ dashboard, page }) => {

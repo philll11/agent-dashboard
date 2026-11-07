@@ -20,64 +20,98 @@
     - button /\d+ days/ [pressed]
     - button "This month"
     - button "All time"
+  - 'button "Agent: All agents"'
   - 'button "Project: All projects"'
   - 'button "Model: All models"'
   - button "Export"
   - region "Plan limits":
     - heading "Plan limits" [level=2]
-    - text: /Official · status line · 2 min ago Five-hour window \d+%/
-    - meter /Five-hour window, \d+% used/
-    - text: /Resets \d+:\d+, in 2 h \d+ min Weekly, all models \d+%/
-    - meter /Weekly window, \d+% used/
-    - text: /Over \d+% Resets Thu \d+ Oct, \d+:\d+ Weekly, Fable \d+%/
-    - meter /Weekly Fable window, \d+% used/
-    - text: /Resets Thu \d+ Oct, \d+:\d+/
+    - region "Claude Code's plan limits":
+      - heading "Claude Code" [level=3]
+      - text: /Official · status line · 2 min ago Five-hour window \d+%/
+      - meter /Five-hour window, \d+% used/
+      - text: /Resets \d+:\d+, in 2 h \d+ min Weekly, all models \d+%/
+      - meter /Weekly window, \d+% used/
+      - text: /Over \d+% Resets Thu \d+ Oct, \d+:\d+ Weekly, Fable \d+%/
+      - meter /Weekly Fable window, \d+% used/
+      - text: /Resets Thu \d+ Oct, \d+:\d+/
+    - region "Copilot CLI's plan limits":
+      - heading "Copilot CLI" [level=3]
+      - text: Recorded · Copilot CLI · 1 h ago Monthly allowance 4%
+      - meter "Copilot CLI's monthly allowance, 4% used"
+      - text: /\d+,\d+ of \d+,\d+ AI credits Resets Sun 1 Nov, \d+:\d+/
+      - paragraph: The allowance counts Copilot wherever you use it, not just the CLI, and updates while Copilot CLI runs.
   - region "Today":
     - heading "Today" [level=2]
-    - text: /\$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · −\d+% on yesterday/
+    - text: /Includes estimate \$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · −\d+% on yesterday/
     - 'img /Daily cost over the last \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+    - term: Claude Code
+    - definition: /\$\d+\.\d+ estimate/
+    - term: Copilot CLI
+    - definition: /\$\d+\.\d+ recorded · \d+ credits/
   - region "This week":
     - heading "This week" [level=2]
-    - text: /\$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · \+\d+% on last week/
+    - text: /Includes estimate \$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · \+\d+% on last week/
     - 'img /Daily cost over the last \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+    - term: Claude Code
+    - definition: /\$\d+\.\d+ estimate/
+    - term: Copilot CLI
+    - definition: /\$\d+\.\d+ recorded · \d+,\d+ credits/
   - region "This month":
     - heading "This month" [level=2]
-    - text: /\$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · month to date/
+    - text: /Includes estimate \$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · month to date/
     - 'img /Daily cost over the last \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
-  - region "API-equivalent cost per day":
-    - heading "API-equivalent cost per day" [level=2]
-    - text: /Estimate at Anthropic's list prices · last \d+ days/
+    - term: Claude Code
+    - definition: /\$\d+\.\d+ estimate/
+    - term: Copilot CLI
+    - definition: /\$\d+\.\d+ recorded · \d+,\d+ credits/
+  - region "Cost per day":
+    - heading "Cost per day" [level=2]
+    - text: /Includes an estimate at Anthropic's list prices · last \d+ days/
     - button "Show as table"
     - list "Legend":
-      - listitem: /Fable 5\.1 , \$\d+\.\d+/
-      - listitem: /Opus 5\.5 , \$\d+\.\d+/
-      - listitem: /Sonnet 5\.5 , \$\d+\.\d+/
-      - listitem: /Haiku 5\.5 , \$\d+\.\d+/
-    - 'group /API-equivalent cost per day by model, last \d+ days: \$\d+\.\d+ in all, highest \$\d+\.\d+ on Mon \d+ Sep\. The left and right arrow keys read each column\./'
+      - listitem: /Claude Code , \$\d+\.\d+/
+      - listitem: /Copilot CLI , \$\d+\.\d+/
+    - 'group /Cost per day by agent, last \d+ days: \$\d+\.\d+ in all, highest \$\d+\.\d+ on Thu 8 Oct\. The left and right arrow keys read each column\./'
   - region "Top projects":
     - heading "Top projects" [level=2]
-    - text: /API-equivalent cost · last \d+ days/
-    - list:
-      - listitem: /agent-dashboard , \$\d+\.\d+/
-      - listitem: /api-gateway , \$\d+\.\d+/
-      - listitem: /website , \$\d+\.\d+/
-      - listitem: /infra , \$\d+\.\d+/
-      - listitem: /notes , \$\d+\.\d+/
-      - listitem: /Other projects , \$\d+\.\d+/
+    - text: /Cost · last \d+ days/
+    - region "Claude Code's top projects":
+      - heading "Claude Code" [level=3]
+      - list:
+        - listitem: /agent-dashboard , \$\d+\.\d+/
+        - listitem: /api-gateway , \$\d+\.\d+/
+        - listitem: /website , \$\d+\.\d+/
+        - listitem: /Other projects , \$\d+\.\d+/
+    - region "Copilot CLI's top projects":
+      - heading "Copilot CLI" [level=3]
+      - list:
+        - listitem: /infra , \$\d+\.\d+/
+        - listitem: /walkthrough , \$\d+\.\d+/
+        - listitem: /agent-dashboard , \$\d+\.\d+/
+        - listitem: /Other projects , \$\d+\.\d+/
   - region /Models · last \d+ days/:
     - heading /Models · last \d+ days/ [level=2]
     - text: /\d+% of input read from cache/
     - table:
       - rowgroup:
-        - row "Model Requests Input Output Cache writes Cache reads API-equivalent cost":
-          - columnheader "Model"
+        - row "Agent and model Requests Input Output Cache writes Cache reads Cost":
+          - columnheader "Agent and model"
           - columnheader "Requests"
           - columnheader "Input"
           - columnheader "Output"
           - columnheader "Cache writes"
           - columnheader "Cache reads"
-          - columnheader "API-equivalent cost"
+          - columnheader "Cost"
       - rowgroup:
+        - row /Claude Code \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \+ unpriced/:
+          - rowheader "Claude Code"
+          - cell /\d+,\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+ \+ unpriced/
         - row /Opus 5\.5 \d+,\d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ \$\d+\.\d+/:
           - rowheader "Opus 5.5"
           - cell /\d+,\d+/
@@ -118,4 +152,37 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell "Unpriced"
-    - text: /Estimate Price table of \d+ October \d+ · within 0\.4% of Claude Code's own session costs/
+      - rowgroup:
+        - row /Copilot CLI \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ \$\d+\.\d+/:
+          - rowheader "Copilot CLI"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+        - row /Opus 5\.5 \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ \$\d+\.\d+/:
+          - rowheader "Opus 5.5"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+        - row /GPT-5\.5 \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ \$\d+\.\d+/:
+          - rowheader "GPT-5.5"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+        - row /Gemini 3\.1 Pro \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ \$\d+\.\d+/:
+          - rowheader "Gemini 3.1 Pro"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+    - text: /Recorded Copilot CLI's charges, at \$\d+\.\d+ an AI credit Estimate Price table of \d+ October \d+ · within 0\.4% of Claude Code's own session costs/

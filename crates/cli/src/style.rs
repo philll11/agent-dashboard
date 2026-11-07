@@ -48,6 +48,8 @@ pub struct Palette {
     pub opus: Rgb,
     pub sonnet: Rgb,
     pub haiku: Rgb,
+    pub gpt: Rgb,
+    pub gemini: Rgb,
 }
 
 impl Palette {
@@ -71,6 +73,8 @@ impl Palette {
         opus: Rgb(0xd9, 0x59, 0x26),
         sonnet: Rgb(0x19, 0x9e, 0x70),
         haiku: Rgb(0xc9, 0x85, 0x00),
+        gpt: Rgb(0xd5, 0x51, 0x81),
+        gemini: Rgb(0x00, 0x83, 0x00),
     };
 
     /// The design's terminal palette for a light background.
@@ -93,6 +97,8 @@ impl Palette {
         opus: Rgb(0xc9, 0x4f, 0x1f),
         sonnet: Rgb(0x13, 0x90, 0x78),
         haiku: Rgb(0xa6, 0x6f, 0x00),
+        gpt: Rgb(0xc2, 0x45, 0x7a),
+        gemini: Rgb(0x00, 0x7a, 0x00),
     };
 
     /// The palette that suits the terminal, as [`light_background`] tells.
@@ -114,6 +120,10 @@ impl Palette {
             self.haiku
         } else if model.contains("fable") || model.contains("mythos") {
             self.fable
+        } else if model.starts_with("gpt-") {
+            self.gpt
+        } else if model.starts_with("gemini-") {
+            self.gemini
         } else {
             self.muted
         }
@@ -383,6 +393,8 @@ mod tests {
                 ("opus", palette.opus),
                 ("sonnet", palette.sonnet),
                 ("haiku", palette.haiku),
+                ("gpt", palette.gpt),
+                ("gemini", palette.gemini),
             ] {
                 assert_eq!(
                     colour.hex(),
@@ -477,6 +489,8 @@ mod tests {
                 ("opus", palette.opus),
                 ("sonnet", palette.sonnet),
                 ("haiku", palette.haiku),
+                ("gpt", palette.gpt),
+                ("gemini", palette.gemini),
             ] {
                 for background in backgrounds(&palette) {
                     let ratio = contrast(&colour.hex(), &background);

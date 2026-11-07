@@ -1,6 +1,7 @@
 [
   {
     "session_id": "session-cafe",
+    "agent": "claude-code",
     "title": "Café ☕ tests",
     "project": "app",
     "first_request_at": "2026-10-06T16:00:00Z",
@@ -25,10 +26,11 @@
       "claude-sonnet-5-5"
     ],
     "subagents": 1,
-    "claude_code_cost_usd": null
+    "reported_session_cost_usd": null
   },
   {
     "session_id": "session-lines",
+    "agent": "claude-code",
     "title": "Line one\r\nline two",
     "project": "app",
     "first_request_at": "2026-10-06T08:00:00Z",
@@ -53,10 +55,11 @@
       "claude-orion-1"
     ],
     "subagents": 0,
-    "claude_code_cost_usd": null
+    "reported_session_cost_usd": null
   },
   {
     "session_id": "session-formula",
+    "agent": "claude-code",
     "title": "=HYPERLINK(\"http://example.com\")",
     "project": "app",
     "first_request_at": "2026-10-05T14:00:00Z",
@@ -80,10 +83,11 @@
       "claude-opus-5-5"
     ],
     "subagents": 0,
-    "claude_code_cost_usd": null
+    "reported_session_cost_usd": null
   },
   {
     "session_id": "session-quotes",
+    "agent": "claude-code",
     "title": "Fix \"quotes\", commas",
     "project": "app",
     "first_request_at": "2026-10-05T09:00:00Z",
@@ -108,6 +112,6 @@
       "claude-sonnet-5-5"
     ],
     "subagents": 0,
-    "claude_code_cost_usd": 0.1
+    "reported_session_cost_usd": 0.1
   }
 ]

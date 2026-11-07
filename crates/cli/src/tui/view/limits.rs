@@ -1,54 +1,79 @@
-//! Plan limits: the Overview's box of meters, and the Limits section with each window's use and
-//! pace, the recent five-hour windows, and where the readings come from.
+//! Plan limits: the Overview's box of meters, and the Limits section with each agent's windows,
+//! their use and pace, Claude Code's recent five-hour windows, and where the readings come from.
+//! The section is a page that scrolls when it does not fit.
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_server::fmt::{ago, clock, day_label, money, percent, resets, when};
+use agent_dashboard_server::glance::in_order;
 use agent_dashboard_server::protocol::{
     Endpoint, FiveHourWindow, Level, Limits, Provenance, StatusLine, WindowReading, WindowView,
 };
 use jiff::{Timestamp, Zoned};
 use ratatui::style::Style;
 
-use super::{KEYS, footer, header, notice};
-use crate::limits::five_hour_span;
+use super::{KEYS, footer, header, notice, scrolled};
+use crate::limits::{five_hour_span, grouped_name};
+use crate::report::credits;
 use crate::tui::canvas::{Canvas, clean, fit, spark_to, width};
 use crate::tui::state::{Section, State};
 use crate::tui::theme::Theme;
 
-/// The windows in the order every surface lists them: five-hour first, then weekly, then each
-/// model's weekly window, then any other.
+/// The windows in the order every surface lists them: Claude Code's five-hour window first, then
+/// its weekly ones and any other, then Copilot CLI's allowance.
 pub fn ordered(readings: &[WindowReading]) -> Vec<&WindowReading> {
-    let rank = |reading: &WindowReading| match reading.window.as_str() {
-        "five_hour" => 0,
-        "seven_day" => 1,
-        _ if reading.model.is_some() => 2,
-        _ => 3,
-    };
-    let mut ordered: Vec<&WindowReading> = readings.iter().collect();
-    ordered.sort_by(|a, b| {
-        rank(a).cmp(&rank(b)).then_with(|| {
-            let key = |reading: &WindowReading| {
-                reading
-                    .model
-                    .clone()
-                    .unwrap_or_else(|| reading.window.clone())
-            };
-            key(a).cmp(&key(b))
-        })
-    });
-    ordered
+    in_order(readings, |reading| reading)
 }
 
-/// What a window is called in the Limits section: `Weekly, all models`.
+/// What a window is called among every agent's: `Weekly, all models`, `Copilot allowance`.
 fn name(reading: &WindowReading) -> String {
     agent_dashboard_server::glance::window_name(reading)
 }
 
-/// What a window is called in the Overview's narrower box: `Weekly, all`.
-fn short_name(reading: &WindowReading) -> String {
-    if reading.window == "seven_day" {
-        "Weekly, all".to_owned()
-    } else {
-        clean(&name(reading))
+/// The windows a box of `rows` rows shows, in order: each agent's first, then as many of the
+/// rest as there is room for.
+fn first_of_each<'a>(readings: &[&'a WindowReading], rows: usize) -> Vec<&'a WindowReading> {
+    let mut kept: Vec<bool> = readings
+        .iter()
+        .enumerate()
+        .map(|(index, reading)| {
+            !readings[..index]
+                .iter()
+                .any(|before| before.agent == reading.agent)
+        })
+        .collect();
+    let mut room = rows.saturating_sub(kept.iter().filter(|kept| **kept).count());
+    for kept in &mut kept {
+        if !*kept && room > 0 {
+            *kept = true;
+            room -= 1;
+        }
+    }
+    readings
+        .iter()
+        .zip(kept)
+        .filter(|(_, kept)| *kept)
+        .map(|(reading, _)| *reading)
+        .take(rows)
+        .collect()
+}
+
+/// Whether the readings of `agent` show: every agent's do, unless another one is chosen.
+fn chosen(state: &State, agent: &str) -> bool {
+    state.agent.as_deref().is_none_or(|id| id == agent)
+}
+
+/// How much of an allowance a reading says is used: `1,575 of 45,000 AI credits`.
+fn credits_of(reading: &WindowReading) -> Option<String> {
+    credits(reading.used, reading.entitlement)
+}
+
+/// What a window is called in the Overview's box, which has less room: `Weekly, all`, and in the
+/// narrow layout `Copilot` for Copilot CLI's allowance.
+fn short_name(reading: &WindowReading, wide: bool) -> String {
+    match reading.window.as_str() {
+        "seven_day" => "Weekly, all".to_owned(),
+        "monthly" if !wide => "Copilot".to_owned(),
+        _ => clean(&name(reading)),
     }
 }
 
@@ -83,9 +108,20 @@ fn zoned(state: &State, ms: i64) -> Option<Zoned> {
         .map(|at| at.to_zoned(state.zone()))
 }
 
+/// How a note on readings names where they come from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Source {
+    /// Not at all: `official · 2 min ago`.
+    Unnamed,
+    /// Among every agent's readings: `recorded · Copilot CLI · 1 h ago`.
+    Named,
+    /// Under the name of the agent the readings are of: `recorded · session files · 1 h ago`.
+    UnderAgent,
+}
+
 /// Where the newest reading comes from, and how old it is: `official · status line · 2 min ago`;
 /// with `▲` and in the warning colour when every reading is old.
-fn provenance(state: &State, readings: &[&WindowReading], source: bool) -> (String, Style) {
+fn provenance(state: &State, readings: &[&WindowReading], source: Source) -> (String, Style) {
     let theme = state.theme;
     let Some(newest) = readings.iter().max_by_key(|reading| reading.observed_ms) else {
         return (String::new(), theme.muted());
@@ -100,10 +136,15 @@ fn provenance(state: &State, readings: &[&WindowReading], source: bool) -> (Stri
         return (format!("▲ last reading {age}"), theme.warn_text());
     }
     let from = match (newest.provenance, source) {
-        (Provenance::Official, true) => "official · status line",
-        (Provenance::Experimental, true) => "experimental · usage endpoint",
-        (Provenance::Official, false) => "official",
-        (Provenance::Experimental, false) => "experimental",
+        (Provenance::Official, Source::Named | Source::UnderAgent) => "official · status line",
+        (Provenance::Recorded, Source::Named) => "recorded · Copilot CLI",
+        (Provenance::Recorded, Source::UnderAgent) => "recorded · session files",
+        (Provenance::Experimental, Source::Named | Source::UnderAgent) => {
+            "experimental · usage endpoint"
+        }
+        (Provenance::Official, Source::Unnamed) => "official",
+        (Provenance::Recorded, Source::Unnamed) => "recorded",
+        (Provenance::Experimental, Source::Unnamed) => "experimental",
     };
     (format!("{from} · {age}"), theme.muted())
 }
@@ -116,19 +157,25 @@ pub fn overview_box(c: &mut Canvas, state: &State, top: i32) {
         c.boxed((0, top, c.w, 5), Some("Plan limits"), None);
         return;
     };
-    let readings = ordered(&status.limits);
+    let mut readings = ordered(&status.limits);
+    readings.retain(|reading| chosen(state, &reading.agent));
     if readings.is_empty() {
-        not_recorded(c, state, top);
+        if state.agent.as_deref() == Some(Agent::CopilotCli.as_str()) {
+            c.boxed((0, top, c.w, 5), Some("Plan limits"), None);
+            no_allowance(c, state, top + 1);
+        } else {
+            not_recorded(c, state, top);
+        }
         return;
     }
-    let (note, style) = provenance(state, &readings, true);
+    let (note, style) = provenance(state, &readings, Source::Named);
     c.boxed((0, top, c.w, 5), Some("Plan limits"), Some((&note, style)));
     let meter_length = if wide { 30 } else { 16 };
     let label_end = if wide { 22 } else { 18 };
     let now = state.now.to_zoned(state.zone());
-    for (row, reading) in (0..).zip(readings.iter().take(3)) {
+    for (row, reading) in (0..).zip(first_of_each(&readings, 3)) {
         let y = top + 1 + row;
-        c.text(2, y, &short_name(reading), theme.text());
+        c.text(2, y, &short_name(reading, wide), theme.text());
         let old = reading.stale || reading.expired;
         c.right(
             label_end + 4,
@@ -254,22 +301,27 @@ fn recording(c: &mut Canvas, state: &State, row: i32) {
     }
 }
 
+/// How many rows [`recording`] takes.
+fn recording_rows(state: &State) -> i32 {
+    state.limits().map_or(1, |limits| {
+        let connected = matches!(limits.status_line, StatusLine::Connected { .. });
+        (if connected { 1 } else { 2 }) + i32::from(!limits.endpoint.enabled)
+    })
+}
+
+/// That no Copilot CLI allowance is recorded, on row `row`.
+fn no_allowance(c: &mut Canvas, state: &State, row: i32) {
+    let text = if state.wide() {
+        "No allowance recorded yet. Copilot CLI records it as it runs, on a plan that has one."
+    } else {
+        "No allowance recorded yet. Copilot CLI records it as it runs."
+    };
+    c.text(2, row, &fit(text, c.w - 4), c.theme.text());
+}
+
 /// The views of the windows, in order.
 fn views(limits: &Limits) -> Vec<&WindowView> {
-    let readings: Vec<WindowReading> = limits
-        .windows
-        .iter()
-        .map(|view| view.reading.clone())
-        .collect();
-    ordered(&readings)
-        .into_iter()
-        .filter_map(|reading| {
-            limits
-                .windows
-                .iter()
-                .find(|view| view.reading.window == reading.window)
-        })
-        .collect()
+    in_order(&limits.windows, |view| &view.reading)
 }
 
 /// A window's use from its start until now, in `cells` columns on a scale to 100%, in the
@@ -349,18 +401,235 @@ fn rounded(at: &Zoned) -> Zoned {
     )
 }
 
-pub fn draw(c: &mut Canvas, state: &State) {
+/// What the Limits page stacks, from the top.
+enum Block<'a> {
+    /// One agent's windows, under its name.
+    Windows(Agent, Vec<&'a WindowView>),
+    /// How Claude Code's plan limits get recorded while none are: under `Plan limits` when no
+    /// window shows, and under Claude Code's name above another agent's windows.
+    Recording { alone: bool },
+    /// Copilot CLI, chosen, without an allowance recorded.
+    NoAllowance,
+    /// Claude Code's recent five-hour windows.
+    Recent,
+    /// Where the readings come from: Claude Code's status line and usage endpoint, and Copilot
+    /// CLI's session files.
+    Sources { claude_code: bool, copilot: bool },
+}
+
+/// The blocks of the Limits page: each agent's windows that show, then, for Claude Code, its
+/// recent five-hour windows, then where the readings come from.
+fn blocks<'a>(state: &State, limits: &'a Limits) -> Vec<Block<'a>> {
+    let views = views(limits);
+    let agents = state.agents_in_view();
+    // Before the history's agents are known, the page is Claude Code's.
+    let in_view = |agent: Agent| {
+        agents.contains(&agent.as_str()) || (agents.is_empty() && agent == Agent::ClaudeCode)
+    };
+    let any = views.iter().any(|view| chosen(state, &view.reading.agent));
+    let mut blocks = Vec::new();
+    for agent in Agent::ALL {
+        if !chosen(state, agent.as_str()) {
+            continue;
+        }
+        let windows: Vec<&WindowView> = views
+            .iter()
+            .copied()
+            .filter(|view| view.reading.agent == agent.as_str())
+            .collect();
+        if !windows.is_empty() {
+            blocks.push(Block::Windows(agent, windows));
+        } else if agent == Agent::ClaudeCode && in_view(agent) {
+            blocks.push(Block::Recording { alone: !any });
+        } else if state.agent.as_deref() == Some(agent.as_str()) {
+            blocks.push(Block::NoAllowance);
+        }
+    }
+    let shows = |agent: Agent| {
+        blocks.iter().any(|block| match block {
+            Block::Windows(of, _) => *of == agent,
+            Block::Recording { .. } => agent == Agent::ClaudeCode,
+            Block::NoAllowance => agent == Agent::CopilotCli,
+            Block::Recent | Block::Sources { .. } => false,
+        })
+    };
+    let (claude_code, copilot) = (shows(Agent::ClaudeCode), shows(Agent::CopilotCli));
+    if claude_code {
+        blocks.push(Block::Recent);
+    }
+    if claude_code || copilot {
+        blocks.push(Block::Sources {
+            claude_code,
+            copilot,
+        });
+    }
+    blocks
+}
+
+/// How many rows a block takes; in the wide layout, the last one stretches to the page's end.
+fn block_height(state: &State, block: &Block<'_>) -> i32 {
     let wide = state.wide();
+    match block {
+        Block::Windows(_, views) => {
+            let count = i32::try_from(views.len()).unwrap_or(0);
+            if wide { 4 * count + 2 } else { 3 * count + 1 }
+        }
+        Block::Recording { alone: true } => {
+            if wide {
+                14
+            } else {
+                10
+            }
+        }
+        Block::Recording { alone: false } => recording_rows(state) + 2,
+        Block::NoAllowance => 3,
+        Block::Recent => {
+            if wide {
+                10
+            } else {
+                6
+            }
+        }
+        Block::Sources {
+            claude_code,
+            copilot,
+        } => {
+            let claude_rows = if *claude_code { 2 } else { 0 };
+            // The wide layout adds the note that Claude Code's limits are shared, a row apart.
+            let note_rows = if wide && *claude_code { 2 } else { 0 };
+            claude_rows + i32::from(*copilot) + note_rows + 2
+        }
+    }
+}
+
+/// How tall the Limits page is.
+pub fn height(state: &State) -> i32 {
+    state.limits().map_or(0, |limits| {
+        blocks(state, limits)
+            .iter()
+            .map(|block| block_height(state, block))
+            .sum()
+    })
+}
+
+pub fn draw(c: &mut Canvas, state: &State) {
     header(c, state, Some(Section::Limits));
     notice(c, state, "", false);
     if let Some(limits) = state.limits() {
-        if wide {
-            wide_layout(c, state, limits);
+        scrolled(c, state, height(state), |page| {
+            draw_page(page, state, limits);
+        });
+    }
+    // A page taller than the screen scrolls, and its key line says how.
+    let keys: &[(&str, &str)] = if super::page_overflow(state) > 0 {
+        &[
+            ("q", "quit"),
+            ("←→", "sections"),
+            ("↑↓", "scroll"),
+            ("t", "table view"),
+            ("e", "export"),
+            ("?", "help"),
+        ]
+    } else {
+        &KEYS
+    };
+    footer(c, state, keys, None);
+}
+
+fn draw_page(c: &mut Canvas, state: &State, limits: &Limits) {
+    let blocks = blocks(state, limits);
+    // With one agent's limits, its box keeps the section's own name.
+    let alone = blocks
+        .iter()
+        .filter(|block| {
+            matches!(
+                block,
+                Block::Windows(..) | Block::Recording { .. } | Block::NoAllowance
+            )
+        })
+        .count()
+        == 1;
+    let title = |agent: Agent| {
+        if alone {
+            "Plan limits"
         } else {
-            narrow_layout(c, state, limits);
+            agent.display_name()
+        }
+    };
+    let mut top = 0;
+    for (index, block) in blocks.iter().enumerate() {
+        let mut h = block_height(state, block);
+        if state.wide() && index + 1 == blocks.len() {
+            h = h.max(c.h - top);
+        }
+        match block {
+            Block::Windows(agent, views) => {
+                windows_box(c, state, (title(*agent), views), (top, h));
+            }
+            Block::Recording { .. } => {
+                c.boxed((0, top, c.w, h), Some(title(Agent::ClaudeCode)), None);
+                recording(c, state, top + 1);
+            }
+            Block::NoAllowance => {
+                c.boxed((0, top, c.w, h), Some(title(Agent::CopilotCli)), None);
+                no_allowance(c, state, top + 1);
+            }
+            Block::Recent => recent_box(c, state, limits, (top, h)),
+            Block::Sources {
+                claude_code,
+                copilot,
+            } => {
+                c.boxed((0, top, c.w, h), Some("Where the limits come from"), None);
+                let mut y = top + 1;
+                if *claude_code {
+                    sources(c, state, limits, y, state.wide());
+                    y += 2;
+                }
+                if *copilot {
+                    copilot_source(c, state, y);
+                    y += 1;
+                }
+                if *claude_code && state.wide() {
+                    c.text(
+                        2,
+                        y + 1,
+                        "Limits are shared between Claude Code and claude.ai.",
+                        c.theme.muted(),
+                    );
+                }
+            }
+        }
+        top += h;
+    }
+}
+
+/// One agent's windows, under `title`, with where their readings come from.
+fn windows_box(
+    c: &mut Canvas,
+    state: &State,
+    (title, views): (&str, &[&WindowView]),
+    (top, h): (i32, i32),
+) {
+    let wide = state.wide();
+    let readings: Vec<&WindowReading> = views.iter().map(|view| &view.reading).collect();
+    let source = if wide {
+        Source::UnderAgent
+    } else {
+        Source::Unnamed
+    };
+    let (note, style) = provenance(state, &readings, source);
+    c.boxed(
+        (0, top, c.w, h),
+        Some(title),
+        (!note.is_empty()).then_some((note.as_str(), style)),
+    );
+    for (row, view) in (0..).zip(views) {
+        if wide {
+            wide_window(c, state, view, top + 1 + row * 4);
+        } else {
+            narrow_window(c, state, view, top + 1 + row * 3);
         }
     }
-    footer(c, state, &KEYS, None);
 }
 
 fn resets_text(state: &State, view: &WindowView, wide: bool) -> String {
@@ -376,10 +645,18 @@ fn resets_text(state: &State, view: &WindowView, wide: bool) -> String {
     }
 }
 
-fn window_line(c: &mut Canvas, view: &WindowView, y: i32, (meter_x, meter_length): (i32, i32)) {
+/// A window's name, use and meter, and after the meter how close it is to its limit and, where
+/// `credits` asks for them, the AI credits of the allowance it has used.
+fn window_line(
+    c: &mut Canvas,
+    view: &WindowView,
+    y: i32,
+    (meter_x, meter_length): (i32, i32),
+    credits: bool,
+) {
     let theme = c.theme;
     let reading = &view.reading;
-    c.text(2, y, &fit(&clean(&name(reading)), 22), theme.text());
+    c.text(2, y, &fit(&clean(&grouped_name(reading)), 22), theme.text());
     let old = reading.stale || reading.expired;
     c.right(
         26,
@@ -394,140 +671,132 @@ fn window_line(c: &mut Canvas, view: &WindowView, y: i32, (meter_x, meter_length
         reading.used_percentage / 100.0,
         meter_style(theme, reading),
     );
-    if let Some((mark, words)) = level(theme, reading) {
-        let x = c.text(meter_x + meter_length + 2, y, "▲ ", mark);
-        c.text(x, y, words, theme.text());
+    let after = meter_x + meter_length + 2;
+    let level = level(theme, reading);
+    let x = match level {
+        Some((mark, words)) => {
+            let x = c.text(after, y, "▲ ", mark);
+            c.text(x, y, words, theme.text())
+        }
+        None => after,
+    };
+    if let Some(used) = credits_of(reading).filter(|_| credits) {
+        let used = if level.is_some() {
+            format!(" · {used}")
+        } else {
+            used
+        };
+        c.text(x, y, &fit(&used, c.w - 2 - x), theme.muted());
     }
 }
 
-fn wide_layout(c: &mut Canvas, state: &State, limits: &Limits) {
+/// As many of `parts` as fit in `cells` whole, joined by ` · `; the first, cut to fit, when it
+/// does not fit whole.
+fn whole_parts(parts: &[String], cells: i32) -> String {
+    let mut text = String::new();
+    for part in parts {
+        let joined = if text.is_empty() {
+            part.clone()
+        } else {
+            format!("{text} · {part}")
+        };
+        if width(&joined) > cells {
+            break;
+        }
+        text = joined;
+    }
+    if text.is_empty() {
+        parts
+            .first()
+            .map(|part| fit(part, cells))
+            .unwrap_or_default()
+    } else {
+        text
+    }
+}
+
+/// A window in the wide layout: its line, when it resets and where its pace is heading, and its
+/// use since it started.
+fn wide_window(c: &mut Canvas, state: &State, view: &WindowView, y: i32) {
     let theme = c.theme;
     let w = c.w;
-    let views = views(limits);
-    let readings: Vec<&WindowReading> = views.iter().map(|view| &view.reading).collect();
-    let (note, style) = provenance(state, &readings, true);
-    c.boxed(
-        (0, 2, w, 14),
-        Some("Plan limits"),
-        (!note.is_empty()).then_some((note.as_str(), style)),
-    );
     let meter_length = w - 80;
-    if views.is_empty() {
-        recording(c, state, 3);
+    window_line(c, view, y, (28, meter_length), true);
+    let mut parts = vec![resets_text(state, view, true)];
+    if view.reading.stale {
+        parts.push(reading_age(state, &view.reading));
+    } else if let (Some(pace), Some(since)) = (pace_text(state, view), since(state, view)) {
+        parts.push(format!("at the pace {since}, {pace}"));
     }
-    let now_ms = state.now.as_millisecond();
-    for (row, view) in (0..).zip(views.iter().take(3)) {
-        let y = 3 + row * 4;
-        window_line(c, view, y, (28, meter_length));
-        let mut parts = vec![resets_text(state, view, true)];
-        if view.reading.stale {
-            parts.push(reading_age(state, &view.reading));
-        } else if let (Some(pace), Some(since)) = (pace_text(state, view), since(state, view)) {
-            parts.push(format!("at the pace {since}, {pace}"));
-        }
-        c.text(4, y + 1, &fit(&parts.join(" · "), w - 6), theme.muted());
-        if let Some(since) = since(state, view) {
-            c.text(4, y + 2, &format!("Use {since}"), theme.muted());
-            c.text(
-                28,
-                y + 2,
-                &use_line(view, now_ms, meter_length, theme.ramp()),
-                theme.accent(),
-            );
-        }
-    }
-    // The table keeps the board's columns whatever the width, so its figures stay by their bars.
-    let cost_end = 80;
-    c.boxed((0, 16, w, 10), Some("Recent five-hour windows"), None);
-    if limits.recent.is_empty() {
+    c.text(4, y + 1, &whole_parts(&parts, w - 6), theme.muted());
+    if let Some(since) = since(state, view) {
+        c.text(4, y + 2, &format!("Use {since}"), theme.muted());
         c.text(
-            2,
-            17,
-            "No five-hour window has a reading yet.",
-            theme.muted(),
+            28,
+            y + 2,
+            &use_line(view, state.now.as_millisecond(), meter_length, theme.ramp()),
+            theme.accent(),
         );
-    } else {
-        c.text(4, 17, "Window", theme.muted());
-        c.right(40, 17, "Highest", theme.muted());
-        c.right(cost_end, 17, "API-equivalent cost", theme.muted());
-        for (row, window) in (0..).zip(limits.recent.iter().take(7)) {
-            recent_row(c, state, window, 18 + row, (20, cost_end));
-        }
     }
-    c.boxed(
-        (0, 26, w, c.h - 27),
-        Some("Where the limits come from"),
-        None,
-    );
-    sources(c, state, limits, 27, true);
+}
+
+/// A window in the narrow layout: its line, and when it resets, the AI credits of an allowance
+/// used, and where its pace is heading, beside a sparkline of its use.
+fn narrow_window(c: &mut Canvas, state: &State, view: &WindowView, y: i32) {
+    let theme = c.theme;
+    let w = c.w;
+    window_line(c, view, y, (28, w - 56), false);
+    let spark_cells = 16;
+    let mut parts = vec![resets_text(state, view, false)];
+    parts.extend(credits_of(&view.reading));
+    if view.reading.stale {
+        parts.push(reading_age(state, &view.reading));
+    } else if let Some(pace) = pace_text(state, view) {
+        parts.push(pace);
+    }
     c.text(
-        2,
-        30,
-        "Limits are shared between Claude Code and claude.ai.",
+        4,
+        y + 1,
+        &whole_parts(&parts, w - 4 - 3 - spark_cells - 2),
         theme.muted(),
     );
+    if view.start_ms.is_some() {
+        c.right(
+            w - 3,
+            y + 1,
+            &use_line(view, state.now.as_millisecond(), spark_cells, theme.ramp()),
+            theme.accent(),
+        );
+    }
 }
 
-fn narrow_layout(c: &mut Canvas, state: &State, limits: &Limits) {
+/// Claude Code's recent five-hour windows, with the highest use a reading saw and their cost.
+fn recent_box(c: &mut Canvas, state: &State, limits: &Limits, (top, h): (i32, i32)) {
     let theme = c.theme;
-    let w = c.w;
-    let views = views(limits);
-    let readings: Vec<&WindowReading> = views.iter().map(|view| &view.reading).collect();
-    let (note, style) = provenance(state, &readings, false);
-    c.boxed(
-        (0, 2, w, 10),
-        Some("Plan limits"),
-        (!note.is_empty()).then_some((note.as_str(), style)),
-    );
-    if views.is_empty() {
-        recording(c, state, 3);
-    }
-    let meter_length = w - 56;
-    let now_ms = state.now.as_millisecond();
-    for (row, view) in (0..).zip(views.iter().take(3)) {
-        let y = 3 + row * 3;
-        window_line(c, view, y, (28, meter_length));
-        let spark_cells = 16;
-        let mut parts = vec![resets_text(state, view, false)];
-        if view.reading.stale {
-            parts.push(reading_age(state, &view.reading));
-        } else if let Some(pace) = pace_text(state, view) {
-            parts.push(pace);
-        }
-        c.text(
-            4,
-            y + 1,
-            &fit(&parts.join(" · "), w - 4 - 3 - spark_cells - 2),
-            theme.muted(),
-        );
-        if view.start_ms.is_some() {
-            c.right(
-                w - 3,
-                y + 1,
-                &use_line(view, now_ms, spark_cells, theme.ramp()),
-                theme.accent(),
-            );
-        }
-    }
-    let cost_end = w - 4;
-    c.boxed((0, 12, w, 6), Some("Recent five-hour windows"), None);
+    let wide = state.wide();
+    // The wide table keeps the board's columns whatever the width, so its figures stay by their
+    // bars.
+    let (cost_end, meter_length, rows, cost) = if wide {
+        (80, 20, 7, "API-equivalent cost")
+    } else {
+        (c.w - 4, 16, 3, "Cost")
+    };
+    c.boxed((0, top, c.w, h), Some("Recent five-hour windows"), None);
     if limits.recent.is_empty() {
         c.text(
             2,
-            13,
+            top + 1,
             "No five-hour window has a reading yet.",
             theme.muted(),
         );
-    } else {
-        c.text(4, 13, "Window", theme.muted());
-        c.right(40, 13, "Highest", theme.muted());
-        c.right(cost_end, 13, "Cost", theme.muted());
-        for (row, window) in (0..).zip(limits.recent.iter().take(3)) {
-            recent_row(c, state, window, 14 + row, (16, cost_end));
-        }
+        return;
     }
-    c.boxed((0, 18, w, 4), Some("Where the limits come from"), None);
-    sources(c, state, limits, 19, false);
+    c.text(4, top + 1, "Window", theme.muted());
+    c.right(40, top + 1, "Highest", theme.muted());
+    c.right(cost_end, top + 1, cost, theme.muted());
+    for (row, window) in (0..).zip(limits.recent.iter().take(rows)) {
+        recent_row(c, state, window, top + 2 + row, (meter_length, cost_end));
+    }
 }
 
 /// When an old reading was taken: `This reading is from Wed 7 Oct 18:20, 3 days ago.`
@@ -641,6 +910,22 @@ fn sources(c: &mut Canvas, state: &State, limits: &Limits, y: i32, wide: bool) {
     let y = y + 1;
     c.text(2, y, "Usage endpoint", theme.strong());
     endpoint_line(c, state, &limits.endpoint, (column, y), wide);
+}
+
+/// Where Copilot CLI's allowance comes from: the files of its sessions, as it runs.
+fn copilot_source(c: &mut Canvas, state: &State, y: i32) {
+    let theme = c.theme;
+    let wide = state.wide();
+    let column = if wide { 22 } else { 18 };
+    c.text(2, y, Agent::CopilotCli.display_name(), theme.strong());
+    let x = c.text(column, y, "✓ ", theme.good());
+    let end = c.text(x, y, "read from its session files", theme.text());
+    // The note at the right goes where the line leaves room for it.
+    let note = "recorded, while Copilot CLI runs";
+    let right = c.w - 3;
+    if wide && right - width(note) >= end + 2 {
+        c.right(right, y, note, theme.muted());
+    }
 }
 
 fn endpoint_line(

@@ -1,5 +1,5 @@
-// The situations the dashboard is previewed and tested in, each a synthetic Claude Code folder
-// read by the real server. A few states only last a moment in real use, such as a first read
+// The situations the dashboard is previewed and tested in, each a pair of synthetic Claude Code and
+// Copilot CLI folders read by the real server. A few states only last a moment in real use, such as a first read
 // under way; those scenarios hold them still by changing the server's answers.
 
 import type { Scenario } from "./server.ts";
@@ -58,8 +58,11 @@ const unpricedSession: NonNullable<Scenario["patch"]> = (method, result) => {
 };
 
 export const SCENARIOS: Record<string, Scenario> = {
-  /** Ten weeks of history, plan limits from the status line, the usage endpoint on. */
+  /** Ten weeks of Claude Code's history and a few weeks of Copilot CLI's, plan limits from the
+   * status line and Copilot CLI's allowance, the usage endpoint on. */
   default: {},
+  /** Claude Code alone, as for someone who does not use Copilot CLI. */
+  "claude-only": { options: { noCopilot: true } },
   /** No Claude Code folder at all. */
   empty: { empty: true },
   /** The status line is not connected and nothing has recorded plan limits. */
@@ -98,6 +101,9 @@ export const SCENARIOS: Record<string, Scenario> = {
   "unpriced-session": { patch: unpricedSession },
   /** A server of its own for the browser tests that save exports. */
   exports: {},
+  /** A server of its own for the test that holds an export of the whole history part-way, so that
+   * no other test's export reports its progress there meanwhile. */
+  "export-held": {},
   /** New activity is being read. */
   reading: {
     patch: withStatus((status) => {

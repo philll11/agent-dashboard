@@ -27,7 +27,7 @@ impl Fixture {
         let dir = tempfile::tempdir().unwrap();
         let config = dir.path().join("claude-config");
         fs::create_dir_all(&config).unwrap();
-        let roots = roots::data_roots(Some(config.as_os_str()), None, &[]);
+        let roots = roots::data_roots(Some(config.as_os_str()), None, None, &[]);
         let login = LoginSource::of(&roots, Some(config.as_os_str())).unwrap();
         let history = History::open(&dir.path().join("history.sqlite")).unwrap();
         Self {
@@ -162,6 +162,8 @@ fn a_status_line_reading_from_the_last_five_minutes_needs_no_question() {
                 observed_ms: NOW - MINUTE,
                 used_percentage: 40.0,
                 resets_at_ms: None,
+                used: None,
+                entitlement: None,
             })
         })
         .unwrap();

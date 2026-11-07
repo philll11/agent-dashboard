@@ -25,7 +25,7 @@ export class StatusBar implements vscode.Disposable {
     this.#item.name = NAME;
     this.#item.command = "agentDashboard.open";
     this.#item.text = "$(dashboard)";
-    this.#item.tooltip = "Reading your Claude Code history…";
+    this.#item.tooltip = "Reading your history…";
     this.#item.show();
   }
 
