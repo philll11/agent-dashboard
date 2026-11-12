@@ -1,8 +1,8 @@
 //! Which series each model belongs to, as every surface colours them (ADR 0007): each family's
 //! newest version in the history gets the family's colour, and every other model shares the series
-//! of other models. Copilot CLI names Claude's models with dots, as in `claude-opus-5.5`, so the
-//! same version under both agents' ids shares the family's colour. While usage splits by agent,
-//! each agent takes a series of its own.
+//! of other models. Copilot names Claude's models with dots, as in `claude-opus-5.5`, so the same
+//! version under Claude Code's and Copilot's ids shares the family's colour. While usage splits by
+//! agent, each agent takes a series of its own.
 
 use std::collections::HashMap;
 

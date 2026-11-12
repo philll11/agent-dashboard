@@ -427,7 +427,7 @@ fn token_row(
             ("reads", tokens.cache_read),
         ] {
             if prompts && label != "Output" {
-                c.right(end(label), y, "—", theme.muted());
+                c.right(end(label), y, "–", theme.muted());
             } else {
                 c.right(end(label), y, &compact(count), theme.text());
             }

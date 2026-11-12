@@ -315,10 +315,10 @@ fn recording_rows(state: &State) -> i32 {
     })
 }
 
-/// That no Copilot CLI allowance is recorded, on row `row`.
+/// That no Copilot allowance is recorded, on row `row`.
 fn no_allowance(c: &mut Canvas, state: &State, row: i32) {
     let text = if state.wide() {
-        "No allowance recorded yet. Copilot CLI and VS Code's Copilot harness record it as they run, on a plan that has one."
+        "No allowance recorded yet. Copilot records it in its session files as it runs, on a plan that has one."
     } else {
         "No allowance recorded yet. Copilot records it as it runs."
     };

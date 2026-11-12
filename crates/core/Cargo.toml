@@ -1,6 +1,6 @@
 [package]
 name = "agent-dashboard-core"
-description = "Reads Claude Code's local data and keeps the usage history behind agent-dashboard."
+description = "Reads the coding agents' local data and keeps the usage history behind agent-dashboard."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

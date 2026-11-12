@@ -20,7 +20,7 @@ use jiff::{Timestamp, Zoned};
 use serde::Serialize;
 
 use crate::prompt;
-use crate::report::{Output, credits, limits_line, print_json, ready_history};
+use crate::report::{Output, agent_field, credits, limits_line, print_json, ready_history};
 use crate::style::Paint;
 
 /// What a window is called under its plan's heading, where Copilot's allowance is its `Monthly
@@ -36,6 +36,11 @@ pub fn grouped_name(reading: &WindowReading) -> String {
 /// The plan a window belongs to.
 pub fn plan_of(reading: &WindowReading) -> Option<Plan> {
     Plan::from_name(&reading.plan)
+}
+
+/// The report's `agent` field for a window ([`agent_field`]).
+fn window_agent(reading: &WindowReading) -> &'static str {
+    plan_of(reading).map_or("", agent_field)
 }
 
 /// Each plan window with its use, reset, source and age, and the recent five-hour windows, after
@@ -82,14 +87,14 @@ pub fn report(app: &App, output: Output) -> ExitCode {
             // New columns go at the end, so that a script that reads the others by position
             // keeps working.
             let mut out = String::from(
-                "window,model,used_percentage,resets_at,observed_at,provenance,stale,expired,plan,used_credits,entitlement_credits\n",
+                "window,model,used_percentage,resets_at,observed_at,provenance,stale,expired,agent,used_credits,entitlement_credits,plan\n",
             );
             let number = |value: Option<f64>| value.map(|value| value.to_string());
             for window in &windows {
                 let reading = &window.reading;
                 let _ = writeln!(
                     out,
-                    "{},{},{},{},{},{},{},{},{},{},{}",
+                    "{},{},{},{},{},{},{},{},{},{},{},{}",
                     csv_field(&reading.window),
                     csv_field(reading.model.as_deref().unwrap_or_default()),
                     reading.used_percentage,
@@ -98,9 +103,10 @@ pub fn report(app: &App, output: Output) -> ExitCode {
                     provenance(reading.provenance),
                     reading.stale,
                     reading.expired,
-                    csv_field(&reading.plan),
+                    window_agent(reading),
                     number(reading.used).unwrap_or_default(),
-                    number(reading.entitlement).unwrap_or_default()
+                    number(reading.entitlement).unwrap_or_default(),
+                    csv_field(&reading.plan)
                 );
             }
             print!("{out}");
@@ -403,6 +409,7 @@ struct LimitsJson {
 
 #[derive(Serialize)]
 struct WindowJson {
+    agent: &'static str,
     plan: String,
     window: String,
     model: Option<String>,
@@ -430,6 +437,7 @@ struct PaceJson {
 fn window_json(window: &WindowView) -> WindowJson {
     let reading = &window.reading;
     WindowJson {
+        agent: window_agent(reading),
         plan: reading.plan.clone(),
         window: reading.window.clone(),
         model: reading.model.clone(),

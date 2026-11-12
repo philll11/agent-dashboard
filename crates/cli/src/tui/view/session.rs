@@ -489,7 +489,7 @@ fn tokens_box(c: &mut Canvas, detail: &SessionDetail, (x0, y0, w, h): (i32, i32,
     } else {
         "Output".to_owned()
     };
-    let not_recorded = || "—".to_owned();
+    let not_recorded = || "–".to_owned();
     let mut rows: Vec<(String, String, Option<f64>)> = if prompts {
         vec![
             ("Input".to_owned(), not_recorded(), None),
@@ -543,7 +543,7 @@ fn tokens_box(c: &mut Canvas, detail: &SessionDetail, (x0, y0, w, h): (i32, i32,
         c.right(right - 18, y, &count, theme.text());
         match usd {
             Some(usd) => c.right(right - 3, y, &money(usd), theme.strong()),
-            None => c.right(right - 3, y, "—", theme.muted()),
+            None => c.right(right - 3, y, "–", theme.muted()),
         };
     }
     c.text(x0 + 2, y0 + h - 2, "Total", theme.strong());

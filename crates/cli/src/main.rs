@@ -29,7 +29,8 @@ use jiff::civil::Date;
 
 use crate::report::Output;
 
-/// See how you use Claude Code and Copilot CLI: plan limits, usage, cost and where it goes.
+/// See how you use Claude Code, Copilot CLI and Copilot in VS Code: plan limits, usage, cost and
+/// where it goes.
 ///
 /// Without a command, in a terminal, it opens the dashboard there.
 #[derive(Debug, Parser)]
@@ -162,7 +163,7 @@ enum Command {
         #[arg(long)]
         status_line_copy: bool,
     },
-    /// Each agent's plan windows with their use, reset and source, and Claude Code's recent
+    /// Each plan's windows with their use, reset and source, and Claude Code's recent
     /// five-hour windows; or choose where Claude Code's plan limits come from, besides its status
     /// line.
     #[command(args_conflicts_with_subcommands = true)]

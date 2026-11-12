@@ -82,6 +82,16 @@ pub fn added<'a>(totals: impl IntoIterator<Item = &'a Totals>) -> Totals {
     sum
 }
 
+/// The `agent` field of a plan window in the reports, which scripts read beside `plan`: Copilot
+/// CLI for Copilot's allowance, whichever Copilot agent recorded it, and Claude Code for Claude's
+/// windows.
+pub fn agent_field(plan: Plan) -> &'static str {
+    match plan {
+        Plan::Claude => Agent::ClaudeCode.as_str(),
+        Plan::Copilot => Agent::CopilotCli.as_str(),
+    }
+}
+
 /// How much of an allowance is used, where the agent records it: `1,575 of 45,000 AI credits`.
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn credits(used: Option<f64>, entitlement: Option<f64>) -> Option<String> {
@@ -349,7 +359,7 @@ const WIDTHS: [usize; 5] = [8, 10, 15, 14, 9];
 const LABEL_WIDTH: usize = 14;
 
 /// A row's values; the cache tokens of a row of prompts alone, which VS Code does not record,
-/// show as `—`.
+/// show as `–`.
 pub fn cells(totals: &Totals) -> [String; 5] {
     let cost = if totals.requests > 0 && totals.unpriced_requests == totals.requests {
         "unpriced".to_owned()
@@ -359,7 +369,7 @@ pub fn cells(totals: &Totals) -> [String; 5] {
     let prompts = totals.requests > 0 && totals.per_prompt_requests == totals.requests;
     let recorded = |tokens: u64| {
         if prompts {
-            "—".to_owned()
+            "–".to_owned()
         } else {
             compact(tokens)
         }
@@ -728,7 +738,7 @@ fn allowance_line(app: &App, paint: Paint, limits: &[&LimitSnapshot]) -> String 
     let now_ms = app.now.as_millisecond();
     let Some(limit) = limits.iter().max_by_key(|limit| limit.observed_ms) else {
         return paint.muted(
-            "Copilot allowance: none recorded. Copilot CLI and VS Code's Copilot harness record it as they run, on a plan that has one.",
+            "Copilot allowance: none recorded. Copilot records it in its session files as it runs, on a plan that has one.",
         );
     };
     if limit.expired(now_ms) {
@@ -758,6 +768,7 @@ struct TodayJson {
 
 #[derive(Serialize)]
 struct LimitJson {
+    agent: &'static str,
     plan: &'static str,
     window: String,
     used_percentage: f64,
@@ -777,6 +788,7 @@ fn limit_json(limit: &LimitSnapshot) -> LimitJson {
             .ok()
     };
     LimitJson {
+        agent: agent_field(limit.source.plan()),
         plan: limit.source.plan().as_str(),
         window: limit.window.clone(),
         used_percentage: limit.used_percentage,

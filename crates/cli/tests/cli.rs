@@ -858,6 +858,7 @@ fn today_counts_one_agent_or_both_and_says_where_the_cost_comes_from() {
     assert_eq!(today["requests"], 2);
     assert_eq!(today["cost"]["usd"], 0.1);
     assert_eq!(today["cost"]["provenance"], "recorded");
+    assert_eq!(today["limits"][0]["agent"], "copilot-cli");
     assert_eq!(today["limits"][0]["plan"], "copilot");
     assert_eq!(today["limits"][0]["window"], "monthly");
     assert_eq!(today["limits"][0]["used_credits"], 1575.0);
@@ -1194,10 +1195,13 @@ fn limits_puts_each_agents_windows_under_its_name() {
         "{text}"
     );
 
+    // Each window keeps the agent field that scripts read, beside its plan.
     let limits = json_of(&fixture, &["limits", "--json"]);
+    assert_eq!(limits["windows"][0]["agent"], "claude-code");
     assert_eq!(limits["windows"][0]["plan"], "claude");
     assert_eq!(limits["windows"][0]["window"], "five_hour");
     assert!(limits["windows"][0].get("used_credits").is_none());
+    assert_eq!(limits["windows"][1]["agent"], "copilot-cli");
     assert_eq!(limits["windows"][1]["plan"], "copilot");
     assert_eq!(limits["windows"][1]["window"], "monthly");
     assert_eq!(limits["windows"][1]["provenance"], "recorded");
@@ -1208,9 +1212,9 @@ fn limits_puts_each_agents_windows_under_its_name() {
         .assert()
         .success()
         .stdout(contains(
-            ",stale,expired,plan,used_credits,entitlement_credits\n",
+            ",stale,expired,agent,used_credits,entitlement_credits,plan\n",
         ))
-        .stdout(contains(",copilot,1575,45000\n"));
+        .stdout(contains(",copilot-cli,1575,45000,copilot\n"));
 }
 
 /// Makes the fixture's history one that a newer agent-dashboard has upgraded to schema 999,
