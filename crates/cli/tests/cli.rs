@@ -24,9 +24,13 @@ fn doctor_reports_the_data_folder_history_prices_and_limits() {
     let root = fixture.root().display().to_string();
     output
         .stdout(contains(format!("✓ Claude Code    {root}    1 transcript")))
-        .stdout(contains("- Copilot CLI    "))
+        .stdout(contains("- Copilot        "))
         .stdout(contains(
-            "not found; Copilot CLI makes it when it first runs (COPILOT_HOME)",
+            "not found; Copilot makes it when it first runs (COPILOT_HOME)",
+        ))
+        .stdout(contains("- VS Code        "))
+        .stdout(contains(
+            "not found; VS Code makes it when it first runs (AGENT_DASHBOARD_VSCODE_DATA)",
         ))
         .stdout(contains("(CLAUDE_CONFIG_DIR)"))
         .stdout(contains("✓ History        "))
@@ -855,6 +859,7 @@ fn today_counts_one_agent_or_both_and_says_where_the_cost_comes_from() {
     assert_eq!(today["cost"]["usd"], 0.1);
     assert_eq!(today["cost"]["provenance"], "recorded");
     assert_eq!(today["limits"][0]["agent"], "copilot-cli");
+    assert_eq!(today["limits"][0]["plan"], "copilot");
     assert_eq!(today["limits"][0]["window"], "monthly");
     assert_eq!(today["limits"][0]["used_credits"], 1575.0);
     assert_eq!(today["limits"][0]["entitlement_credits"], 45000.0);
@@ -918,7 +923,7 @@ fn with_both_agents_each_agents_models_come_under_it_and_are_never_added_togethe
             ["  Opus 5.5", "1"],
             ["Copilot CLI", "3"],
             ["  GPT-5.5", "2"],
-            ["  Opus 5.5, Copilot CLI", "1"],
+            ["  Opus 5.5", "1"],
         ],
         "{today}"
     );
@@ -962,9 +967,12 @@ fn with_both_agents_each_agents_models_come_under_it_and_are_never_added_togethe
         &[&["models"][..], &TODAY_ONLY[..], &["--csv"]].concat(),
     );
     let lines: Vec<&str> = csv.lines().collect();
-    assert!(lines[0].starts_with("model,requests,") && lines[0].ends_with(",name,agent"));
-    assert!(lines[1].starts_with("claude-opus-5-5,1,") && lines[1].ends_with(",claude-code"));
-    assert!(lines[2].starts_with("gpt-5.5,2,") && lines[2].ends_with(",copilot-cli"));
+    assert!(
+        lines[0].starts_with("model,requests,")
+            && lines[0].ends_with(",name,agent,per_prompt_requests")
+    );
+    assert!(lines[1].starts_with("claude-opus-5-5,1,") && lines[1].ends_with(",claude-code,0"));
+    assert!(lines[2].starts_with("gpt-5.5,2,") && lines[2].ends_with(",copilot-cli,0"));
     assert_eq!(lines.len(), 4, "{csv}");
 }
 
@@ -1001,9 +1009,12 @@ fn with_both_agents_each_agents_projects_come_under_it_and_are_never_added_toget
         &[&["projects"][..], &TODAY_ONLY[..], &["--csv"]].concat(),
     );
     let lines: Vec<&str> = csv.lines().collect();
-    assert!(lines[0].ends_with(",transcript_folder,agent"), "{csv}");
     assert!(
-        lines[1].ends_with(",claude-code") && lines[2].ends_with(",copilot-cli"),
+        lines[0].ends_with(",transcript_folder,agent,per_prompt_requests"),
+        "{csv}"
+    );
+    assert!(
+        lines[1].ends_with(",claude-code,0") && lines[2].ends_with(",copilot-cli,0"),
         "{csv}"
     );
 }
@@ -1039,7 +1050,9 @@ fn with_an_agent_given_or_one_agent_in_the_history_models_and_projects_keep_to_i
             .concat(),
         );
         assert!(
-            csv.lines().skip(1).all(|row| row.ends_with(",copilot-cli")),
+            csv.lines()
+                .skip(1)
+                .all(|row| row.ends_with(",copilot-cli,0")),
             "{command}: {csv}"
         );
         let table = text_of(
@@ -1141,7 +1154,8 @@ fn an_agent_the_history_does_not_know_is_refused() {
         .code(2)
         .stderr(contains("invalid value 'codex' for '--agent <AGENT>'"))
         .stderr(contains("claude-code"))
-        .stderr(contains("copilot-cli"));
+        .stderr(contains("copilot-cli"))
+        .stderr(contains("copilot-vscode"));
 }
 
 #[test]
@@ -1163,9 +1177,9 @@ fn limits_puts_each_agents_windows_under_its_name() {
         .find("Claude Code · limits shared with claude.ai\n")
         .expect(&text);
     let recent = text.find("Recent five-hour windows").expect(&text);
-    let copilot = text.find("\nCopilot CLI\n").expect(&text);
+    let copilot = text.find("\nCopilot\n").expect(&text);
     assert!(claude < recent && recent < copilot, "{text}");
-    // The columns line up across the agents' tables, and only Copilot CLI's has AI credits.
+    // The columns line up across the plans' tables, and only Copilot's has AI credits.
     assert!(
         text.contains(
             "Window              Used     Resets                 Source     Reading\n\
@@ -1181,11 +1195,14 @@ fn limits_puts_each_agents_windows_under_its_name() {
         "{text}"
     );
 
+    // Each window keeps the agent field that scripts read, beside its plan.
     let limits = json_of(&fixture, &["limits", "--json"]);
     assert_eq!(limits["windows"][0]["agent"], "claude-code");
+    assert_eq!(limits["windows"][0]["plan"], "claude");
     assert_eq!(limits["windows"][0]["window"], "five_hour");
     assert!(limits["windows"][0].get("used_credits").is_none());
     assert_eq!(limits["windows"][1]["agent"], "copilot-cli");
+    assert_eq!(limits["windows"][1]["plan"], "copilot");
     assert_eq!(limits["windows"][1]["window"], "monthly");
     assert_eq!(limits["windows"][1]["provenance"], "recorded");
     assert_eq!(limits["windows"][1]["used_credits"], 1575.0);
@@ -1195,9 +1212,9 @@ fn limits_puts_each_agents_windows_under_its_name() {
         .assert()
         .success()
         .stdout(contains(
-            ",stale,expired,agent,used_credits,entitlement_credits\n",
+            ",stale,expired,agent,used_credits,entitlement_credits,plan\n",
         ))
-        .stdout(contains(",copilot-cli,1575,45000\n"));
+        .stdout(contains(",copilot-cli,1575,45000,copilot\n"));
 }
 
 /// Makes the fixture's history one that a newer agent-dashboard has upgraded to schema 999,

@@ -52,8 +52,8 @@
     "license": "MIT",
     "homepage": "https://github.com/philll11/agent-dashboard",
     "category": "DeveloperTool",
-    "shortDescription": "See how you use Claude Code: plan limits, usage and API-equivalent cost.",
-    "longDescription": "See how you use Claude Code: how close you are to your plan limits, what your usage would cost at API prices, and where it goes.",
+    "shortDescription": "See how you use your coding agents: plan limits, usage and cost.",
+    "longDescription": "See how you use Claude Code, GitHub Copilot CLI and GitHub Copilot in VS Code: how close you are to your plan limits, what your usage costs, and where it goes.",
     "windows": {
       "nsis": {
         "installMode": "currentUser"

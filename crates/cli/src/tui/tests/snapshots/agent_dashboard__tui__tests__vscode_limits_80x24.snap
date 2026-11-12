@@ -1,0 +1,64 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits                  │
+ 1 │                                                             Copilot in VS Code │
+ 2 │┌─ Plan limits ────────────────────────────────────────── recorded · 1 h ago ──┐│
+ 3 ││ Monthly allowance     4%  █░░░░░░░░░░░░░░░░░░░░░░░                           ││
+ 4 ││   Resets 1 Nov 13:00 · 1,575 of 45,000 AI credits          ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  ││
+ 5 │└──────────────────────────────────────────────────────────────────────────────┘│
+ 6 │┌─ Where the limits come from ─────────────────────────────────────────────────┐│
+ 7 ││ Copilot         ✓ read from its session files                                ││
+ 8 │└──────────────────────────────────────────────────────────────────────────────┘│
+ 9 │                                                                                │
+10 │                                                                                │
+11 │                                                                                │
+12 │                                                                                │
+13 │                                                                                │
+14 │                                                                                │
+15 │                                                                                │
+16 │                                                                                │
+17 │                                                                                │
+18 │                                                                                │
+19 │                                                                                │
+20 │                                                                                │
+21 │                                                                                │
+22 │                                                                                │
+23 │ q quit   ←→ sections   t table view   e export   ? help          Read just now │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb bbbbbbbbbb bbbbbbbbbb bbbbbbbb cccccccc                 │
+ 1 │                                                             bbbbbbbbbbbbbbbbbb │
+ 2 │ddaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbddd│
+ 3 │d eeeeeeeeeeeeeeeee     aa  fggggggggggggggggggggggg                           d│
+ 4 │d   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb          ffffffffffffffff  d│
+ 5 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+ 6 │ddaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddd│
+ 7 │d aaaaaaa         hheeeeeeeeeeeeeeeeeeeeeeeeeee                                d│
+ 8 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+ 9 │                                                                                │
+10 │                                                                                │
+11 │                                                                                │
+12 │                                                                                │
+13 │                                                                                │
+14 │                                                                                │
+15 │                                                                                │
+16 │                                                                                │
+17 │                                                                                │
+18 │                                                                                │
+19 │                                                                                │
+20 │                                                                                │
+21 │                                                                                │
+22 │                                                                                │
+23 │ i bbbb   ii bbbbbbbb   i bbbbbbbbbb   i bbbbbb   i bbbb          bbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #3a404a
+e = #d7dae0
+f = #5cc8e8
+g = #2a2f37
+h = #3fbf6b
+i = #5cc8e8 bold

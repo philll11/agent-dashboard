@@ -7,7 +7,7 @@ use serde_json::Value;
 use jiff::ToSpan;
 use jiff::tz::TimeZone;
 
-use crate::agent::Agent;
+use crate::agent::{Agent, Plan};
 use crate::history::{History, HistoryError};
 use crate::pricing::PriceTable;
 use crate::report::{self, Filter, Range, Totals};
@@ -69,7 +69,8 @@ pub enum Source {
     /// Anthropic's undocumented usage endpoint, used only when the person turns it on:
     /// experimental.
     UsageEndpoint,
-    /// Copilot CLI's session files, in which it records the allowance GitHub reports: recorded.
+    /// Copilot's session files, in which Copilot CLI and VS Code's Copilot harness record the
+    /// allowance GitHub reports: recorded.
     CopilotSessionFiles,
 }
 
@@ -84,12 +85,12 @@ impl Source {
         }
     }
 
-    /// The agent whose plan the source's readings are of.
+    /// The plan the source's readings are of.
     #[must_use]
-    pub fn agent(self) -> Agent {
+    pub fn plan(self) -> Plan {
         match self {
-            Self::StatusLine | Self::UsageEndpoint => Agent::ClaudeCode,
-            Self::CopilotSessionFiles => Agent::CopilotCli,
+            Self::StatusLine | Self::UsageEndpoint => Plan::Claude,
+            Self::CopilotSessionFiles => Plan::Copilot,
         }
     }
 

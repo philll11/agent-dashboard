@@ -35,6 +35,12 @@ impl Fixture {
         self.dir.path().join(".copilot")
     }
 
+    /// VS Code's user data folder, which stays empty unless a test writes to it, so that no test
+    /// reads the VS Code chats of the computer it runs on.
+    pub fn vscode_root(&self) -> PathBuf {
+        self.dir.path().join("vscode")
+    }
+
     pub fn history(&self) -> PathBuf {
         self.dir.path().join("history.sqlite")
     }
@@ -51,6 +57,7 @@ impl Fixture {
             .args(args)
             .env("CLAUDE_CONFIG_DIR", self.root())
             .env("COPILOT_HOME", self.copilot_root())
+            .env("AGENT_DASHBOARD_VSCODE_DATA", self.vscode_root())
             .env("AGENT_DASHBOARD_HISTORY", self.history())
             .env("AGENT_DASHBOARD_NOW", NOW)
             .env("TZ", "UTC")

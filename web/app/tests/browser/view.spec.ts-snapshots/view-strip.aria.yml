@@ -4,7 +4,7 @@
   - text: /Resets \d+:\d+, in 2 h \d+ min official, 2 min ago Weekly, all models \d+%/
   - meter /Weekly window, \d+% used/
   - text: /Over \d+% Resets Thu \d+:\d+ Copilot allowance 4%/
-  - meter "Copilot CLI's monthly allowance, 4% used"
+  - meter "Copilot's monthly allowance, 4% used"
   - text: /Resets 1 Nov \d+:\d+ recorded, 1 h ago Latest session in this project Running · \d+ min/
   - link "Review the runbook":
     - /url: "#session-06469a20-0c28-4129-8023-40cc894f31b4"

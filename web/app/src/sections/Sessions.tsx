@@ -24,6 +24,7 @@ import {
   costText,
   ModelMenu,
   ProjectMenu,
+  promptsNote,
   RangeMenu,
   SectionHead,
   tokensOf,
@@ -65,10 +66,11 @@ function SessionList() {
   const overview = useRequest("overview", { days, filters }).data;
   const provenance = useProvenance(overview?.totals);
   const agents = useAgents();
-  // With both agents in view, each row says whose session it is; Claude Code's own figure applies
-  // to Claude Code's sessions only.
+  // With several agents in view, each row says whose session it is; Claude Code's own figure
+  // applies to Claude Code's sessions only.
   const both = agents.length > 1;
   const claude = agents.includes("claude-code");
+  const prompts = (page?.rows ?? []).reduce((sum, row) => sum + row.totals.perPromptRequests, 0);
   const summary =
     page && overview && view.search === ""
       ? `${grouped(page.total)} ${page.total === 1 ? "session" : "sessions"} ${
@@ -192,9 +194,10 @@ function SessionList() {
           itself, which it writes as each of its processes ends. A figure that counts other requests
           than the history holds is not compared.
           {both &&
-            " Copilot CLI's sessions cost what Copilot CLI recorded, so there is nothing to compare."}
+            " Copilot's sessions cost what Copilot recorded, so there is nothing to compare."}
         </p>
       )}
+      {prompts > 0 && <p className="footnote">{promptsNote(prompts)}</p>}
     </div>
   );
 }

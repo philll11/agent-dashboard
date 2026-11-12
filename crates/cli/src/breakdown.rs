@@ -19,8 +19,7 @@ use agent_dashboard_server::protocol::Dataset;
 
 use crate::report::{
     Given, Output, Row, added, agent_model_rows, agent_row, cells, cost_note, model_rows,
-    models_by_agent, only, provenance, ready_history, split_agents, sum, table, total_row,
-    under_agent,
+    models_by_agent, only, provenance, ready_history, split_agents, sum, totals_table, under_agent,
 };
 use crate::style::Paint;
 
@@ -98,7 +97,7 @@ pub fn models(app: &App, given: Given, agent: Option<Agent>, output: Output) -> 
         } else {
             agent_model_rows(app, paint, &groups)
         };
-        out.push_str(&table(paint, "Model", &rows, &total_row(&sum(&models))));
+        out.push_str(&totals_table(paint, "Model", &rows, &sum(&models)));
     }
     print!("{out}");
     ExitCode::SUCCESS
@@ -196,7 +195,7 @@ fn sessions_table(heading: &str, sessions: &[SessionView], totals: &report::Tota
             }
         })
         .collect();
-    out.push_str(&table(paint, "Session", &rows, &total_row(totals)));
+    out.push_str(&totals_table(paint, "Session", &rows, totals));
     out
 }
 
@@ -250,7 +249,7 @@ pub fn projects(app: &App, given: Given, agent: Option<Agent>, output: Output) -
                 }
             })
             .collect();
-        out.push_str(&table(paint, "Project", &rows, &total_row(&all)));
+        out.push_str(&totals_table(paint, "Project", &rows, &all));
     } else {
         let mut rows = Vec::new();
         for (agent, projects) in &groups {
@@ -266,7 +265,7 @@ pub fn projects(app: &App, given: Given, agent: Option<Agent>, output: Output) -
                 )
             }));
         }
-        out.push_str(&table(paint, "Project", &rows, &total_row(&all)));
+        out.push_str(&totals_table(paint, "Project", &rows, &all));
     }
     print!("{out}");
     ExitCode::SUCCESS

@@ -1,7 +1,7 @@
-// A synthetic Claude Code folder read into a new history, in a temporary folder of its own, for
-// whatever runs agent-dashboard on it: the dashboard's previews and browser tests, and the VS Code
+// The agents' synthetic folders read into a new history, in a temporary folder of their own, for
+// whatever runs agent-dashboard on them: the dashboard's previews and browser tests, and the VS Code
 // extension's tests. agent-dashboard runs at a fixed moment (AGENT_DASHBOARD_NOW) in a fixed time
-// zone, so it never reads or changes the person's Claude Code folder or history.
+// zone, so it never reads or changes the person's own agents' folders or history.
 //
 // Node loads this file as it is, so it keeps to TypeScript that only needs its types removed.
 
@@ -179,6 +179,8 @@ export async function prepare(setup: Setup = {}): Promise<Prepared> {
     CLAUDE_CONFIG_DIR: root,
     // Copilot CLI's data root, kept apart from the computer's own sessions.
     COPILOT_HOME: join(folder, ".copilot"),
+    // VS Code's user data folder, kept apart from the computer's own chats.
+    AGENT_DASHBOARD_VSCODE_DATA: join(folder, "vscode"),
     AGENT_DASHBOARD_HISTORY: history,
     AGENT_DASHBOARD_NOW: new Date(NOW_MS).toISOString(),
     TZ: TIME_ZONE,

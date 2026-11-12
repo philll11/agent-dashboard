@@ -2,7 +2,7 @@
 //! their use and pace, Claude Code's recent five-hour windows, and where the readings come from.
 //! The section is a page that scrolls when it does not fit.
 
-use agent_dashboard_core::agent::Agent;
+use agent_dashboard_core::agent::{Agent, Plan};
 use agent_dashboard_server::fmt::{ago, clock, day_label, money, percent, resets, when};
 use agent_dashboard_server::glance::in_order;
 use agent_dashboard_server::protocol::{
@@ -29,7 +29,7 @@ fn name(reading: &WindowReading) -> String {
     agent_dashboard_server::glance::window_name(reading)
 }
 
-/// The windows a box of `rows` rows shows, in order: each agent's first, then as many of the
+/// The windows a box of `rows` rows shows, in order: each plan's first, then as many of the
 /// rest as there is room for.
 fn first_of_each<'a>(readings: &[&'a WindowReading], rows: usize) -> Vec<&'a WindowReading> {
     let mut kept: Vec<bool> = readings
@@ -38,7 +38,7 @@ fn first_of_each<'a>(readings: &[&'a WindowReading], rows: usize) -> Vec<&'a Win
         .map(|(index, reading)| {
             !readings[..index]
                 .iter()
-                .any(|before| before.agent == reading.agent)
+                .any(|before| before.plan == reading.plan)
         })
         .collect();
     let mut room = rows.saturating_sub(kept.iter().filter(|kept| **kept).count());
@@ -57,9 +57,15 @@ fn first_of_each<'a>(readings: &[&'a WindowReading], rows: usize) -> Vec<&'a Win
         .collect()
 }
 
-/// Whether the readings of `agent` show: every agent's do, unless another one is chosen.
-fn chosen(state: &State, agent: &str) -> bool {
-    state.agent.as_deref().is_none_or(|id| id == agent)
+/// Whether the windows of `plan` show: every plan's do, unless an agent of another plan is
+/// chosen.
+fn chosen(state: &State, plan: &str) -> bool {
+    chosen_agent(state).is_none_or(|agent| agent.plan().as_str() == plan)
+}
+
+/// The agent chosen, if one is.
+fn chosen_agent(state: &State) -> Option<Agent> {
+    state.agent.as_deref().and_then(Agent::from_name)
 }
 
 /// How much of an allowance a reading says is used: `1,575 of 45,000 AI credits`.
@@ -68,7 +74,7 @@ fn credits_of(reading: &WindowReading) -> Option<String> {
 }
 
 /// What a window is called in the Overview's box, which has less room: `Weekly, all`, and in the
-/// narrow layout `Copilot` for Copilot CLI's allowance.
+/// narrow layout `Copilot` for Copilot's allowance.
 fn short_name(reading: &WindowReading, wide: bool) -> String {
     match reading.window.as_str() {
         "seven_day" => "Weekly, all".to_owned(),
@@ -137,7 +143,7 @@ fn provenance(state: &State, readings: &[&WindowReading], source: Source) -> (St
     }
     let from = match (newest.provenance, source) {
         (Provenance::Official, Source::Named | Source::UnderAgent) => "official · status line",
-        (Provenance::Recorded, Source::Named) => "recorded · Copilot CLI",
+        (Provenance::Recorded, Source::Named) => "recorded · Copilot",
         (Provenance::Recorded, Source::UnderAgent) => "recorded · session files",
         (Provenance::Experimental, Source::Named | Source::UnderAgent) => {
             "experimental · usage endpoint"
@@ -158,9 +164,9 @@ pub fn overview_box(c: &mut Canvas, state: &State, top: i32) {
         return;
     };
     let mut readings = ordered(&status.limits);
-    readings.retain(|reading| chosen(state, &reading.agent));
+    readings.retain(|reading| chosen(state, &reading.plan));
     if readings.is_empty() {
-        if state.agent.as_deref() == Some(Agent::CopilotCli.as_str()) {
+        if chosen_agent(state).is_some_and(|agent| agent.plan() == Plan::Copilot) {
             c.boxed((0, top, c.w, 5), Some("Plan limits"), None);
             no_allowance(c, state, top + 1);
         } else {
@@ -309,12 +315,12 @@ fn recording_rows(state: &State) -> i32 {
     })
 }
 
-/// That no Copilot CLI allowance is recorded, on row `row`.
+/// That no Copilot allowance is recorded, on row `row`.
 fn no_allowance(c: &mut Canvas, state: &State, row: i32) {
     let text = if state.wide() {
-        "No allowance recorded yet. Copilot CLI records it as it runs, on a plan that has one."
+        "No allowance recorded yet. Copilot records it in its session files as it runs, on a plan that has one."
     } else {
-        "No allowance recorded yet. Copilot CLI records it as it runs."
+        "No allowance recorded yet. Copilot records it as it runs."
     };
     c.text(2, row, &fit(text, c.w - 4), c.theme.text());
 }
@@ -403,21 +409,21 @@ fn rounded(at: &Zoned) -> Zoned {
 
 /// What the Limits page stacks, from the top.
 enum Block<'a> {
-    /// One agent's windows, under its name.
-    Windows(Agent, Vec<&'a WindowView>),
+    /// One plan's windows, under its name.
+    Windows(Plan, Vec<&'a WindowView>),
     /// How Claude Code's plan limits get recorded while none are: under `Plan limits` when no
-    /// window shows, and under Claude Code's name above another agent's windows.
+    /// window shows, and under Claude Code's name above Copilot's windows.
     Recording { alone: bool },
-    /// Copilot CLI, chosen, without an allowance recorded.
+    /// A Copilot agent, chosen, without an allowance recorded.
     NoAllowance,
     /// Claude Code's recent five-hour windows.
     Recent,
-    /// Where the readings come from: Claude Code's status line and usage endpoint, and Copilot
-    /// CLI's session files.
+    /// Where the readings come from: Claude Code's status line and usage endpoint, and Copilot's
+    /// session files.
     Sources { claude_code: bool, copilot: bool },
 }
 
-/// The blocks of the Limits page: each agent's windows that show, then, for Claude Code, its
+/// The blocks of the Limits page: each plan's windows that show, then, for Claude, Claude Code's
 /// recent five-hour windows, then where the readings come from.
 fn blocks<'a>(state: &State, limits: &'a Limits) -> Vec<Block<'a>> {
     let views = views(limits);
@@ -426,34 +432,35 @@ fn blocks<'a>(state: &State, limits: &'a Limits) -> Vec<Block<'a>> {
     let in_view = |agent: Agent| {
         agents.contains(&agent.as_str()) || (agents.is_empty() && agent == Agent::ClaudeCode)
     };
-    let any = views.iter().any(|view| chosen(state, &view.reading.agent));
+    let any = views.iter().any(|view| chosen(state, &view.reading.plan));
+    let copilot_chosen = chosen_agent(state).is_some_and(|agent| agent.plan() == Plan::Copilot);
     let mut blocks = Vec::new();
-    for agent in Agent::ALL {
-        if !chosen(state, agent.as_str()) {
+    for plan in Plan::ALL {
+        if !chosen(state, plan.as_str()) {
             continue;
         }
         let windows: Vec<&WindowView> = views
             .iter()
             .copied()
-            .filter(|view| view.reading.agent == agent.as_str())
+            .filter(|view| view.reading.plan == plan.as_str())
             .collect();
         if !windows.is_empty() {
-            blocks.push(Block::Windows(agent, windows));
-        } else if agent == Agent::ClaudeCode && in_view(agent) {
+            blocks.push(Block::Windows(plan, windows));
+        } else if plan == Plan::Claude && in_view(Agent::ClaudeCode) {
             blocks.push(Block::Recording { alone: !any });
-        } else if state.agent.as_deref() == Some(agent.as_str()) {
+        } else if plan == Plan::Copilot && copilot_chosen {
             blocks.push(Block::NoAllowance);
         }
     }
-    let shows = |agent: Agent| {
+    let shows = |plan: Plan| {
         blocks.iter().any(|block| match block {
-            Block::Windows(of, _) => *of == agent,
-            Block::Recording { .. } => agent == Agent::ClaudeCode,
-            Block::NoAllowance => agent == Agent::CopilotCli,
+            Block::Windows(of, _) => *of == plan,
+            Block::Recording { .. } => plan == Plan::Claude,
+            Block::NoAllowance => plan == Plan::Copilot,
             Block::Recent | Block::Sources { .. } => false,
         })
     };
-    let (claude_code, copilot) = (shows(Agent::ClaudeCode), shows(Agent::CopilotCli));
+    let (claude_code, copilot) = (shows(Plan::Claude), shows(Plan::Copilot));
     if claude_code {
         blocks.push(Block::Recent);
     }
@@ -538,7 +545,7 @@ pub fn draw(c: &mut Canvas, state: &State) {
 
 fn draw_page(c: &mut Canvas, state: &State, limits: &Limits) {
     let blocks = blocks(state, limits);
-    // With one agent's limits, its box keeps the section's own name.
+    // With one plan's limits, its box keeps the section's own name.
     let alone = blocks
         .iter()
         .filter(|block| {
@@ -549,12 +556,10 @@ fn draw_page(c: &mut Canvas, state: &State, limits: &Limits) {
         })
         .count()
         == 1;
-    let title = |agent: Agent| {
-        if alone {
-            "Plan limits"
-        } else {
-            agent.display_name()
-        }
+    let title = |plan: Plan| match plan {
+        _ if alone => "Plan limits",
+        Plan::Claude => Agent::ClaudeCode.display_name(),
+        Plan::Copilot => plan.display_name(),
     };
     let mut top = 0;
     for (index, block) in blocks.iter().enumerate() {
@@ -563,15 +568,15 @@ fn draw_page(c: &mut Canvas, state: &State, limits: &Limits) {
             h = h.max(c.h - top);
         }
         match block {
-            Block::Windows(agent, views) => {
-                windows_box(c, state, (title(*agent), views), (top, h));
+            Block::Windows(plan, views) => {
+                windows_box(c, state, (title(*plan), views), (top, h));
             }
             Block::Recording { .. } => {
-                c.boxed((0, top, c.w, h), Some(title(Agent::ClaudeCode)), None);
+                c.boxed((0, top, c.w, h), Some(title(Plan::Claude)), None);
                 recording(c, state, top + 1);
             }
             Block::NoAllowance => {
-                c.boxed((0, top, c.w, h), Some(title(Agent::CopilotCli)), None);
+                c.boxed((0, top, c.w, h), Some(title(Plan::Copilot)), None);
                 no_allowance(c, state, top + 1);
             }
             Block::Recent => recent_box(c, state, limits, (top, h)),
@@ -912,16 +917,17 @@ fn sources(c: &mut Canvas, state: &State, limits: &Limits, y: i32, wide: bool) {
     endpoint_line(c, state, &limits.endpoint, (column, y), wide);
 }
 
-/// Where Copilot CLI's allowance comes from: the files of its sessions, as it runs.
+/// Where Copilot's allowance comes from: the files of its sessions, as Copilot CLI or VS Code's
+/// Copilot harness runs.
 fn copilot_source(c: &mut Canvas, state: &State, y: i32) {
     let theme = c.theme;
     let wide = state.wide();
     let column = if wide { 22 } else { 18 };
-    c.text(2, y, Agent::CopilotCli.display_name(), theme.strong());
+    c.text(2, y, Plan::Copilot.display_name(), theme.strong());
     let x = c.text(column, y, "✓ ", theme.good());
     let end = c.text(x, y, "read from its session files", theme.text());
     // The note at the right goes where the line leaves room for it.
-    let note = "recorded, while Copilot CLI runs";
+    let note = "recorded, while Copilot runs";
     let right = c.w - 3;
     if wide && right - width(note) >= end + 2 {
         c.right(right, y, note, theme.muted());

@@ -1,8 +1,8 @@
 //! Which series each model belongs to, as every surface colours them (ADR 0007): each family's
 //! newest version in the history gets the family's colour, and every other model shares the series
-//! of other models. Copilot CLI names Claude's models with dots, as in `claude-opus-5.5`, so the
-//! same version under both agents' ids shares the family's colour. While usage splits by agent,
-//! each agent takes a series of its own.
+//! of other models. Copilot names Claude's models with dots, as in `claude-opus-5.5`, so the same
+//! version under Claude Code's and Copilot's ids shares the family's colour. While usage splits by
+//! agent, each agent takes a series of its own.
 
 use std::collections::HashMap;
 
@@ -75,11 +75,13 @@ pub fn series_of<'a>(models: impl IntoIterator<Item = &'a str>) -> HashMap<Strin
 }
 
 /// The series an agent's part of a chart takes while usage splits by agent: Claude Code the first
-/// palette slot, Copilot CLI the second, in every theme.
+/// palette slot, Copilot CLI the second and Copilot in VS Code the third, in every theme, so that
+/// no two agents share one.
 pub fn agent_series(agent: &str) -> Series {
     match agent {
         "claude-code" => Series::Fable,
         "copilot-cli" => Series::Opus,
+        "copilot-vscode" => Series::Sonnet,
         _ => Series::Other,
     }
 }
@@ -141,6 +143,7 @@ mod tests {
     fn each_agent_takes_a_palette_slot_of_its_own() {
         assert_eq!(agent_series("claude-code"), Series::Fable);
         assert_eq!(agent_series("copilot-cli"), Series::Opus);
+        assert_eq!(agent_series("copilot-vscode"), Series::Sonnet);
         assert_eq!(agent_series("codex"), Series::Other);
     }
 

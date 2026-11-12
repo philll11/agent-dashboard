@@ -1,0 +1,91 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits         30 days · all agents · all projects · all models │
+ 1 │                                                                                                                        │
+ 2 │┌─ Sessions · 30 days ─────────────────────────────────────────────────────────────────────────── 214 · newest first ──┐│
+ 3 ││ / searches titles and projects                                                                                       ││
+ 4 ││                                                                                                                      ││
+ 5 ││   Session           Project           Agent    Started         Duration  Subagents  Requests       Cost  Claude Code ││
+ 6 ││   Refactor ingest…  agent-dashboard   Claude   10 Oct 13:42      12 min          2        40      $0.60        $0.60 ││
+ 7 ││   Fix flaky serve…  agent-dashboard   Copilot  10 Oct 11:52      49 min          1        23      $1.98              ││
+ 8 ││ › Desktop updater…  api-gateway       VS Code  10 Oct 10:02  1 h 26 min                    8      $0.17              ││
+ 9 ││   Add weekly and …  agent-dashboard   Claude   10 Oct 08:12      28 min          1       199      $8.30        $8.28 ││
+10 ││   Review pull req…  website           Copilot  10 Oct 06:22  1 h 05 min                   63      $0.35              ││
+11 ││   Price table for…  agent-dashboard   VS Code  10 Oct 04:32  1 h 42 min                    5      $1.45              ││
+12 ││   Status line col…  infra             Claude   10 Oct 02:42      44 min          1       138      $1.80      ▲ $1.67 ││
+13 ││   Investigate the…  notes             Copilot  10 Oct 00:52  1 h 21 min                   47      $2.28              ││
+14 ││   Session detail …  agent-dashboard   VS Code  9 Oct 23:02       23 min                   13      $0.37              ││
+15 ││   Explain the dis…  agent-dashboard   Claude   9 Oct 21:12   1 h 00 min          1        77      $9.50              ││
+16 ││   Sparkline width…  api-gateway       Copilot  9 Oct 19:22   1 h 37 min                   32      $0.65              ││
+17 ││   Limits pace est…  agent-dashboard   VS Code  9 Oct 17:32       39 min                   10      $1.65              ││
+18 ││   Import the clau…  website           Claude   9 Oct 15:42   1 h 16 min          2       236      $3.00        $2.99 ││
+19 ││   Untitled session  agent-dashboard   Copilot  9 Oct 13:52       18 min          1        17      $2.57              ││
+20 ││   Windows key eve…  infra             VS Code  9 Oct 12:02       55 min                    7      $0.57              ││
+21 ││   Projects trend …  notes             Claude   9 Oct 10:12   1 h 32 min          1       175     $10.70       $10.68 ││
+22 ││   Cache efficienc…  agent-dashboard   Copilot  9 Oct 08:22       34 min                   57      $0.95              ││
+23 ││   Benchmark the f…  agent-dashboard   VS Code  9 Oct 06:32   1 h 11 min                    4      $1.85              ││
+24 ││   Doctor output f…  api-gateway       Claude   9 Oct 04:42       13 min          1       114      $4.20        $4.19 ││
+25 ││   D-Bus session i…  agent-dashboard   Copilot  9 Oct 02:52       50 min                   41      $2.87              ││
+26 ││   Light terminal …  website           VS Code  9 Oct 01:02   1 h 27 min                   12      $0.77              ││
+27 ││   Model picker      agent-dashboard   Claude   8 Oct 23:12       29 min          1        53     $11.90       $11.88 ││
+28 ││   Session search    infra             Copilot  8 Oct 21:22   1 h 06 min                   26      $1.25              ││
+29 ││   Rate limit back…  notes             VS Code  8 Oct 19:32   1 h 43 min                    8      $2.05              ││
+30 ││   Time zone setti…  agent-dashboard   Claude   8 Oct 17:42       45 min          2       212      $5.40              ││
+31 ││   Release notes f…  agent-dashboard   Copilot  8 Oct 15:52   1 h 22 min          1        11      $3.18              ││
+32 ││   Sidebar width     api-gateway       VS Code  8 Oct 14:02       24 min                    5      $0.97              ││
+33 ││ 1–27 of 214 · PgDn for more                                                                                          ││
+34 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+35 │ q quit  ←→ sections  Enter open  / search  e export  ? help     Read just now · costs include API-equivalent estimates │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb cccccccccc bbbbbbbbbb bbbbbbbb bbbbbbbb        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+ 1 │                                                                                                                        │
+ 2 │ddaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbddd│
+ 3 │d e bbbbbbbbbbbbbbbbbbbbbbbbbbbb                                                                                       d│
+ 4 │d                                                                                                                      d│
+ 5 │d   bbbbbbb           bbbbbbb           bbbbb    bbbbbbb         bbbbbbbb  bbbbbbbbb  bbbbbbbb       bbbb  bbbbbbbbbbb d│
+ 6 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbbb      ffffff          f        ff      aaaaa        fffff d│
+ 7 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbbb      ffffff          f        ff      aaaaa              d│
+ 8 │dghgiiiiiiiiiiiiiiiiggjjjjjjjjjjjgggggggjjjjjjjggjjjjjjjjjjjjggiiiiiiiiiiggggggggggggggggggggiggggggkkkkkggggggggggggggd│
+ 9 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbbb      ffffff          f       fff      aaaaa        fffff d│
+10 │d   ffffffffffffffff  bbbbbbb           bbbbbbb  bbbbbbbbbbbb  ffffffffff                   ff      aaaaa              d│
+11 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbbb  ffffffffff                    f      aaaaa              d│
+12 │d   ffffffffffffffff  bbbbb             bbbbbb   bbbbbbbbbbbb      ffffff          f       fff      aaaaa      lllllll d│
+13 │d   ffffffffffffffff  bbbbb             bbbbbbb  bbbbbbbbbbbb  ffffffffff                   ff      aaaaa              d│
+14 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbb       ffffff                   ff      aaaaa              d│
+15 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbb   ffffffffff          f        ff      aaaaa              d│
+16 │d   ffffffffffffffff  bbbbbbbbbbb       bbbbbbb  bbbbbbbbbbb   ffffffffff                   ff      aaaaa              d│
+17 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbb       ffffff                   ff      aaaaa              d│
+18 │d   ffffffffffffffff  bbbbbbb           bbbbbb   bbbbbbbbbbb   ffffffffff          f       fff      aaaaa        fffff d│
+19 │d   bbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbb       ffffff          f        ff      aaaaa              d│
+20 │d   ffffffffffffffff  bbbbb             bbbbbbb  bbbbbbbbbbb       ffffff                    f      aaaaa              d│
+21 │d   ffffffffffffffff  bbbbb             bbbbbb   bbbbbbbbbbb   ffffffffff          f       fff     aaaaaa       ffffff d│
+22 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbb       ffffff                   ff      aaaaa              d│
+23 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbb   ffffffffff                    f      aaaaa              d│
+24 │d   ffffffffffffffff  bbbbbbbbbbb       bbbbbb   bbbbbbbbbbb       ffffff          f       fff      aaaaa        fffff d│
+25 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbb       ffffff                   ff      aaaaa              d│
+26 │d   ffffffffffffffff  bbbbbbb           bbbbbbb  bbbbbbbbbbb   ffffffffff                   ff      aaaaa              d│
+27 │d   ffffffffffff      bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbb       ffffff          f        ff     aaaaaa       ffffff d│
+28 │d   ffffffffffffff    bbbbb             bbbbbbb  bbbbbbbbbbb   ffffffffff                   ff      aaaaa              d│
+29 │d   ffffffffffffffff  bbbbb             bbbbbbb  bbbbbbbbbbb   ffffffffff                    f      aaaaa              d│
+30 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbb   bbbbbbbbbbb       ffffff          f       fff      aaaaa              d│
+31 │d   ffffffffffffffff  bbbbbbbbbbbbbbb   bbbbbbb  bbbbbbbbbbb   ffffffffff          f        ff      aaaaa              d│
+32 │d   fffffffffffff     bbbbbbbbbbb       bbbbbbb  bbbbbbbbbbb       ffffff                    f      aaaaa              d│
+33 │d bbbbbbbbbbbbbbbbbbbbbbbbbbb                                                                                          d│
+34 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+35 │ e bbbb  ee bbbbbbbb  eeeee bbbb  e bbbbbb  e bbbbbb  e bbbb     bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #3a404a
+e = #5cc8e8 bold
+f = #d7dae0
+g = on #1c2128
+h = #5cc8e8 on #1c2128 bold
+i = #d7dae0 on #1c2128
+j = #8a919c on #1c2128
+k = #f0f2f5 on #1c2128 bold
+l = #fab219

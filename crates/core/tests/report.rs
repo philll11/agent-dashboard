@@ -39,8 +39,8 @@ impl Fixture {
                 let app = w.project("C--code-app", Some(r"C:\code\app"))?;
                 let site = w.project("C--code-site", Some(r"C:\code\site"))?;
                 Ok((
-                    w.session("session-app", app, Agent::ClaudeCode)?,
-                    w.session("session-site", site, Agent::ClaudeCode)?,
+                    w.session("session-app", app, Agent::ClaudeCode, None)?,
+                    w.session("session-site", site, Agent::ClaudeCode, None)?,
                 ))
             })
             .unwrap();
@@ -94,6 +94,7 @@ impl Fixture {
                     reasoning_tokens: 0,
                     initiator: None,
                     charge: None,
+                    per_prompt: false,
                     imported_from: None,
                 })
             })

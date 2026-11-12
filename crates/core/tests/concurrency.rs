@@ -259,7 +259,12 @@ fn open_on_signal(folder: &Path, index: u64) {
     history
         .write(|w| {
             let project = w.project("project", None)?;
-            w.session(&format!("session-{index}"), project, Agent::ClaudeCode)?;
+            w.session(
+                &format!("session-{index}"),
+                project,
+                Agent::ClaudeCode,
+                None,
+            )?;
             Ok(())
         })
         .unwrap();
@@ -280,8 +285,12 @@ fn write_the_workload(folder: &Path, index: u64) {
             .write(|w| {
                 for version in batch {
                     let project = w.project(&format!("project-{}", version.session / 3), None)?;
-                    let session =
-                        w.session(&session_id(version.session), project, Agent::ClaudeCode)?;
+                    let session = w.session(
+                        &session_id(version.session),
+                        project,
+                        Agent::ClaudeCode,
+                        None,
+                    )?;
                     w.request(&Request {
                         session,
                         identity: Identity::from_ids(
@@ -310,6 +319,7 @@ fn write_the_workload(folder: &Path, index: u64) {
                         reasoning_tokens: 0,
                         initiator: None,
                         charge: None,
+                        per_prompt: false,
                         imported_from: None,
                     })?;
                 }

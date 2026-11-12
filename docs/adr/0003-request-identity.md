@@ -3,6 +3,7 @@
 Claude Code writes several transcript records for one request while its response streams, copies subagent records into the parent transcript, and repeats earlier requests when a session is resumed.
 A request is identified by its message id and request id; without a request id, by its message id within the session; without a message id, by the record's own id.
 Of the records that share an identity, the one with the largest usage wins, because it carries the final tally of a streamed response.
+Where their usage is equal, the larger charge wins, because a VS Code prompt's charge grows as each of its calls finishes (ADR 0017).
 The winning record gives the request its details; the earliest record gives its time, because that is when the request was made, and so the day and plan window it counts in.
 
 ## Considered options

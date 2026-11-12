@@ -1,5 +1,5 @@
-// Integration tests: VS Code with the extension as it is being developed, on a synthetic Claude Code
-// folder and a history of their own, so that they never read or change the person's.
+// Integration tests: VS Code with the extension as it is being developed, on the agents' synthetic
+// folders and a history of their own, so that they never read or change the person's.
 // VSCODE_VERSION picks the VS Code to download, such as the oldest the extension supports, and
 // VSCODE_PATH runs one already installed instead; the latest stable release otherwise.
 
@@ -32,6 +32,7 @@ export default defineConfig({
   env: {
     CLAUDE_CONFIG_DIR: prepared.env.CLAUDE_CONFIG_DIR,
     COPILOT_HOME: prepared.env.COPILOT_HOME,
+    AGENT_DASHBOARD_VSCODE_DATA: prepared.env.AGENT_DASHBOARD_VSCODE_DATA,
     AGENT_DASHBOARD_HISTORY: prepared.env.AGENT_DASHBOARD_HISTORY,
     AGENT_DASHBOARD_NOW: prepared.env.AGENT_DASHBOARD_NOW,
     TZ: prepared.env.TZ,

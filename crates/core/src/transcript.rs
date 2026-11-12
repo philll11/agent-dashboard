@@ -37,6 +37,23 @@ pub struct Transcript {
     pub modified: SystemTime,
 }
 
+/// What a session says about itself beside its requests, where its agent keeps that apart from
+/// its records: Copilot's `workspace.yaml`, or VS Code's workspace and chat session.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SessionDetails {
+    /// The working folder.
+    pub cwd: Option<String>,
+    /// The session's title.
+    pub title: Option<String>,
+    /// Whether the person gave the title, rather than the agent.
+    pub user_named: bool,
+    /// What the session was started from, such as `github/cli`, or `vscode-agent-host` for a
+    /// session of VS Code's Copilot harness.
+    pub client: Option<String>,
+    /// The version of the agent that started the session.
+    pub version: Option<String>,
+}
+
 /// Every transcript in `root`'s projects folder, most recently changed first.
 ///
 /// A session's transcript is `projects/<project>/<session>.jsonl`, and each of its subagents has

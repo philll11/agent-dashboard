@@ -18,6 +18,7 @@ Start with an issue, so we can agree on the change before you spend time on it.
 - In Markdown, each sentence goes on its own line, so diffs stay readable.
 - Commit messages are short, plain sentences that say what changed.
 - Comments explain constraints a future maintainer needs, not the history of how the code came about.
+- A test that runs agent-dashboard points `CLAUDE_CONFIG_DIR`, `COPILOT_HOME`, `AGENT_DASHBOARD_VSCODE_DATA` and `AGENT_DASHBOARD_HISTORY` at folders of its own, so it never reads your agents' folders or writes your history; `VSCODE_APPDATA` would also move the settings of a VS Code that a test runs.
 
 ## Release workflow
 
@@ -74,7 +75,7 @@ cargo build -p agent-dashboard
 pnpm --filter @agent-dashboard/app dev
 ```
 
-The preview runs the real server over generated Claude Code and Copilot CLI folders, at a fixed moment, and never reads or changes your own.
+The preview runs the real server over generated folders of Claude Code, Copilot CLI and VS Code, at a fixed moment, and never reads or changes your own.
 Add `?theme=vscode-light` to the address for another theme (`vscode-dark`, `vscode-high-contrast`, `vscode-high-contrast-light`, `desktop-dark` or `desktop-light`), and `&scenario=stale-limits` for another state, named in `web/app/tests/bridge/scenarios.ts`.
 Add `&placement=view&folder=/home/you/code/agent-dashboard` for VS Code's view in the panel, with that project's folder open.
 
@@ -118,7 +119,7 @@ It reads your own agents' folders and history, as an installed copy would.
 The tests:
 
 - `pnpm --filter agent-dashboard test` checks what the status bar and the sidebar show, with Vitest.
-- `pnpm --filter agent-dashboard test:integration` runs the extension in VS Code over the browser tests' generated Claude Code and Copilot CLI folders.
+- `pnpm --filter agent-dashboard test:integration` runs the extension in VS Code over the browser tests' generated folders of Claude Code, Copilot CLI and VS Code.
   It downloads the latest VS Code; set `VSCODE_VERSION=1.126.0` for the oldest the extension supports, or `VSCODE_PATH` to the program of a VS Code you have installed.
 - The end-to-end tests install a package of the extension into VS Code 1.137, the newest that ExTester drives, open the project whose session is running, look at the status bar, the sidebar and inside the dashboard in its tab and in the panel, and export the sessions it lists, leaving screenshots of the tab and the panel in each default theme in `screenshots` in the folder `E2E_STORAGE` names, or in `agent-dashboard-e2e` in your system's temporary folder:
 
@@ -159,7 +160,7 @@ They land in `apps/desktop/out/bundles`, named as the release names them.
 
 The tests:
 
-- The end-to-end tests install the app from its installer into a folder of their own, drive it with [tauri-driver](https://v2.tauri.app/develop/tests/webdriver/) over the browser tests' generated Claude Code and Copilot CLI folders, export the sessions it lists, and uninstall it again, leaving nothing behind but a screenshot of each section in `apps/desktop/out/screenshots`.
+- The end-to-end tests install the app from its installer into a folder of their own, drive it with [tauri-driver](https://v2.tauri.app/develop/tests/webdriver/) over the browser tests' generated folders of Claude Code, Copilot CLI and VS Code, export the sessions it lists, and uninstall it again, leaving nothing behind but a screenshot of each section in `apps/desktop/out/screenshots`.
   Install the driver with `cargo install tauri-driver --locked --version 2.1.0`, and close the app if you have it open, quitting it from its item, since a second copy hands over to the first.
   They stop where the app is installed already, since a test copy would replace its entry in Apps & features, its shortcut and its folder, or on Linux its package: uninstall it first, or test on another machine.
   The tests switch keeping the app running off, because they end it by closing its window, and one test on Windows switches it on to close the window and bring it back.

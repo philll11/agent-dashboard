@@ -1,10 +1,11 @@
 use std::fs;
 use std::path::Path;
 
-use agent_dashboard_core::agent::Agent;
+use agent_dashboard_core::agent::{Agent, VscodeHarness};
 use agent_dashboard_core::history::{
     Access, Attribution, Counts, History, HistoryError, Identity, Request, SessionKey,
 };
+use agent_dashboard_core::pricing::Charge;
 use agent_dashboard_core::tokens::Tokens;
 use rusqlite::{Connection, OpenFlags};
 
@@ -39,6 +40,7 @@ fn request<'a>(
         reasoning_tokens: 0,
         initiator: None,
         charge: None,
+        per_prompt: false,
         imported_from: None,
     }
 }
@@ -55,8 +57,8 @@ fn new_history(dir: &Path) -> (History, SessionKey, SessionKey) {
         .write(|w| {
             let project = w.project("C--code-app", Some(r"C:\code\app"))?;
             Ok((
-                w.session("session-1", project, Agent::ClaudeCode)?,
-                w.session("session-2", project, Agent::ClaudeCode)?,
+                w.session("session-1", project, Agent::ClaudeCode, None)?,
+                w.session("session-2", project, Agent::ClaudeCode, None)?,
             ))
         })
         .unwrap();
@@ -370,7 +372,7 @@ fn a_failed_write_records_nothing() {
 
     let result: Result<(), HistoryError> = history.write(|w| {
         let project = w.project("C--code-app", None)?;
-        let session = w.session("session-1", project, Agent::ClaudeCode)?;
+        let session = w.session("session-1", project, Agent::ClaudeCode, None)?;
         w.request(&request(session, MESSAGE, "rec-1", 50))?;
         Err(HistoryError::NotAHistory { path: path.clone() })
     });
@@ -516,8 +518,8 @@ fn a_session_is_found_by_claude_codes_id() {
         .write(|w| {
             let project = w.project("C--code-app", None)?;
             Ok((
-                w.session("session-1", project, Agent::ClaudeCode)?,
-                w.session("session-2", project, Agent::ClaudeCode)?,
+                w.session("session-1", project, Agent::ClaudeCode, None)?,
+                w.session("session-2", project, Agent::ClaudeCode, None)?,
             ))
         })
         .unwrap();
@@ -527,4 +529,80 @@ fn a_session_is_found_by_claude_codes_id() {
         assert_eq!((found.key, found.session_id.as_str()), (key, session_id));
     }
     assert!(history.session("session-3").unwrap().is_none());
+}
+
+#[test]
+fn a_larger_charge_wins_when_the_tokens_are_equal() {
+    // A prompt in VS Code whose subagents add credits while its output tokens stay the same.
+    for order in EVERY_ORDER {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut history, session, _) = new_history(dir.path());
+        let prompt = |credits: u64| Request {
+            charge: Some(Charge {
+                input: credits * 1_000_000_000,
+                ..Charge::default()
+            }),
+            per_prompt: true,
+            ..request(session, Identity::Record, "vscode:request_1", 1690)
+        };
+        let readings = [prompt(1), prompt(3), prompt(2)];
+        for index in order {
+            record(&mut history, &[readings[index]]);
+        }
+        let conn =
+            Connection::open_with_flags(history.path(), OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let held: (i64, i64) = conn
+            .query_row(
+                "SELECT charge_input_nano, per_prompt FROM requests",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(held, (3_000_000_000, 1), "order {order:?}");
+    }
+}
+
+#[test]
+fn a_copilot_session_becomes_copilot_in_vs_code_s_and_never_goes_back() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut history = History::open(&dir.path().join("history.sqlite")).unwrap();
+    history
+        .write(|w| {
+            let project = w.project("C--code-app", None)?;
+            w.session("copilot", project, Agent::CopilotCli, None)?;
+            w.session("claude", project, Agent::ClaudeCode, None)?;
+            // Read again once its details say VS Code started it.
+            w.session(
+                "copilot",
+                project,
+                Agent::CopilotVscode,
+                Some(VscodeHarness::Copilot),
+            )?;
+            // Read again without them, such as when its details cannot be read.
+            w.session("copilot", project, Agent::CopilotCli, None)?;
+            // A session of another agent never becomes VS Code's.
+            w.session(
+                "claude",
+                project,
+                Agent::CopilotVscode,
+                Some(VscodeHarness::Local),
+            )?;
+            w.session(
+                "local",
+                project,
+                Agent::CopilotVscode,
+                Some(VscodeHarness::Local),
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let agent_of = |session_id: &str| history.session(session_id).unwrap().unwrap().agent;
+    assert_eq!(agent_of("copilot"), Agent::CopilotVscode);
+    assert_eq!(agent_of("claude"), Agent::ClaudeCode);
+    assert_eq!(agent_of("local"), Agent::CopilotVscode);
+    assert_eq!(
+        history.agents().unwrap(),
+        [Agent::ClaudeCode, Agent::CopilotVscode]
+    );
 }

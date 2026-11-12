@@ -1,6 +1,6 @@
 # agent-dashboard
 
-See how you use your coding agents, Claude Code and GitHub Copilot CLI: what your usage costs, where it goes, and how close you are to your plan limits.
+See how you use your coding agents, Claude Code, GitHub Copilot CLI and GitHub Copilot in VS Code: what your usage costs, where it goes, and how close you are to your plan limits.
 It runs inside VS Code, as a desktop app and in the terminal, on Windows, macOS and Linux, with nothing else to install.
 
 > It is made for personal use, and installed from the [releases](https://github.com/philll11/agent-dashboard/releases) rather than a marketplace.
@@ -136,12 +136,13 @@ For a screen reader, the reports below print plain lines.
 
 `daily`, `models` and `projects` cover the last 30 days and `sessions` the last 7, unless you give `--since` and `--until` with dates such as `2026-10-05`.
 `weekly` and `monthly` cover the last 12 weeks and months, and with `--since` and `--until` every week or month those days fall in, whole; weeks start on the day the dashboard's settings name, Monday unless you choose another.
-Every report takes `--json` or `--csv` for scripts, and `--agent claude-code` or `--agent copilot-cli` for one agent's usage.
+Every report takes `--json` or `--csv` for scripts, and `--agent claude-code`, `--agent copilot-cli` or `--agent copilot-vscode` for one agent's usage.
 Each command first reads what the agents have added to their transcripts; the first time, that takes a few seconds.
 
 ### Export
 
 `agent-dashboard export` writes one row per request, with its agent, session, project, model, tokens, tools and cost, and where the cost comes from: as CSV unless you give `--json`, for every day unless you give `--since` and `--until`.
+A request from VS Code's own chat session files is a whole prompt, marked `per_prompt`, with its input and cache tokens left empty, since VS Code does not record them.
 It writes to standard output for scripts, or with `--output requests.csv` to a file made for spreadsheets: a CSV file starts with UTF-8's byte order mark, so that Excel reads it as UTF-8, and text that a spreadsheet would take for a formula, such as a session title starting with `=`, gets an apostrophe before it.
 Use `--output` in Windows PowerShell 5.1, whose `>` writes another encoding.
 The dashboard's exports are the same files.
@@ -150,8 +151,8 @@ Days are written in your time zone, moments in UTC, and costs in US dollars with
 ### Cost
 
 Claude Code's cost is an API-equivalent estimate: what its requests would cost at Anthropic's published API prices, never what your plan charges.
-Copilot CLI's cost is what Copilot CLI recorded for each request in AI credits, at $0.01 a credit, including what GitHub adds, such as for data residency.
-A figure that adds both says it includes an estimate, and the agent filter splits it.
+Copilot's cost, in Copilot CLI and in VS Code, is what Copilot recorded for each request in AI credits, at $0.01 a credit, including what GitHub adds, such as for data residency.
+A figure that adds Claude Code's cost to Copilot's says it includes an estimate, and the agent filter splits it.
 
 ### Prices
 
@@ -162,8 +163,8 @@ A newer table is used only when it keeps every price this version has, adding on
 
 ### Plan limits
 
-Copilot CLI notes your monthly allowance, in AI credits, with each request it makes, so there is nothing to connect.
-The allowance counts Copilot wherever you use it, not only the CLI, and resets at 00:00 UTC on the 1st of each month.
+Copilot notes your monthly allowance, in AI credits, in its session files with each request it makes, so there is nothing to connect.
+The allowance counts Copilot wherever you use it, and resets at 00:00 UTC on the 1st of each month.
 
 Claude Code passes your plan limits to its status line command while it runs in a terminal.
 `agent-dashboard statusline connect` makes agent-dashboard that command, after showing you the change to Claude Code's `settings.json` and keeping a backup.
@@ -181,10 +182,22 @@ Anthropic's terms say Claude Code's login is for Claude Code and Anthropic's own
 
 If you used the [claude-usage](https://github.com/phuryn/claude-usage) dashboard, `agent-dashboard import claude-usage` brings in the requests from its database that the history does not have, such as those from transcripts Claude Code has since deleted.
 
+### Copilot in VS Code
+
+VS Code runs each Copilot session in its Chat view on one of two harnesses, and agent-dashboard reads both as Copilot in VS Code.
+A session on the Copilot harness, VS Code's default, is kept with Copilot CLI's in `~/.copilot`, with the same tokens and charges.
+A session on the Local harness, which VS Code removes in February 2027, is kept in VS Code's own chat session files, which record each prompt's output tokens and charge but not its input or cache tokens: those show as not recorded, and totals say how many prompts they leave out.
+VS Code records a prompt's charge from version 1.126, so earlier prompts are unpriced.
+Inline chat and code completions leave no usage on disk, so they are not counted.
+
+In a window connected to WSL, over SSH or in a container, the Copilot harness keeps its sessions on that machine, where the extension installed in that window reads them.
+The desktop app and the terminal on your own computer reach WSL's sessions once you add its `~/.copilot` folder in Settings.
+
 ### Where the data lives
 
 agent-dashboard reads what Claude Code keeps in `~/.claude`, or in the folders that `CLAUDE_CONFIG_DIR` names, separated by commas, and what Copilot CLI keeps in `~/.copilot/session-state`, or under the folder `COPILOT_HOME` names.
-Settings, or the dashboard's own Settings section, can add another folder for either agent, such as one in WSL.
+For Copilot in VS Code it reads VS Code's user data folder, and Insiders' too: `%APPDATA%\Code` on Windows, `~/Library/Application Support/Code` on macOS and `~/.config/Code` on Linux, or the folder `VSCODE_PORTABLE` or `VSCODE_APPDATA` points VS Code to; `AGENT_DASHBOARD_VSCODE_DATA` names another.
+Settings, or the dashboard's own Settings section, can add another folder for any agent, such as one in WSL, or the folder a VS Code started with `--user-data-dir` uses.
 It keeps its own history in `history.sqlite`, in `%LOCALAPPDATA%\agent-dashboard` on Windows, `~/Library/Application Support/agent-dashboard` on macOS and `~/.local/share/agent-dashboard` on Linux.
 Set `AGENT_DASHBOARD_HISTORY` to keep it in another file, `NO_COLOR` to turn colours off, and `AGENT_DASHBOARD_THEME` to `light` or `dark` to choose colours for your terminal's background.
 
@@ -207,7 +220,7 @@ If you set `CLAUDE_DASHBOARD_HISTORY` or `CLAUDE_DASHBOARD_THEME`, set `AGENT_DA
 
 ## Privacy
 
-- agent-dashboard reads the files Claude Code and Copilot CLI keep on your machine and records numbers, names and titles in a local database; it never stores prompt or code content.
+- agent-dashboard reads the files Claude Code, Copilot CLI and VS Code keep on your machine and records numbers, names and titles in a local database; it never stores prompt or code content.
 - There is no telemetry.
 - It only uses the network for features you switch on: plan limits from Anthropic's undocumented usage endpoint (labelled experimental), update checks for the desktop app, and the daily check for a newer price table in this repository.
 

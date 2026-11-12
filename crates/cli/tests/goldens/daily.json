@@ -7,7 +7,8 @@
       "output": 1920,
       "cache_write_5m": 1500,
       "cache_write_1h": 3000,
-      "cache_read": 126000
+      "cache_read": 126000,
+      "per_prompt_requests": 0
     },
     "cost": {
       "usd": 0.13,
@@ -28,7 +29,8 @@
       "output": 2560,
       "cache_write_5m": 2000,
       "cache_write_1h": 4000,
-      "cache_read": 168000
+      "cache_read": 168000,
+      "per_prompt_requests": 0
     },
     "cost": {
       "usd": 0.07,

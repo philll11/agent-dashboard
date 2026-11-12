@@ -14,7 +14,7 @@
   - text: /History since \d+ July \d+ · read just now/
 - main:
   - heading "Models" [level=1]
-  - text: /8 models in the last \d+ days · \$\d+\.\d+ including estimates/
+  - text: /9 models in the last \d+ days · \$\d+\.\d+ including estimates/
   - 'button /Date range: Last \d+ days/'
   - 'button "Agent: All agents"'
   - 'button "Project: All projects"'
@@ -26,7 +26,8 @@
     - list "Legend":
       - listitem: /Claude Code , \$\d+\.\d+/
       - listitem: /Copilot CLI , \$\d+\.\d+/
-    - 'group /2 lines of cost per day, last \d+ days: Claude Code \$\d+\.\d+, Copilot CLI \$\d+\.\d+\. The left and right arrow keys read along it\./'
+      - listitem: /Copilot in VS Code , \$\d+\.\d+/
+    - 'group /3 lines of cost per day, last \d+ days: Claude Code \$\d+\.\d+, Copilot CLI \$\d+\.\d+, Copilot in VS Code \$\d+\.\d+\. The left and right arrow keys read along it\./'
   - region /Tokens and cost · last \d+ days/:
     - heading /Tokens and cost · last \d+ days/ [level=2]
     - table:
@@ -154,6 +155,52 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell "0%"
           - cell /\$\d+\.\d+/
+      - rowgroup:
+        - row /Copilot in VS Code \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+          - rowheader "Copilot in VS Code"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0%"
+          - cell /\$\d+\.\d+/
+        - row /Sonnet 4\.6 9 not recorded [\d,.]+[bkmBKM]+ not recorded not recorded not recorded not recorded 0% \$\d+\.\d+/:
+          - rowheader "Sonnet 4.6"
+          - cell "9"
+          - cell "not recorded"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "not recorded"
+          - cell "not recorded"
+          - cell "not recorded"
+          - cell "not recorded"
+          - cell "0%"
+          - cell /\$\d+\.\d+/
+        - row /Opus 5\.5 \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ 0 [\d,.]+[bkmBKM]+ 0% \$\d+\.\d+/:
+          - rowheader "Opus 5.5"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "0%"
+          - cell /\$\d+\.\d+/
+        - row /GPT-5\.5 3 not recorded [\d,.]+[bkmBKM]+ not recorded not recorded not recorded not recorded 0% \$\d+\.\d+/:
+          - rowheader "GPT-5.5"
+          - cell "3"
+          - cell "not recorded"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "not recorded"
+          - cell "not recorded"
+          - cell "not recorded"
+          - cell "not recorded"
+          - cell "0%"
+          - cell /\$\d+\.\d+/
+    - paragraph: /VS Code's chat session files record a prompt's output tokens and charge alone, so the input and cache tokens leave out \d+ prompts\./
   - region "Prices used · US dollars per million tokens":
     - heading "Prices used · US dollars per million tokens" [level=2]
     - text: /Price table of \d+ October \d+, from Anthropic's pricing page/
@@ -202,4 +249,4 @@
           - cell /\$\d+\.\d+/
           - cell /\$\d+\.\d+/
           - cell /\$\d+\.\d+/
-    - paragraph: /Fast mode, US-only inference \(1\.1 times\) and web search are priced from the same table\. A model missing from it shows as unpriced, never as free; Settings can check this project's repository for a newer table once a day\. Copilot CLI's requests cost what Copilot CLI recorded, at \$\d+\.\d+ an AI credit, so they need no price\./
+    - paragraph: /Fast mode, US-only inference \(1\.1 times\) and web search are priced from the same table\. A model missing from it shows as unpriced, never as free; Settings can check this project's repository for a newer table once a day\. Copilot's requests cost what Copilot recorded, at \$\d+\.\d+ an AI credit, so they need no price\./

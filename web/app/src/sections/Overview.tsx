@@ -1,10 +1,11 @@
 // Overview: plan limits, today, this week and this month, cost per day by model, top projects and
 // models, for the chosen days and filters.
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import type {
   CostProvenance,
+  Day,
   Limits,
   ModelRow,
   Overview as OverviewAnswer,
@@ -13,7 +14,15 @@ import type {
   WindowReading,
 } from "@agent-dashboard/protocol";
 
-import { type AgentOverview, agentFill, agentName, nameUnder } from "../agents";
+import {
+  type AgentOverview,
+  agentFill,
+  agentName,
+  nameUnder,
+  planName,
+  planOf,
+  recordsCharges,
+} from "../agents";
 import { StackedColumns } from "../charts/columns";
 import { Meter, ShareBar, Sparkline } from "../charts/small";
 import { useHost, useStatus } from "../context";
@@ -41,13 +50,15 @@ import {
   costSource,
   costText,
   ModelMenu,
+  NotRecorded,
+  onlyPrompts,
   ProjectMenu,
+  promptsNote,
   RangeButtons,
   SectionHead,
   signedPercent,
   PROVENANCE_BADGE,
   tokensOf,
-  useAgents,
   useDays,
   useFilters,
   useDaysScope,
@@ -60,7 +71,7 @@ import { ExportMenu } from "../exports";
 import { StatusLineDialog } from "./dialogs";
 import { Notices } from "./notices";
 import { agentChart, costColumns, costSeries, dailyCost } from "./series";
-import { byAgent, creditsText, groupedName, LEVEL_TEXT, meterName, windowName } from "../windows";
+import { byPlan, creditsText, groupedName, LEVEL_TEXT, meterName, windowName } from "../windows";
 import { LevelIcon, Provenance } from "./provenance";
 
 export function Overview() {
@@ -117,23 +128,26 @@ function PlanLimits() {
   const now = useNow(30_000);
   const limits = useRequest("limits", null).data;
   const agents = useRequest("choices", null).data?.agents.map((agent) => agent.id);
-  const groups = byAgent(status.limits);
+  const groups = byPlan(status.limits);
   if (groups.length === 0) {
-    if (agents?.length === 1 && agents[0] === "copilot-cli") return <NoAllowance />;
+    const copilotOnly =
+      agents !== undefined &&
+      agents.length > 0 &&
+      agents.every((agent) => planOf(agent) === "copilot");
+    if (copilotOnly) return <NoAllowance />;
     return <NoLimits limits={limits} />;
   }
   // Claude Code's windows need its status line: while the history holds Claude Code's requests
   // but no reading, its group says how to get one.
   const claudeWaits =
-    agents?.includes("claude-code") === true &&
-    !groups.some((group) => group.agent === "claude-code");
-  const shown = claudeWaits ? [{ agent: "claude-code", readings: [] }, ...groups] : groups;
+    agents?.includes("claude-code") === true && !groups.some((group) => group.plan === "claude");
+  const shown = claudeWaits ? [{ plan: "claude", readings: [] }, ...groups] : groups;
   const [only] = shown;
   if (shown.length === 1 && only) {
     return (
       <Panel title="Plan limits" actions={<Provenance readings={only.readings} nowMs={now} />}>
         <Meters readings={only.readings} nowMs={now} name={windowName} />
-        <GroupNote agent={only.agent} readings={only.readings} limits={limits} nowMs={now} />
+        <GroupNote plan={only.plan} readings={only.readings} limits={limits} nowMs={now} />
       </Panel>
     );
   }
@@ -142,19 +156,19 @@ function PlanLimits() {
       <div className="limit-groups">
         {shown.map((group) => (
           <section
-            key={group.agent}
+            key={group.plan}
             className="limit-group"
-            aria-label={`${agentName(group.agent)}'s plan limits`}
+            aria-label={`${planName(group.plan)}'s plan limits`}
           >
             <div className="limit-group-head">
-              <h3>{agentName(group.agent)}</h3>
+              <h3>{planName(group.plan)}</h3>
               <Provenance readings={group.readings} nowMs={now} />
             </div>
             {group.readings.length > 0 ? (
               <>
                 <Meters readings={group.readings} nowMs={now} name={groupedName} />
                 <GroupNote
-                  agent={group.agent}
+                  plan={group.plan}
                   readings={group.readings}
                   limits={limits}
                   nowMs={now}
@@ -186,7 +200,7 @@ function Meters({
       {readings.map((reading) => {
         const credits = reading.expired ? undefined : creditsText(reading);
         return (
-          <div key={`${reading.agent}:${reading.window}`} className="meter-block">
+          <div key={`${reading.plan}:${reading.window}`} className="meter-block">
             <div className="meter-head">
               <span className="meter-name">{name(reading)}</span>
               <span
@@ -232,28 +246,28 @@ function Meters({
   );
 }
 
-/** What an agent's readings need said: why they are old, or what Copilot's allowance counts. */
+/** What a plan's readings need said: why they are old, or what Copilot's allowance counts. */
 function GroupNote({
-  agent,
+  plan,
   readings,
   limits,
   nowMs,
 }: {
-  agent: string;
+  plan: string;
   readings: readonly WindowReading[];
   limits: Limits | undefined;
   nowMs: number;
 }) {
   const stale = readings.every((reading) => reading.stale || reading.expired);
-  if (agent === "copilot-cli") {
+  if (plan === "copilot") {
     const newest = Math.max(...readings.map((reading) => reading.observedMs));
     return (
       <p className="note">
         {stale
-          ? `Copilot CLI last noted the allowance ${ago(newest, nowMs)}; it updates the next time Copilot CLI runs. `
+          ? `Copilot last noted the allowance ${ago(newest, nowMs)}; it updates the next time Copilot CLI or VS Code's Copilot harness runs. `
           : ""}
-        The allowance counts Copilot wherever you use it, not just the CLI
-        {stale ? "." : ", and updates while Copilot CLI runs."}
+        The allowance counts Copilot wherever you use it
+        {stale ? "." : ", and updates while Copilot runs."}
       </p>
     );
   }
@@ -304,13 +318,13 @@ function NoLimits({ limits }: { limits: Limits | undefined }) {
   );
 }
 
-/** Copilot CLI's allowance before Copilot CLI has noted it. */
+/** Copilot's allowance before Copilot has noted it. */
 function NoAllowance() {
   return (
     <Panel title="Plan limits">
       <p className="note">
-        Your Copilot allowance appears here once Copilot CLI makes a request. It counts Copilot
-        wherever you use it, not just the CLI.
+        Your Copilot allowance appears here once Copilot notes it, which Copilot CLI and VS Code's
+        Copilot harness do with each request. It counts Copilot wherever you use it.
       </p>
     </Panel>
   );
@@ -371,20 +385,20 @@ function ConnectStatusLine({ limits }: { limits: Limits | undefined }) {
 function Tiles() {
   const status = useStatus();
   const filters = useFilters();
-  const agents = useAgents();
   const today = status.today;
   const weekStart = startOfWeek(today, status.weekStart);
   const monthStart = `${today.slice(0, 8)}01`;
   const first = [addDays(today, -29), monthStart, addDays(weekStart, -7)].sort()[0] ?? today;
   const recent = useRequest("overview", { days: { first, last: today }, filters }).data;
+  const byAgent = useByAgent({ first, last: today }, filters);
   if (!recent) return <div className="tiles" />;
-  const sum = (from: string, to: string) => {
+  const sumOf = (byDay: readonly Day[], from: string, to: string) => {
     let cost = 0;
     let tokens = 0;
     let chargedUsd = 0;
     let chargedCredits = 0;
     const kinds = new Set<CostProvenance>();
-    for (const day of recent.byDay) {
+    for (const day of byDay) {
       if (day.date < from || day.date > to) continue;
       cost += day.totals.cost.total;
       tokens += tokensOf(day.totals);
@@ -394,6 +408,7 @@ function Tiles() {
     }
     return { cost, tokens, chargedUsd, chargedCredits, provenance: combined(kinds) };
   };
+  const sum = (from: string, to: string) => sumOf(recent.byDay, from, to);
   const todays = sum(today, today);
   const yesterdays = sum(addDays(today, -1), addDays(today, -1));
   const week = sum(weekStart, today);
@@ -404,25 +419,35 @@ function Tiles() {
     const change = signedPercent(now, before);
     return change ? `${change} on ${what}` : `nothing ${what}`;
   };
-  // Claude Code's cost is all estimate and Copilot CLI's all recorded charges, so the two parts
-  // of a figure are its agents' shares.
-  const split = agents.length > 1;
-  const parts = (period: ReturnType<typeof sum>) =>
-    split ? (
+  // Each agent's part of a figure: Claude Code's an estimate, a Copilot agent's its recorded
+  // charges. A narrow tile breaks the line only between the cost and the credits.
+  const parts = (from: string, to: string) =>
+    byAgent && byAgent.length > 0 ? (
       <dl className="tile-breakdown">
-        <dt>Claude Code</dt>
-        <dd>
-          {money(Math.max(0, period.cost - period.chargedUsd))}{" "}
-          <span className="muted">estimate</span>
-        </dd>
-        <dt>Copilot CLI</dt>
-        <dd>
-          {money(period.chargedUsd)}{" "}
-          <span className="muted">
-            recorded · {grouped(period.chargedCredits)}{" "}
-            {Math.round(period.chargedCredits) === 1 ? "credit" : "credits"}
-          </span>
-        </dd>
+        {byAgent.map(({ agent, overview }) => {
+          const part = sumOf(overview.byDay, from, to);
+          const charges = recordsCharges(agent);
+          return (
+            <Fragment key={agent}>
+              <dt>{agentName(agent)}</dt>
+              <dd>
+                <span className="nowrap">
+                  {money(part.cost)}{" "}
+                  <span className="muted">{charges ? "recorded" : "estimate"}</span>
+                </span>
+                {charges && (
+                  <span className="muted">
+                    {" · "}
+                    <span className="nowrap">
+                      {grouped(part.chargedCredits)}{" "}
+                      {Math.round(part.chargedCredits) === 1 ? "credit" : "credits"}
+                    </span>
+                  </span>
+                )}
+              </dd>
+            </Fragment>
+          );
+        })}
       </dl>
     ) : undefined;
   const badge = (period: ReturnType<typeof sum>) =>
@@ -436,7 +461,7 @@ function Tiles() {
         value={money(todays.cost)}
         note={`${compact(todays.tokens)} tokens · ${compared(todays.cost, yesterdays.cost, "yesterday")}`}
         badge={badge(todays)}
-        breakdown={parts(todays)}
+        breakdown={parts(today, today)}
       >
         <Sparkline values={spark(12)} label="Daily cost over the last 12 days" format={money} />
       </Tile>
@@ -445,7 +470,7 @@ function Tiles() {
         value={money(week.cost)}
         note={`${compact(week.tokens)} tokens · ${compared(week.cost, lastWeek.cost, "last week")}`}
         badge={badge(week)}
-        breakdown={parts(week)}
+        breakdown={parts(weekStart, today)}
       >
         <Sparkline values={spark(18)} label="Daily cost over the last 18 days" format={money} />
       </Tile>
@@ -454,7 +479,7 @@ function Tiles() {
         value={money(month.cost)}
         note={`${compact(month.tokens)} tokens · month to date`}
         badge={badge(month)}
-        breakdown={parts(month)}
+        breakdown={parts(monthStart, today)}
       >
         <Sparkline values={spark(30)} label="Daily cost over the last 30 days" format={money} />
       </Tile>
@@ -686,6 +711,7 @@ function ModelsRow({
   indent?: boolean;
 }) {
   const unpriced = totals.requests > 0 && totals.unpricedRequests === totals.requests;
+  const recorded = (count: number) => (onlyPrompts(totals) ? <NotRecorded /> : compact(count));
   return (
     <tr className={agent ? "agent-row" : undefined}>
       <th scope={agent ? "rowgroup" : "row"} className="strong">
@@ -695,10 +721,10 @@ function ModelsRow({
         </span>
       </th>
       <td>{grouped(totals.requests)}</td>
-      <td>{compact(totals.tokens.input)}</td>
+      <td>{recorded(totals.tokens.input)}</td>
       <td>{compact(totals.tokens.output)}</td>
-      <td>{compact(totals.tokens.cacheWrite5m + totals.tokens.cacheWrite1h)}</td>
-      <td>{compact(totals.tokens.cacheRead)}</td>
+      <td>{recorded(totals.tokens.cacheWrite5m + totals.tokens.cacheWrite1h)}</td>
+      <td>{recorded(totals.tokens.cacheRead)}</td>
       <td className="strong">
         {unpriced ? (
           <span className="unpriced">
@@ -788,10 +814,13 @@ function ModelsPanel({
           )}
         </table>
       </TableScroll>
+      {totals && totals.perPromptRequests > 0 && (
+        <p className="footnote">{promptsNote(totals.perPromptRequests)}</p>
+      )}
       {provenance !== "estimate" && (
         <div className="estimate">
           <span className="badge">Recorded</span>
-          <span>Copilot CLI's charges, at $0.01 an AI credit</span>
+          <span>Copilot's charges, at $0.01 an AI credit</span>
         </div>
       )}
       {prices && provenance !== "recorded" && (

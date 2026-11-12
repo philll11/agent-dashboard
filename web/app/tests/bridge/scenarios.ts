@@ -58,11 +58,12 @@ const unpricedSession: NonNullable<Scenario["patch"]> = (method, result) => {
 };
 
 export const SCENARIOS: Record<string, Scenario> = {
-  /** Ten weeks of Claude Code's history and a few weeks of Copilot CLI's, plan limits from the
-   * status line and Copilot CLI's allowance, the usage endpoint on. */
+  /** Ten weeks of Claude Code's history, a few weeks of Copilot CLI's and a few chats of
+   * Copilot in VS Code, plan limits from the status line and Copilot's allowance, the usage
+   * endpoint on. */
   default: {},
-  /** Claude Code alone, as for someone who does not use Copilot CLI. */
-  "claude-only": { options: { noCopilot: true } },
+  /** Claude Code alone, as for someone who does not use Copilot. */
+  "claude-only": { options: { noCopilot: true, noVscode: true } },
   /** No Claude Code folder at all. */
   empty: { empty: true },
   /** The status line is not connected and nothing has recorded plan limits. */

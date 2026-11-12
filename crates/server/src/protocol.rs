@@ -22,7 +22,7 @@ pub struct Days {
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "protocol.ts")]
 pub struct Filters {
-    /// An agent: `claude-code` or `copilot-cli`.
+    /// An agent: `claude-code`, `copilot-cli` or `copilot-vscode`.
     #[ts(optional = nullable)]
     pub agent: Option<String>,
     /// A project's id.
@@ -69,7 +69,7 @@ pub struct Totals {
     /// Reasoning tokens, which the output tokens already count.
     pub reasoning_tokens: u64,
     /// The cost of the priced requests in US dollars: Claude Code's API-equivalent cost and the
-    /// charges Copilot CLI recorded.
+    /// charges Copilot recorded. A per-prompt request's charge is one total, held as input.
     pub cost: Cost,
     /// Where the cost comes from; absent when no request is priced.
     #[ts(optional = nullable)]
@@ -82,6 +82,9 @@ pub struct Totals {
     pub charged_credits: f64,
     /// Requests with neither a price nor a recorded charge, whose cost is unknown.
     pub unpriced_requests: u64,
+    /// Requests that are prompts, as VS Code's chat session files record them: their input and
+    /// cache tokens are not recorded, so `tokens` holds only their output.
+    pub per_prompt_requests: u64,
     pub web_search_requests: u64,
     pub fast_requests: u64,
 }
@@ -93,7 +96,7 @@ pub struct Totals {
 pub enum CostProvenance {
     /// Claude Code's API-equivalent cost, from the price table.
     Estimate,
-    /// Charges Copilot CLI recorded.
+    /// Charges Copilot recorded.
     Recorded,
     /// Both.
     Mixed,
@@ -131,7 +134,7 @@ pub struct Project {
 pub enum Provenance {
     /// Claude Code's status line.
     Official,
-    /// What Copilot CLI recorded in its own files.
+    /// What Copilot recorded in its session files.
     Recorded,
     /// Anthropic's undocumented usage endpoint.
     Experimental,
@@ -154,10 +157,11 @@ pub enum Level {
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "protocol.ts")]
 pub struct WindowReading {
-    /// The agent whose plan the window is of: `claude-code` or `copilot-cli`.
-    pub agent: String,
+    /// The plan the window is of: `claude`, whose windows Claude Code reports, or `copilot`,
+    /// whose allowance counts Copilot CLI and Copilot in VS Code alike.
+    pub plan: String,
     /// `five_hour`, `seven_day`, `seven_day:<model>` for one model's weekly window, another
-    /// window Claude Code reports, such as `spend_limit`, or Copilot CLI's `monthly` allowance.
+    /// window Claude Code reports, such as `spend_limit`, or Copilot's `monthly` allowance.
     pub window: String,
     /// The model whose weekly window this is.
     #[ts(optional = nullable)]
@@ -325,7 +329,7 @@ pub struct SessionsParams {
 pub struct SessionRow {
     /// The agent's session id.
     pub id: String,
-    /// `claude-code` or `copilot-cli`.
+    /// `claude-code`, `copilot-cli` or `copilot-vscode`.
     pub agent: String,
     #[ts(optional = nullable)]
     pub title: Option<String>,
@@ -418,7 +422,7 @@ pub struct SessionDetail {
     pub last_ms: i64,
     #[ts(optional = nullable)]
     pub agent_version: Option<String>,
-    /// `claude-code` or `copilot-cli`.
+    /// `claude-code`, `copilot-cli` or `copilot-vscode`.
     pub agent: String,
     /// Requests by who started them, for an agent that records it, as Copilot CLI does.
     #[ts(optional = nullable)]
@@ -534,7 +538,7 @@ pub struct Initiators {
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "protocol.ts")]
 pub struct AgentChoice {
-    /// `claude-code` or `copilot-cli`.
+    /// `claude-code`, `copilot-cli` or `copilot-vscode`.
     pub id: String,
     /// Such as `Copilot CLI`.
     pub name: String,
@@ -687,10 +691,13 @@ pub enum FolderState {
 #[ts(export, export_to = "protocol.ts")]
 pub struct Folder {
     pub path: String,
-    /// The agent whose data the folder holds: `claude-code` or `copilot-cli`.
+    /// The agent whose data the folder holds: `claude-code`, `copilot-cli` or `copilot-vscode`.
     pub agent: String,
     /// `default`, `environment` or `added`.
     pub source: String,
+    /// The environment variable that names an `environment` folder, such as `COPILOT_HOME`.
+    #[ts(optional = nullable)]
+    pub variable: Option<String>,
     pub state: FolderState,
 }
 

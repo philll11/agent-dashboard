@@ -1,6 +1,6 @@
 [package]
 name = "agent-dashboard"
-description = "See how you use Claude Code and Copilot CLI: plan limits, usage, cost and where it goes."
+description = "See how you use Claude Code, Copilot CLI and Copilot in VS Code: plan limits, usage, cost and where it goes."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -40,6 +40,6 @@ assert_cmd = "2.2.2"
 insta = { version = "1.48.0", default-features = false }
 portable-pty = "0.9.0"
 predicates = "3.1.4"
-rusqlite = { version = "0.40.2", default-features = false, features = ["bundled", "cache", "fallible_uint"] }
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled", "cache", "fallible_uint"] }
 tempfile = "3.27.0"
 vt100 = "0.16.2"

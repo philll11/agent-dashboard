@@ -288,7 +288,12 @@ fn import_turn(
             known.projects.insert(cwd, project);
             project
         };
-        let session = w.session(&turn.session_id, project, crate::agent::Agent::ClaudeCode)?;
+        let session = w.session(
+            &turn.session_id,
+            project,
+            crate::agent::Agent::ClaudeCode,
+            None,
+        )?;
         known.sessions.insert(turn.session_id.clone(), session);
         session
     };
@@ -323,6 +328,7 @@ fn import_turn(
         reasoning_tokens: 0,
         initiator: None,
         charge: None,
+        per_prompt: false,
         imported_from: Some(CLAUDE_USAGE),
     })?;
     known

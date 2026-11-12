@@ -55,12 +55,19 @@ test("the agent filter narrows the figures to one agent's", async ({ dashboard, 
   await page.getByRole("button", { name: "Agent: All agents" }).click();
   await page.getByRole("menuitemradio", { name: "Copilot CLI" }).click();
   await expect(page.getByRole("button", { name: "Agent: Copilot CLI" })).toBeVisible();
-  await expect(page.getByText(/^As Copilot CLI recorded it · /)).toBeVisible();
+  await expect(page.getByText(/^As Copilot recorded it · /)).toBeVisible();
   const today = page.getByRole("region", { name: "Today", exact: true });
   await expect(today.getByText("$1.74", { exact: true })).toBeVisible();
   await expect(today.getByText("Recorded", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Agent: Copilot CLI" }).click();
+  await page.getByRole("menuitemradio", { name: "Copilot in VS Code" }).click();
+  await expect(page.getByRole("button", { name: "Agent: Copilot in VS Code" })).toBeVisible();
+  const month = page.getByRole("region", { name: "This month", exact: true });
+  await expect(month.getByText("$1.89", { exact: true })).toBeVisible();
+  await expect(month.getByText("Recorded", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Agent: Copilot in VS Code" }).click();
   await page.getByRole("menuitemradio", { name: "Claude Code" }).click();
   await expect(page.getByRole("heading", { name: "API-equivalent cost per day" })).toBeVisible();
   await expect(today.getByText("Estimate", { exact: true })).toBeVisible();

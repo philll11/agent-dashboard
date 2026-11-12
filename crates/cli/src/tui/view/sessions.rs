@@ -1,5 +1,6 @@
 //! Sessions: every session in the chosen days, newest first, with search; each opens its detail.
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_server::fmt::{day_time, duration, grouped, money};
 use agent_dashboard_server::protocol::SessionRow;
 use jiff::Timestamp;
@@ -12,7 +13,7 @@ use crate::tui::state::{Section, State};
 /// How far the estimate may be from Claude Code's figure before prices may be out of date.
 const DRIFT_LIMIT: f64 = 0.02;
 
-/// How wide the agent's column is, for the first word of its name: `Claude`, `Copilot`.
+/// How wide the agent's column is, for its short name: `Claude`, `Copilot`, `VS Code`.
 const AGENT_WIDTH: i32 = 7;
 
 /// The columns: where the title, the project, the agent and the start begin and how wide each
@@ -54,8 +55,12 @@ fn columns(state: &State, w: i32) -> Columns {
     }
 }
 
-/// The first word of an agent's name, as the list's column shows it: `Copilot`.
+/// An agent's short name, as the list's column shows it: `Copilot` for Copilot CLI, `VS Code`
+/// for Copilot in VS Code; the first word of its name for an agent this version does not know.
 fn agent_word(state: &State, id: &str) -> String {
+    if let Some(agent) = Agent::from_name(id) {
+        return agent.short_name().to_owned();
+    }
     let name = super::agent_name(state, id);
     name.split_whitespace()
         .next()

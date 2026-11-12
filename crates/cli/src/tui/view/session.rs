@@ -1,7 +1,7 @@
 //! One session: its cost, against Claude Code's own figure for a Claude Code session and by who
-//! started its requests for a Copilot CLI one, its cost as it went, its tokens by type, who did
-//! the work, and the skills and MCP tools a Claude Code session's requests are credited to. A
-//! page that scrolls when it does not fit.
+//! started its requests for a Copilot one, its cost as it went, its tokens by type, who did the
+//! work, and the skills and MCP tools a Claude Code session's requests are credited to. A page
+//! that scrolls when it does not fit.
 
 use agent_dashboard_server::fmt::{clock, compact, day_label, duration, grouped, money};
 use agent_dashboard_server::protocol::{Credit, Initiators, SessionDetail, Totals, WhoRow};
@@ -23,7 +23,7 @@ const RUNNING_MS: i64 = 15 * 60_000;
 fn started_from(entrypoint: &str) -> &str {
     match entrypoint {
         "cli" | "github/cli" => "terminal",
-        "claude-vscode" => "VS Code",
+        "claude-vscode" | "vscode-agent-host" | "vscode" => "VS Code",
         "claude-desktop" => "desktop app",
         "sdk-cli" | "sdk-ts" | "sdk-py" => "Agent SDK",
         other => other,
@@ -469,7 +469,8 @@ fn cost_box(
 
 /// Tokens and cost by type: input, output with the reasoning it holds, each kind of cache write,
 /// cache reads and web searches. Claude Code's cache writes last 5 minutes or an hour; other
-/// agents record one kind.
+/// agents record one kind. VS Code's chat session files record a prompt's output tokens and its
+/// charge alone, so a session of prompts shows the rest as not recorded.
 fn tokens_box(c: &mut Canvas, detail: &SessionDetail, (x0, y0, w, h): (i32, i32, i32, i32)) {
     let theme = c.theme;
     let totals = &detail.totals;
@@ -479,6 +480,7 @@ fn tokens_box(c: &mut Canvas, detail: &SessionDetail, (x0, y0, w, h): (i32, i32,
     c.right(right - 3, y0 + 1, "Cost", theme.muted());
     let tokens = &totals.tokens;
     let cost = &totals.cost;
+    let prompts = totals.requests > 0 && totals.per_prompt_requests == totals.requests;
     let output = if totals.reasoning_tokens > 0 {
         format!(
             "Output, {} of them reasoning",
@@ -487,40 +489,51 @@ fn tokens_box(c: &mut Canvas, detail: &SessionDetail, (x0, y0, w, h): (i32, i32,
     } else {
         "Output".to_owned()
     };
-    let mut rows = vec![
-        ("Input".to_owned(), compact(tokens.input), cost.input),
-        (output, compact(tokens.output), cost.output),
-    ];
-    if claude_code(detail) {
-        rows.extend([
-            (
-                "Cache writes, 5 minutes".to_owned(),
-                compact(tokens.cache_write_5m),
-                cost.cache_write_5m,
-            ),
-            (
-                "Cache writes, 1 hour".to_owned(),
-                compact(tokens.cache_write_1h),
-                cost.cache_write_1h,
-            ),
-        ]);
+    let not_recorded = || "–".to_owned();
+    let mut rows: Vec<(String, String, Option<f64>)> = if prompts {
+        vec![
+            ("Input".to_owned(), not_recorded(), None),
+            (output, compact(tokens.output), None),
+            ("Cache writes".to_owned(), not_recorded(), None),
+            ("Cache reads".to_owned(), not_recorded(), None),
+        ]
     } else {
+        let mut rows = vec![
+            ("Input".to_owned(), compact(tokens.input), Some(cost.input)),
+            (output, compact(tokens.output), Some(cost.output)),
+        ];
+        if claude_code(detail) {
+            rows.extend([
+                (
+                    "Cache writes, 5 minutes".to_owned(),
+                    compact(tokens.cache_write_5m),
+                    Some(cost.cache_write_5m),
+                ),
+                (
+                    "Cache writes, 1 hour".to_owned(),
+                    compact(tokens.cache_write_1h),
+                    Some(cost.cache_write_1h),
+                ),
+            ]);
+        } else {
+            rows.push((
+                "Cache writes".to_owned(),
+                compact(tokens.cache_write_5m + tokens.cache_write_1h),
+                Some(cost.cache_write_5m + cost.cache_write_1h),
+            ));
+        }
         rows.push((
-            "Cache writes".to_owned(),
-            compact(tokens.cache_write_5m + tokens.cache_write_1h),
-            cost.cache_write_5m + cost.cache_write_1h,
+            "Cache reads".to_owned(),
+            compact(tokens.cache_read),
+            Some(cost.cache_read),
         ));
-    }
-    rows.push((
-        "Cache reads".to_owned(),
-        compact(tokens.cache_read),
-        cost.cache_read,
-    ));
+        rows
+    };
     if totals.web_search_requests > 0 {
         rows.push((
             "Web searches".to_owned(),
             grouped(totals.web_search_requests),
-            cost.web_search,
+            Some(cost.web_search),
         ));
     }
     for (row, (label, count, usd)) in (0..).zip(rows) {
@@ -528,7 +541,10 @@ fn tokens_box(c: &mut Canvas, detail: &SessionDetail, (x0, y0, w, h): (i32, i32,
         let room = right - 18 - width(&count) - 2 - (x0 + 2);
         c.text(x0 + 2, y, &fit(&label, room), theme.text());
         c.right(right - 18, y, &count, theme.text());
-        c.right(right - 3, y, &money(usd), theme.strong());
+        match usd {
+            Some(usd) => c.right(right - 3, y, &money(usd), theme.strong()),
+            None => c.right(right - 3, y, "–", theme.muted()),
+        };
     }
     c.text(x0 + 2, y0 + h - 2, "Total", theme.strong());
     c.right(right - 3, y0 + h - 2, &cost_text(totals), theme.strong());

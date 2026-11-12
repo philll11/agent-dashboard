@@ -26,6 +26,7 @@ use agent_dashboard_core::history::{History, HistoryError, SessionKey, StoredReq
 use agent_dashboard_core::limits;
 use agent_dashboard_core::pricing::Charge;
 use agent_dashboard_core::report::{self, Bucket, DayTotals, Range, Totals};
+use agent_dashboard_core::tokens::Tokens;
 use jiff::civil::Date;
 use jiff::{Span, Timestamp};
 use serde::Serialize;
@@ -712,7 +713,7 @@ impl RequestContext<'_> {
                 .map(String::as_str)
         });
         let cost = report::price(&self.app.prices, request).map(|cost| cost.total());
-        let charged = request.agent == Agent::CopilotCli && request.charge.is_some();
+        let charged = request.agent.records_charges() && request.charge.is_some();
         let tokens = request.tokens;
         RequestRow {
             at: at(request.timestamp_ms),
@@ -723,13 +724,8 @@ impl RequestContext<'_> {
             subagent_id: request.subagent_id,
             agent_type,
             model: request.model,
-            tokens: TokensJson {
-                input: tokens.input,
-                output: tokens.output,
-                cache_write_5m: tokens.cache_write_5m,
-                cache_write_1h: tokens.cache_write_1h,
-                cache_read: tokens.cache_read,
-            },
+            tokens: RequestTokensJson::of(tokens, request.per_prompt),
+            per_prompt: request.per_prompt,
             web_search_requests: request.web_search_requests,
             web_fetch_requests: request.web_fetch_requests,
             speed: request.speed,
@@ -751,7 +747,8 @@ impl RequestContext<'_> {
     }
 }
 
-/// Tokens by kind, as JSON.
+/// Tokens by kind, as JSON. The input and cache sums leave out `per_prompt_requests`, prompts
+/// whose input and cache tokens VS Code does not record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct TokensJson {
     pub input: u64,
@@ -759,6 +756,7 @@ pub struct TokensJson {
     pub cache_write_5m: u64,
     pub cache_write_1h: u64,
     pub cache_read: u64,
+    pub per_prompt_requests: u64,
 }
 
 impl TokensJson {
@@ -771,13 +769,14 @@ impl TokensJson {
             cache_write_5m: tokens.cache_write_5m,
             cache_write_1h: tokens.cache_write_1h,
             cache_read: tokens.cache_read,
+            per_prompt_requests: totals.per_prompt_requests,
         }
     }
 }
 
 /// A cost in US dollars to the cent, as JSON, leaving out `unpriced_requests` whose cost is
 /// unknown: `estimate` when it is Claude Code's API-equivalent cost, `recorded` when it is
-/// Copilot CLI's charge, and `mixed` when it adds both.
+/// Copilot's charge, and `mixed` when it adds both.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CostJson {
     pub usd: f64,
@@ -881,12 +880,14 @@ impl Row for DayRow {
         "unpriced_requests",
         "price_table",
         "models",
+        "per_prompt_requests",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
         let mut cells = vec![plain(&self.date), plain(&self.requests)];
         cells.extend(total_cells(&self.tokens, &self.cost));
         cells.push(Cell::Text(Cow::Owned(self.models.join(";"))));
+        cells.push(plain(&self.tokens.per_prompt_requests));
         cells
     }
 }
@@ -933,6 +934,7 @@ impl Row for PeriodRow {
         "unpriced_requests",
         "price_table",
         "models",
+        "per_prompt_requests",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
@@ -943,6 +945,7 @@ impl Row for PeriodRow {
         ];
         cells.extend(total_cells(&self.tokens, &self.cost));
         cells.push(Cell::Text(Cow::Owned(self.models.join(";"))));
+        cells.push(plain(&self.tokens.per_prompt_requests));
         cells
     }
 }
@@ -973,6 +976,7 @@ impl Row for ModelRow {
         "price_table",
         "name",
         "agent",
+        "per_prompt_requests",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
@@ -983,6 +987,7 @@ impl Row for ModelRow {
         cells.extend(total_cells(&self.tokens, &self.cost));
         cells.push(text(self.name.as_deref()));
         cells.push(plain(&self.agent));
+        cells.push(plain(&self.tokens.per_prompt_requests));
         cells
     }
 }
@@ -1019,6 +1024,7 @@ impl Row for ProjectRow {
         "last_request_at",
         "transcript_folder",
         "agent",
+        "per_prompt_requests",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
@@ -1038,6 +1044,7 @@ impl Row for ProjectRow {
             plain(&self.last_request_at),
             Cell::Text(Cow::Borrowed(&self.transcript_folder)),
             plain(&self.agent),
+            plain(&self.tokens.per_prompt_requests),
         ]
     }
 }
@@ -1071,6 +1078,7 @@ impl SessionRow {
             cache_write_5m: totals.tokens.cache_write_5m,
             cache_write_1h: totals.tokens.cache_write_1h,
             cache_read: totals.tokens.cache_read,
+            per_prompt_requests: totals.per_prompt_requests,
         };
         Self {
             session_id: row.id.clone(),
@@ -1117,6 +1125,7 @@ impl Row for SessionRow {
         "subagents",
         "reported_session_cost_usd",
         "cost_provenance",
+        "per_prompt_requests",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
@@ -1142,6 +1151,7 @@ impl Row for SessionRow {
             self.reported_session_cost_usd
                 .map_or(Cell::Plain(String::new()), usd),
             plain(&self.cost.provenance),
+            plain(&self.tokens.per_prompt_requests),
         ]
     }
 }
@@ -1179,6 +1189,7 @@ impl WindowRow {
                 cache_write_5m: totals.tokens.cache_write_5m,
                 cache_write_1h: totals.tokens.cache_write_1h,
                 cache_read: totals.tokens.cache_read,
+                per_prompt_requests: totals.per_prompt_requests,
             },
         }
     }
@@ -1212,7 +1223,7 @@ impl Row for WindowRow {
     }
 }
 
-/// One request's cost, unrounded: its API-equivalent cost, or the charge Copilot CLI recorded;
+/// One request's cost, unrounded: its API-equivalent cost, or the charge Copilot recorded;
 /// `None` when neither is known.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 struct RequestCostJson<'a> {
@@ -1236,7 +1247,10 @@ struct RequestRow<'a> {
     /// The kind of agent that subagent is, such as `Explore`.
     agent_type: Option<&'a str>,
     model: &'a str,
-    tokens: TokensJson,
+    tokens: RequestTokensJson,
+    /// Whether the request is a prompt and every model call it led to, as VS Code's chat session
+    /// files record usage, so that its input and cache tokens are not recorded.
+    per_prompt: bool,
     web_search_requests: u64,
     web_fetch_requests: u64,
     speed: Option<&'a str>,
@@ -1283,9 +1297,11 @@ impl Row for RequestRow<'_> {
         "charge_credits",
         "reasoning_tokens",
         "initiator",
+        "per_prompt",
     ];
 
     fn cells(&self) -> Vec<Cell<'_>> {
+        let count = |tokens: Option<u64>| tokens.map_or(Cell::Plain(String::new()), |n| plain(&n));
         vec![
             plain(&self.at),
             plain(&self.agent),
@@ -1295,11 +1311,11 @@ impl Row for RequestRow<'_> {
             text(self.subagent_id),
             text(self.agent_type),
             Cell::Text(Cow::Borrowed(self.model)),
-            plain(&self.tokens.input),
+            count(self.tokens.input),
             plain(&self.tokens.output),
-            plain(&self.tokens.cache_write_5m),
-            plain(&self.tokens.cache_write_1h),
-            plain(&self.tokens.cache_read),
+            count(self.tokens.cache_write_5m),
+            count(self.tokens.cache_write_1h),
+            count(self.tokens.cache_read),
             plain(&self.web_search_requests),
             plain(&self.web_fetch_requests),
             text(self.speed),
@@ -1319,7 +1335,32 @@ impl Row for RequestRow<'_> {
                 .map_or(Cell::Plain(String::new()), |credits| plain(&credits)),
             plain(&self.reasoning_tokens),
             text(self.initiator),
+            plain(&self.per_prompt),
         ]
+    }
+}
+
+/// One request's tokens by kind, as JSON; a prompt's input and cache tokens are `null`, since VS
+/// Code does not record them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+struct RequestTokensJson {
+    input: Option<u64>,
+    output: u64,
+    cache_write_5m: Option<u64>,
+    cache_write_1h: Option<u64>,
+    cache_read: Option<u64>,
+}
+
+impl RequestTokensJson {
+    fn of(tokens: Tokens, per_prompt: bool) -> Self {
+        let recorded = |count: u64| (!per_prompt).then_some(count);
+        Self {
+            input: recorded(tokens.input),
+            output: tokens.output,
+            cache_write_5m: recorded(tokens.cache_write_5m),
+            cache_write_1h: recorded(tokens.cache_write_1h),
+            cache_read: recorded(tokens.cache_read),
+        }
     }
 }
 

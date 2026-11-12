@@ -7,7 +7,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "seven_day:claude-fable",
           "model": "Fable",
           "usedPercentage": 18,
@@ -19,7 +19,7 @@
           "expired": false
         },
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "five_hour",
           "usedPercentage": 42,
           "resetsAtMs": 1791595200000,
@@ -30,7 +30,7 @@
           "expired": false
         },
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "seven_day",
           "usedPercentage": 71,
           "resetsAtMs": 1792008000000,
@@ -60,12 +60,12 @@
       }
     },
     {
-      "name": "both agents: the five-hour window, and Copilot CLI's allowance beside it",
+      "name": "both plans: the five-hour window, and Copilot's allowance beside it",
       "nowMs": 1791587700000,
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
-          "agent": "copilot-cli",
+          "plan": "copilot",
           "window": "monthly",
           "usedPercentage": 3.6,
           "resetsAtMs": 1793491200000,
@@ -78,7 +78,7 @@
           "expired": false
         },
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "five_hour",
           "usedPercentage": 42,
           "resetsAtMs": 1791595200000,
@@ -89,7 +89,7 @@
           "expired": false
         },
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "seven_day",
           "usedPercentage": 71,
           "resetsAtMs": 1792008000000,
@@ -111,7 +111,10 @@
           ["Copilot allowance", "4% · 1,620 of 45,000 AI credits"],
           ["Today", "$6.79"]
         ],
-        "sources": ["Official, status line, 2 min ago", "Recorded, Copilot CLI, 1 h ago"],
+        "sources": [
+          "Official, status line, 2 min ago",
+          "Recorded, Copilot's session files, 1 h ago"
+        ],
         "statusText": "5h 42% · 14:20 · Copilot 4%",
         "tooltip": "Dashboard for Coding Agents - 5h 42% · resets 14:20 · Copilot 4%",
         "title": "42%",
@@ -119,12 +122,12 @@
       }
     },
     {
-      "name": "Copilot CLI's allowance alone, over 70%",
+      "name": "Copilot's allowance alone, over 70%",
       "nowMs": 1791587700000,
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
-          "agent": "copilot-cli",
+          "plan": "copilot",
           "window": "monthly",
           "usedPercentage": 81.2,
           "resetsAtMs": 1793491200000,
@@ -146,7 +149,7 @@
           ["Copilot allowance", "81% ▲ · 36,540 of 45,000 AI credits"],
           ["Today", "$1.74"]
         ],
-        "sources": ["Recorded, Copilot CLI, 1 h ago"],
+        "sources": ["Recorded, Copilot's session files, 1 h ago"],
         "statusText": "Copilot 81%",
         "tooltip": "Dashboard for Coding Agents - Copilot 81% ▲",
         "title": "$1.74",
@@ -159,7 +162,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
-          "agent": "copilot-cli",
+          "plan": "copilot",
           "window": "monthly",
           "usedPercentage": 75.4,
           "resetsAtMs": 1793491200000,
@@ -172,7 +175,7 @@
           "expired": false
         },
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "five_hour",
           "usedPercentage": 42,
           "resetsAtMs": 1791595200000,
@@ -183,7 +186,7 @@
           "expired": false
         },
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "seven_day",
           "usedPercentage": 71,
           "resetsAtMs": 1792008000000,
@@ -205,7 +208,10 @@
           ["Copilot allowance", "75% ▲ · 33,930 of 45,000 AI credits"],
           ["Today", "$6.79"]
         ],
-        "sources": ["Official, status line, 2 min ago", "Recorded, Copilot CLI, 1 h ago"],
+        "sources": [
+          "Official, status line, 2 min ago",
+          "Recorded, Copilot's session files, 1 h ago"
+        ],
         "statusText": "5h 42% · 14:20 · Copilot 75%",
         "tooltip": "Dashboard for Coding Agents - 5h 42% · resets 14:20 · Copilot 75% ▲",
         "title": "42% ▲",
@@ -218,7 +224,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "five_hour",
           "usedPercentage": 93.4,
           "resetsAtMs": 1791595200000,
@@ -251,7 +257,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "five_hour",
           "usedPercentage": 104,
           "resetsAtMs": 1791595200000,
@@ -284,7 +290,7 @@
       "timeZone": "Pacific/Auckland",
       "limits": [
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "five_hour",
           "usedPercentage": 42,
           "resetsAtMs": 1791584400000,
@@ -295,7 +301,7 @@
           "expired": false
         },
         {
-          "agent": "claude-code",
+          "plan": "claude",
           "window": "seven_day",
           "usedPercentage": 71,
           "resetsAtMs": 1792008000000,

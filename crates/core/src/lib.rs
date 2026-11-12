@@ -1,5 +1,5 @@
-//! Reads the local data of the coding agents agent-dashboard covers, Claude Code and Copilot CLI,
-//! and keeps the usage history behind it.
+//! Reads the local data of the coding agents agent-dashboard covers, Claude Code, Copilot CLI and
+//! Copilot in VS Code, and keeps the usage history behind it.
 //!
 //! The words used here are defined in `CONTEXT.md` at the repository root.
 
@@ -20,3 +20,4 @@ pub mod stats_cache;
 pub mod tokens;
 pub mod transcript;
 pub mod usage_endpoint;
+pub mod vscode;

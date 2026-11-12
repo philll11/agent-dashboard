@@ -227,7 +227,7 @@ fn stale_limits(state: &State) -> Option<Notice> {
         .status()?
         .limits
         .iter()
-        .filter(|reading| reading.agent == claude_code)
+        .filter(|reading| reading.plan == "claude")
         .collect();
     if limits.is_empty()
         || !limits
@@ -734,7 +734,7 @@ fn models(
         c.text(4, y, "Total", theme.strong());
         c.right(cost_end, y, &cost_text(&overview.totals), theme.strong());
         c.right(share_end, y, "100%", theme.text());
-        // The price table makes estimates, which costs Copilot CLI recorded need none of.
+        // The price table makes estimates, which costs Copilot recorded need none of.
         let line = y + 2;
         let estimated = provenance(state, Some(&overview.totals)) != CostProvenance::Recorded;
         if line < top + h - 1 && estimated {

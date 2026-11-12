@@ -12,10 +12,10 @@ expression: shown(&state)
  7 │                                                                                │
  8 │                                No history found                                │
  9 │                                                                                │
-10 │          We looked in C:\Users\you\.claude and C:\Users\you\.copilot.          │
-11 │          Each agent saves its history there after your first session.          │
-12 │      To read another folder, set CLAUDE_CONFIG_DIR or COPILOT_HOME to it.      │
-13 │                                                                                │
+10 │          We looked in C:\Users\you\.claude, C:\Users\you\.copilot and          │
+11 │                       C:\Users\you\AppData\Roaming\Code.                       │
+12 │          Each agent saves its history there after your first session.          │
+13 │      To read another folder, set CLAUDE_CONFIG_DIR or COPILOT_HOME to it.      │
 14 │                                                                                │
 15 │                                                                                │
 16 │                                                                                │
@@ -39,9 +39,9 @@ styles
  8 │                                aaaaaaaaaaaaaaaa                                │
  9 │                                                                                │
 10 │          dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd          │
-11 │          dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd          │
-12 │      dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd      │
-13 │                                                                                │
+11 │                       dddddddddddddddddddddddddddddddddd                       │
+12 │          dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd          │
+13 │      dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd      │
 14 │                                                                                │
 15 │                                                                                │
 16 │                                                                                │

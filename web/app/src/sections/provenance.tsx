@@ -7,7 +7,7 @@ import { CheckCircle, Clock, Warning } from "../ui/icons";
 
 const SOURCES: Record<WindowReading["provenance"], string> = {
   official: "Official · status line",
-  recorded: "Recorded · Copilot CLI",
+  recorded: "Recorded · Copilot",
   experimental: "Experimental · usage endpoint",
 };
 
@@ -21,7 +21,7 @@ export function LevelIcon({ level, size = 13 }: { level: Level; size?: number })
 }
 
 /** Where the newest reading comes from, and how old it is: `Official · status line · 2 min ago`,
- * `Recorded · Copilot CLI · 1 h ago`. */
+ * `Recorded · Copilot · 1 h ago`. */
 export function Provenance({
   readings,
   nowMs,

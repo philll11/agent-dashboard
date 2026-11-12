@@ -7,6 +7,7 @@ use std::fmt::{Debug, Write as _};
 use std::fs;
 use std::path::Path;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::history::{Access, History};
 use agent_dashboard_core::pricing::PriceTable;
 use agent_dashboard_core::report::{self, Range};
@@ -14,13 +15,14 @@ use jiff::tz::TimeZone;
 use rusqlite::Connection;
 
 /// Every migration, as the history applies them: schema version N is the result of the first N.
-const MIGRATIONS: [&str; 6] = [
+const MIGRATIONS: [&str; 7] = [
     include_str!("../src/history/migrations/0001-projects-sessions-requests.sql"),
     include_str!("../src/history/migrations/0002-ingest.sql"),
     include_str!("../src/history/migrations/0003-usage-endpoint.sql"),
     include_str!("../src/history/migrations/0004-request-time.sql"),
     include_str!("../src/history/migrations/0005-subagents-and-settings.sql"),
     include_str!("../src/history/migrations/0006-agents.sql"),
+    include_str!("../src/history/migrations/0007-copilot-vscode.sql"),
 ];
 
 /// The application id that marks an SQLite file as a history.
@@ -37,8 +39,9 @@ const RANGE: Range = Range {
 /// without a request id, one without a message id, a model with no price, a request brought in
 /// from claude-usage, titles, a reported cost, a plan window's reading, a day from Claude Code's
 /// statistics, read positions, the usage endpoint's last turn, a subagent's type, a shared setting,
-/// an added data folder, and a Copilot CLI session with a charged request, its model's name and a
-/// reading of its monthly allowance.
+/// an added data folder, a Copilot CLI session with a charged request, its model's name and a
+/// reading of its monthly allowance, and Copilot in VS Code's sessions: one of its Copilot harness
+/// with a charged request, and one of its Local harness with a prompt.
 const ROWS: &[(u32, &str)] = &[
     (
         1,
@@ -177,6 +180,34 @@ const ROWS: &[(u32, &str)] = &[
         6,
         "INSERT INTO data_folders (path, added_ms, agent)
          VALUES ('/home/me/.copilot-work', 1788250000001, 'copilot-cli')",
+    ),
+    (
+        7,
+        "INSERT INTO sessions (id, session_id, project, agent, vscode_harness, ai_title)
+         VALUES
+             (4, 'session-vscode-copilot', 1, 'copilot-cli', 'copilot', 'Tidy the tests'),
+             (5, 'session-vscode-local', 2, 'copilot-cli', 'local', 'Draft the release')",
+    ),
+    (
+        7,
+        "INSERT INTO requests (id, session, message_id, request_id, record_id, subagent_id,
+             timestamp_ms, model, input_tokens, output_tokens, cache_read_tokens,
+             cache_write_5m_tokens, cache_write_1h_tokens, web_search_requests,
+             web_fetch_requests, entrypoint, claude_code_version, record_ms, reasoning_tokens,
+             initiator, charge_input_nano, charge_output_nano, charge_cache_read_nano,
+             charge_cache_write_nano, per_prompt)
+         VALUES
+             (8, 4, NULL, NULL, 'copilot:msg_8', NULL, 1788343320000, 'claude-sonnet-4.6',
+              12, 300, 9000, 0, 0, 0, 0, 'vscode-agent-host', '1.0.27', 1788343320000, 0,
+              'user', 36000, 4500000, 270000, 0, 0),
+             (9, 5, NULL, NULL, 'vscode:request_9', NULL, 1788343380000, 'claude-sonnet-4.6',
+              0, 1690, 0, 0, 0, 0, 0, NULL, '0.73.0', 1788343380000, 0, NULL,
+              29700000000, 0, 0, 0, 1)",
+    ),
+    (
+        7,
+        "INSERT INTO data_folders (path, added_ms, agent)
+         VALUES ('/opt/code/data/user-data', 1788250000002, 'copilot-vscode')",
     ),
 ];
 
@@ -321,6 +352,41 @@ fn an_upgrade_reads_again_the_transcripts_its_steps_ask_for() {
             "version {version}"
         );
     }
+}
+
+#[test]
+fn an_upgrade_gives_the_copilot_sessions_vs_code_started_to_copilot_in_vs_code() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("history.sqlite");
+    make(&path, 6, 6);
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "INSERT INTO sessions (id, session_id, project, agent)
+             VALUES (4, 'session-vscode', 1, 'copilot-cli');
+             INSERT INTO requests (session, record_id, timestamp_ms, model, input_tokens,
+                 output_tokens, cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens,
+                 web_search_requests, web_fetch_requests, entrypoint, record_ms)
+             VALUES (4, 'copilot:msg_8', 1788343320000, 'claude-sonnet-4.6', 12, 300, 9000, 0, 0,
+                 0, 0, 'vscode-agent-host', 1788343320000)",
+        )
+        .unwrap();
+
+    let history = History::open(&path).unwrap();
+    let agent_of = |session_id: &str| {
+        history
+            .session(session_id)
+            .unwrap()
+            .map(|session| session.agent)
+    };
+    assert_eq!(agent_of("session-vscode"), Some(Agent::CopilotVscode));
+    assert_eq!(agent_of("session-copilot"), Some(Agent::CopilotCli));
+    // Claude Code's own VS Code extension names its requests `vscode` too.
+    assert_eq!(agent_of("session-site"), Some(Agent::ClaudeCode));
+    assert_eq!(
+        history.agents().unwrap(),
+        [Agent::ClaudeCode, Agent::CopilotCli, Agent::CopilotVscode]
+    );
 }
 
 #[test]

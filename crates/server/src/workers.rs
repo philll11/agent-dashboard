@@ -165,7 +165,7 @@ fn read_once(
     };
     let mut reported = long_ago(PROGRESS_EVERY);
     let mut changed = long_ago(CHANGED_EVERY);
-    // Request records that a `history/changed` notification has already covered.
+    // Changed requests that a `history/changed` notification has already covered.
     let mut announced = 0;
     let mut total = 0;
     let result = ingest::ingest_with_progress(history, &app.roots, |progress| {
@@ -181,10 +181,10 @@ fn read_once(
             reported = Instant::now();
             notify(client, "ingest/progress", shown);
         }
-        if progress.request_records > announced && changed.elapsed() >= CHANGED_EVERY {
+        if progress.requests_changed > announced && changed.elapsed() >= CHANGED_EVERY {
             changed = Instant::now();
-            announced = progress.request_records;
-            history_changed(app, client, progress.requests_between);
+            announced = progress.requests_changed;
+            history_changed(app, client, progress.changed_between);
         }
         if stopping(stopped) {
             ControlFlow::Break(())
@@ -218,9 +218,9 @@ fn read_once(
     // even when nothing new was there.
     notify(client, "ingest/progress", Progress { done: total, total });
     if let Some(report) = report
-        && report.request_records > announced
+        && report.requests_changed > announced
     {
-        history_changed(app, client, report.requests_between);
+        history_changed(app, client, report.changed_between);
     }
 }
 

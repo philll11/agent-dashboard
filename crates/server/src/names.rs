@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use agent_dashboard_core::agent::{Agent, Plan};
 use agent_dashboard_core::history::{History, ProjectKey};
 
 use crate::app::App;
@@ -63,9 +64,9 @@ fn short_names(paths: &[Option<&str>]) -> Vec<Option<String>> {
 /// A model's short name, such as `Opus 5.5`: the price table's, or else the one its agent
 /// records, such as Copilot CLI's `GPT-6 Luna`, or else its id.
 ///
-/// Copilot CLI's id for a model that Claude Code also uses, such as `claude-opus-5.5` beside
-/// `claude-opus-5-5`, is named with its agent, `Opus 5.5, Copilot CLI`, so that the two never
-/// share a name.
+/// Copilot's id for a model that Claude Code also uses, such as `claude-opus-5.5` beside
+/// `claude-opus-5-5`, is named with Copilot, `Opus 5.5, Copilot`, under both Copilot agents, so
+/// that Copilot's charges and Claude Code's estimates never share a name.
 #[must_use]
 pub fn model_name(app: &App, model: &str) -> String {
     model_name_from(
@@ -74,6 +75,19 @@ pub fn model_name(app: &App, model: &str) -> String {
         model,
     )
 }
+
+/// A model's name under its agent's heading: without the `, Copilot` that tells a Copilot model
+/// apart from Claude Code's of the same name, which the heading already says.
+#[must_use]
+pub fn name_under(agent: Agent, name: &str) -> &str {
+    match agent.plan() {
+        Plan::Copilot => name.strip_suffix(COPILOT_SUFFIX).unwrap_or(name),
+        Plan::Claude => name,
+    }
+}
+
+/// What a Copilot model's name ends with where Claude Code's has the same name.
+const COPILOT_SUFFIX: &str = ", Copilot";
 
 fn model_name_from<'a>(
     priced: impl Fn(&str) -> Option<&'a str>,
@@ -89,7 +103,7 @@ fn model_name_from<'a>(
     };
     let short = short(recorded);
     if priced(&model.replace('.', "-")).is_some() {
-        format!("{short}, Copilot CLI")
+        format!("{short}{COPILOT_SUFFIX}")
     } else {
         short
     }
@@ -117,7 +131,7 @@ mod tests {
     fn copilots_id_for_a_claude_code_model_is_named_with_its_agent() {
         assert_eq!(
             model_name_from(priced, Some("Claude Opus 5.5"), "claude-opus-5.5"),
-            "Opus 5.5, Copilot CLI"
+            "Opus 5.5, Copilot"
         );
         assert_eq!(
             model_name_from(priced, Some("Claude Opus 6"), "claude-opus-6"),

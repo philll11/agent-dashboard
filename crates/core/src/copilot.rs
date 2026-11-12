@@ -1,11 +1,12 @@
-//! Copilot CLI's sessions: finding them in its data root, and reading what each records.
+//! Copilot's sessions: finding them in Copilot CLI's data root, and reading what each records.
 //!
 //! Copilot CLI keeps each session in a folder of its own under `session-state`: `events.jsonl`,
 //! one event per line, which is the session's transcript, and `workspace.yaml`, which names the
-//! session's working folder and title. The GitHub Copilot app keeps its sessions there too.
-//! GitHub documents where these files are but not their format, so reading is tolerant: unknown
-//! events and fields are ignored, and a line that cannot be read is counted and skipped
-//! (ADR 0016).
+//! session's working folder, title and the client that started it. The GitHub Copilot app keeps
+//! its sessions there too, and so does VS Code for the chats it runs on its Copilot harness, which
+//! belong to Copilot in VS Code (ADR 0017). GitHub documents where these files are but not their
+//! format, so reading is tolerant: unknown events and fields are ignored, and a line that cannot be
+//! read is counted and skipped (ADR 0016).
 
 use std::fs;
 use std::io::{BufRead, BufReader, Read as _};
@@ -21,7 +22,9 @@ use crate::lenient::{lenient, lenient_list, object};
 use crate::limits::{LimitSnapshot, MONTHLY, Source};
 use crate::pricing::Charge;
 use crate::tokens::Tokens;
-use crate::transcript::{ModelUsage, Record, RequestRecord, Transcript, Unreadable, open_shared};
+use crate::transcript::{
+    ModelUsage, Record, RequestRecord, SessionDetails, Transcript, Unreadable, open_shared,
+};
 
 /// The folder in Copilot CLI's data root that holds a folder for each session.
 pub const SESSIONS: &str = "session-state";
@@ -35,19 +38,18 @@ const WORKSPACE: &str = "workspace.yaml";
 /// The most of `workspace.yaml`, or of the first event, that is read for a session's details.
 const MAX_DETAILS: u64 = 64 * 1024;
 
-/// What a session's `workspace.yaml` and first event say about it.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Session {
-    /// The working folder.
-    pub cwd: Option<String>,
-    /// The session's title.
-    pub title: Option<String>,
-    /// Whether the person gave the title, rather than Copilot CLI.
-    pub user_named: bool,
-    /// What the session was started from, such as `github/cli`.
-    pub client: Option<String>,
-    /// The version of Copilot CLI that started the session.
-    pub version: Option<String>,
+/// The clients that name a session VS Code started: its agent host, which runs its Copilot
+/// harness, and its earlier Copilot CLI integration.
+const VSCODE_CLIENTS: [&str; 2] = ["vscode-agent-host", "vscode"];
+
+/// Whether VS Code started the session that `details` describe, so that it belongs to Copilot in
+/// VS Code rather than to Copilot CLI.
+#[must_use]
+pub fn started_by_vscode(details: &SessionDetails) -> bool {
+    details
+        .client
+        .as_deref()
+        .is_some_and(|client| VSCODE_CLIENTS.contains(&client))
 }
 
 /// Every session transcript in `root`'s `session-state` folder. A folder without one, such as
@@ -98,11 +100,11 @@ pub(crate) fn is_transcript(relative_to_sessions: &Path) -> bool {
     )
 }
 
-/// What the session whose transcript is `events` says about itself: its working folder and
-/// title from `workspace.yaml` beside it, and the version of Copilot CLI from its first event.
+/// What the session whose transcript is `events` says about itself: its working folder, title
+/// and client from `workspace.yaml` beside it, and the version of Copilot from its first event.
 #[must_use]
-pub fn session(events: &Path) -> Session {
-    let mut session = Session::default();
+pub fn session(events: &Path) -> SessionDetails {
+    let mut session = SessionDetails::default();
     if let Some(workspace) = events
         .parent()
         .and_then(|folder| read_capped(&folder.join(WORKSPACE)))
@@ -595,9 +597,10 @@ mod tests {
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].session_id, "981f");
         assert_eq!(found[0].agent, Agent::CopilotCli);
+        let details = session(&found[0].path);
         assert_eq!(
-            session(&found[0].path),
-            Session {
+            details,
+            SessionDetails {
                 cwd: Some(r"C:\Users\ada\code\app".to_owned()),
                 title: Some("Fix the importer so that it reads every transcript".to_owned()),
                 user_named: true,
@@ -605,5 +608,19 @@ mod tests {
                 version: Some("1.0.106".to_owned()),
             }
         );
+        assert!(!started_by_vscode(&details));
+    }
+
+    #[test]
+    fn a_session_that_vs_code_started_names_its_client() {
+        let client = |name: &str| SessionDetails {
+            client: Some(name.to_owned()),
+            ..SessionDetails::default()
+        };
+        assert!(started_by_vscode(&client("vscode-agent-host")));
+        assert!(started_by_vscode(&client("vscode")));
+        assert!(!started_by_vscode(&client("github/cli")));
+        assert!(!started_by_vscode(&client("github/autopilot")));
+        assert!(!started_by_vscode(&SessionDetails::default()));
     }
 }

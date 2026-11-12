@@ -1,7 +1,8 @@
-// Synthetic Claude Code and Copilot CLI data folders for the dashboard's previews and browser
-// tests: ten weeks of Claude Code sessions across a dozen projects and a few weeks of Copilot CLI
-// sessions, shaped like the design's examples, and the plan limit readings that a status line and
-// the usage endpoint would have recorded. Fixed seeds make every run write the same folders.
+// Synthetic data folders of Claude Code, Copilot CLI and VS Code for the dashboard's previews and
+// browser tests: ten weeks of Claude Code sessions across a dozen projects, a few weeks of Copilot
+// CLI sessions and a few chats of Copilot in VS Code, shaped like the design's examples, and the
+// plan limit readings that a status line and the usage endpoint would have recorded. Fixed seeds
+// make every run write the same folders.
 
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -42,6 +43,9 @@ export interface Options {
   noLimits?: boolean;
   /** Leaves out Copilot CLI's data folder, as for someone who uses Claude Code alone. */
   noCopilot?: boolean;
+  /** Leaves out Copilot in VS Code's chats: VS Code's own chat session files, and the chat its
+   * Copilot harness keeps with Copilot CLI's sessions. */
+  noVscode?: boolean;
   /** Ends the plan limit readings at 09:05, so that they are more than three hours old. */
   staleLimits?: boolean;
   /** The usage endpoint's last turn found Claude Code's login expired. */
@@ -830,6 +834,9 @@ interface CopilotSession {
   usd: number;
   tokens: number;
   reasoning: number;
+  /** The client that started the session, for one VS Code ran on its Copilot harness, which
+   * belongs to Copilot in VS Code; Copilot CLI's own otherwise. */
+  client?: string;
 }
 
 const COPILOT_VERSION = "1.0.106";
@@ -852,8 +859,23 @@ const CREDIT_RATES: Record<string, Record<string, number>> = {
   [COPILOT_OPUS]: { input: 440, cache_read: 44, cache_write: 550, output: 2200 },
 };
 
-/** Today's $1.74, this week's $13.12 and this month's $15.77, as the design's tiles show. */
+/** Today's $1.74, this week's $13.12 and this month's $15.77 of Copilot CLI's, as the design's
+ * tiles show, and one chat of Copilot in VS Code on its Copilot harness. */
 const COPILOT_SESSIONS: CopilotSession[] = [
+  {
+    title: "Rename the bridge's scenarios",
+    project: "agent-dashboard",
+    day: "2026-10-07",
+    start: "14:10",
+    minutes: 18,
+    model: COPILOT_OPUS,
+    you: 2,
+    agent: 14,
+    usd: 0.96,
+    tokens: 1_300_000,
+    reasoning: 0,
+    client: "vscode-agent-host",
+  },
   {
     title: "Tidy the CI matrix",
     project: "infra",
@@ -998,6 +1020,7 @@ export function writeCopilotFolder(root: string, options: Options = {}): void {
     const project = PROJECTS[session.project];
     if (!project) throw new Error(`no project ${session.project}`);
     const id = uuid(next);
+    if (session.client && options.noVscode) continue;
     const folder = join(root, "session-state", id);
     mkdirSync(folder, { recursive: true });
     const cwd = workingFolder(project.cwd, options);
@@ -1009,7 +1032,7 @@ export function writeCopilotFolder(root: string, options: Options = {}): void {
       [
         `id: ${id}`,
         `cwd: ${cwd}`,
-        "client_name: github/cli",
+        `client_name: ${session.client ?? "github/cli"}`,
         `name: ${JSON.stringify(session.title)}`,
         "user_named: false",
         `created_at: ${iso(startMs)}`,
@@ -1131,6 +1154,126 @@ export function writeCopilotFolder(root: string, options: Options = {}): void {
       });
     }
     writeLines(join(folder, "events.jsonl"), events);
+  }
+}
+
+/** A chat of Copilot in VS Code on its Local harness, in VS Code's own chat session files. */
+interface VscodeChat {
+  title: string;
+  project: string;
+  day: string;
+  start: string;
+  minutes: number;
+  model: string;
+  prompts: number;
+  /** What VS Code recorded the chat's prompts as costing, in US dollars. */
+  usd: number;
+  /** The output tokens of every model call the prompts led to. */
+  output: number;
+}
+
+const VSCODE_VERSION = "0.73.0";
+const VSCODE_SONNET = "claude-sonnet-4.6";
+
+/** The names VS Code shows for its models under a response. */
+const VSCODE_MODELS: Record<string, string> = {
+  [VSCODE_SONNET]: "Claude Sonnet 4.6",
+  [GPT]: "GPT-5.5",
+};
+
+const VSCODE_CHATS: VscodeChat[] = [
+  {
+    title: "Explain the bridge's scenarios",
+    project: "agent-dashboard",
+    day: "2026-10-08",
+    start: "16:20",
+    minutes: 35,
+    model: VSCODE_SONNET,
+    prompts: 5,
+    usd: 0.62,
+    output: 38_000,
+  },
+  {
+    title: "Tidy the README badges",
+    project: "website",
+    day: "2026-10-05",
+    start: "11:05",
+    minutes: 15,
+    model: GPT,
+    prompts: 3,
+    usd: 0.31,
+    output: 21_000,
+  },
+  {
+    title: "Draft a backup checklist",
+    project: "infra",
+    day: "2026-09-25",
+    start: "09:40",
+    minutes: 25,
+    model: VSCODE_SONNET,
+    prompts: 4,
+    usd: 0.48,
+    output: 30_000,
+  },
+];
+
+/** The URI VS Code names a folder by: `file:///c%3A/Users/you/code` for a Windows path,
+ * `file:///home/you/code` for a POSIX one, whichever platform writes it. Node's `pathToFileURL`
+ * would give a POSIX path the current drive on Windows. */
+function folderUri(folder: string): string {
+  const slashed = folder.replaceAll("\\", "/");
+  const path = /^[A-Za-z]:/.test(slashed)
+    ? `/${slashed.charAt(0).toLowerCase()}${slashed.slice(1)}`
+    : slashed;
+  return `file://${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+/** Writes the synthetic VS Code user data folder into `root`, which must be empty: for each chat,
+ * its workspace's storage folder, with `workspace.json` naming the working folder, and its chat
+ * session file, a log that holds the session and then appends its last prompt. */
+export function writeVscodeFolder(root: string, options: Options = {}): void {
+  const next = random(23);
+  for (const chat of VSCODE_CHATS) {
+    const project = PROJECTS[chat.project];
+    if (!project) throw new Error(`no project ${chat.project}`);
+    const storage = join(root, "User", "workspaceStorage", uuid(next).replaceAll("-", ""));
+    mkdirSync(join(storage, "chatSessions"), { recursive: true });
+    writeFileSync(
+      join(storage, "workspace.json"),
+      JSON.stringify({ folder: folderUri(workingFolder(project.cwd, options)) }),
+    );
+    const id = uuid(next);
+    const startMs = at(chat.day, chat.start);
+    const step = (chat.minutes * MINUTE) / chat.prompts;
+    const credits = (chat.usd * 100) / chat.prompts;
+    const prompts = Array.from({ length: chat.prompts }, (_, index) => ({
+      requestId: `request_${uuid(next)}`,
+      timestamp: Math.round(startMs + index * step),
+      modelId: `copilot/${chat.model}`,
+      agent: { id: "github.copilot.editsAgent", extensionVersion: VSCODE_VERSION },
+      message: { text: "A made-up prompt.", parts: [] },
+      response: [{ kind: "markdownContent", content: { value: "A made-up reply." } }],
+      modelState: { value: 1, completedAt: Math.round(startMs + (index + 1) * step - MINUTE) },
+      completionTokens: Math.round(chat.output / chat.prompts),
+      copilotCredits: credits,
+      result: {
+        details: `${VSCODE_MODELS[chat.model] ?? chat.model} \u2022 ${credits.toFixed(1)} credits`,
+        metadata: { toolCallRounds: [{ modelId: chat.model }, { modelId: chat.model }] },
+      },
+    }));
+    writeLines(join(storage, "chatSessions", `${id}.jsonl`), [
+      {
+        kind: 0,
+        v: {
+          version: 3,
+          sessionId: id,
+          creationDate: startMs,
+          customTitle: chat.title,
+          requests: prompts.slice(0, -1),
+        },
+      },
+      { kind: 2, k: ["requests"], v: prompts.slice(-1) },
+    ]);
   }
 }
 

@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import type { CostProvenance, ModelRow, PriceRow, Totals } from "@agent-dashboard/protocol";
 
-import { type AgentOverview, agentFill, agentName, nameUnder } from "../agents";
+import { type AgentOverview, agentFill, agentName, nameUnder, recordsCharges } from "../agents";
 
 import { LineChart } from "../charts/lines";
 import { moneyTick, niceScale } from "../charts/scale";
@@ -21,7 +21,10 @@ import {
   costName,
   costSource,
   costText,
+  NotRecorded,
+  onlyPrompts,
   ProjectMenu,
+  promptsNote,
   RangeMenu,
   SectionHead,
   useAgents,
@@ -240,6 +243,8 @@ function UsageRow({
   indent?: boolean;
 }) {
   const isUnpriced = totals.requests > 0 && totals.unpricedRequests === totals.requests;
+  const prompts = onlyPrompts(totals);
+  const recorded = (count: number) => (prompts ? <NotRecorded /> : compact(count));
   return (
     <tr className={agent ? "agent-row" : undefined}>
       <th scope={agent ? "rowgroup" : "row"} className="strong">
@@ -249,12 +254,12 @@ function UsageRow({
         </span>
       </th>
       <td>{grouped(totals.requests)}</td>
-      <td>{compact(totals.tokens.input)}</td>
+      <td>{recorded(totals.tokens.input)}</td>
       <td>{compact(totals.tokens.output)}</td>
-      {reasoning && <td>{compact(totals.reasoningTokens)}</td>}
-      <td>{compact(totals.tokens.cacheWrite5m)}</td>
-      <td>{compact(totals.tokens.cacheWrite1h)}</td>
-      <td>{compact(totals.tokens.cacheRead)}</td>
+      {reasoning && <td>{recorded(totals.reasoningTokens)}</td>}
+      <td>{recorded(totals.tokens.cacheWrite5m)}</td>
+      <td>{recorded(totals.tokens.cacheWrite1h)}</td>
+      <td>{recorded(totals.tokens.cacheRead)}</td>
       <td>{percent(totals.requests > 0 ? (totals.fastRequests / totals.requests) * 100 : 0)}</td>
       <td className="strong">
         {isUnpriced ? (
@@ -281,8 +286,9 @@ function TokensAndCost({
 }) {
   const rangeText = useRangeText();
   const series = useSeries();
-  // Only Copilot CLI records reasoning tokens, which its output tokens already count.
+  // Only Copilot's session files record reasoning tokens, which the output tokens already count.
   const reasoning = models.some((row) => row.totals.reasoningTokens > 0);
+  const prompts = models.reduce((sum, row) => sum + row.totals.perPromptRequests, 0);
   return (
     <Panel title="Tokens and cost" aside={`· ${rangeText}`}>
       <TableScroll label="Tokens and cost">
@@ -339,6 +345,7 @@ function TokensAndCost({
           )}
         </table>
       </TableScroll>
+      {prompts > 0 && <p className="footnote">{promptsNote(prompts)}</p>}
     </Panel>
   );
 }
@@ -347,7 +354,7 @@ function PricesUsed({ models }: { models: readonly ModelRow[] }) {
   const ids = models.filter((row) => !unpriced(row.model)).map((row) => row.model.id);
   const prices = useRequest("prices", { models: ids }).data;
   const rows = (prices?.models ?? []).flatMap((row) => tiers(row));
-  const copilot = useAgents().includes("copilot-cli");
+  const copilot = useAgents().some((agent) => recordsCharges(agent));
   return (
     <Panel
       title="Prices used"
@@ -393,7 +400,7 @@ function PricesUsed({ models }: { models: readonly ModelRow[] }) {
           ? "; Settings can check this project's repository for a newer table once a day."
           : "."}
         {copilot &&
-          " Copilot CLI's requests cost what Copilot CLI recorded, at $0.01 an AI credit, so they need no price."}
+          " Copilot's requests cost what Copilot recorded, at $0.01 an AI credit, so they need no price."}
       </p>
     </Panel>
   );

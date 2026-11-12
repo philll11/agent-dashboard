@@ -3,7 +3,7 @@
 use std::fmt::Write as _;
 use std::process::ExitCode;
 
-use agent_dashboard_core::agent::Agent;
+use agent_dashboard_core::agent::{Agent, Plan};
 use agent_dashboard_core::history::{History, HistoryError};
 use agent_dashboard_core::limits::{FIVE_HOUR, Level, LimitSnapshot, SEVEN_DAY, Source};
 use agent_dashboard_core::report::{
@@ -19,7 +19,7 @@ use agent_dashboard_server::fmt::{
     ago, compact, grouped, long_day, money, month_year, short_date, weekday_name, when,
 };
 use agent_dashboard_server::limits::login_note;
-use agent_dashboard_server::names::model_name;
+use agent_dashboard_server::names::{model_name, name_under};
 use agent_dashboard_server::protocol::{Dataset, ExportFormat};
 
 use crate::limits;
@@ -53,8 +53,8 @@ pub fn provenance(history: &History, agent: Option<Agent>, totals: &Totals) -> C
     }
     let agents = agents_in_view(history, agent);
     match (
-        agents.contains(&Agent::ClaudeCode),
-        agents.contains(&Agent::CopilotCli),
+        agents.iter().any(|agent| !agent.records_charges()),
+        agents.iter().any(|agent| agent.records_charges()),
     ) {
         (true, true) => CostProvenance::Mixed,
         (false, true) => CostProvenance::Recorded,
@@ -80,6 +80,16 @@ pub fn added<'a>(totals: impl IntoIterator<Item = &'a Totals>) -> Totals {
         sum.merge(totals);
     }
     sum
+}
+
+/// The `agent` field of a plan window in the reports, which scripts read beside `plan`: Copilot
+/// CLI for Copilot's allowance, whichever Copilot agent recorded it, and Claude Code for Claude's
+/// windows.
+pub fn agent_field(plan: Plan) -> &'static str {
+    match plan {
+        Plan::Claude => Agent::ClaudeCode.as_str(),
+        Plan::Copilot => Agent::CopilotCli.as_str(),
+    }
 }
 
 /// How much of an allowance is used, where the agent records it: `1,575 of 45,000 AI credits`.
@@ -129,7 +139,7 @@ pub fn today(app: &App, agent: Option<Agent>, output: Output) -> ExitCode {
         .latest_limits()
         .unwrap_or_default()
         .into_iter()
-        .filter(|limit| agent.is_none_or(|agent| limit.source.agent() == agent))
+        .filter(|limit| agent.is_none_or(|agent| limit.source.plan() == agent.plan()))
         .collect();
     match output {
         Output::Table => {
@@ -334,7 +344,7 @@ fn periods_table(paint: Paint, note: &str, bucket: Bucket, periods: &[DayTotals]
         Bucket::Month => "Month",
         Bucket::Week | Bucket::Day => "Week of",
     };
-    out.push_str(&table(paint, heading, &rows, &total_row(&total)));
+    out.push_str(&totals_table(paint, heading, &rows, &total));
     out
 }
 
@@ -348,17 +358,27 @@ const HEADINGS: [&str; 5] = ["Requests", "Output", "Cache writes", "Cache reads"
 const WIDTHS: [usize; 5] = [8, 10, 15, 14, 9];
 const LABEL_WIDTH: usize = 14;
 
+/// A row's values; the cache tokens of a row of prompts alone, which VS Code does not record,
+/// show as `–`.
 pub fn cells(totals: &Totals) -> [String; 5] {
     let cost = if totals.requests > 0 && totals.unpriced_requests == totals.requests {
         "unpriced".to_owned()
     } else {
         money(totals.cost.total())
     };
+    let prompts = totals.requests > 0 && totals.per_prompt_requests == totals.requests;
+    let recorded = |tokens: u64| {
+        if prompts {
+            "–".to_owned()
+        } else {
+            compact(tokens)
+        }
+    };
     [
         grouped(totals.requests),
         compact(totals.tokens.output),
-        compact(totals.tokens.cache_write_5m + totals.tokens.cache_write_1h),
-        compact(totals.tokens.cache_read),
+        recorded(totals.tokens.cache_write_5m + totals.tokens.cache_write_1h),
+        recorded(totals.tokens.cache_read),
         cost,
     ]
 }
@@ -423,6 +443,26 @@ pub fn total_row(totals: &Totals) -> Row {
     }
 }
 
+/// A table whose last row adds up `totals`, with a note under it when some of them are prompts
+/// from VS Code's chat session files, which record a prompt's output tokens but not its cache
+/// tokens.
+pub fn totals_table(paint: Paint, first_heading: &str, rows: &[Row], totals: &Totals) -> String {
+    let mut out = table(paint, first_heading, rows, &total_row(totals));
+    let prompts = totals.per_prompt_requests;
+    if prompts > 0 {
+        let _ = writeln!(
+            out,
+            "{}",
+            paint.muted(&format!(
+                "Cache tokens leave out {} {} from VS Code's chat session files, which record output tokens alone.",
+                grouped(prompts),
+                if prompts == 1 { "prompt" } else { "prompts" }
+            ))
+        );
+    }
+    out
+}
+
 /// Each model's row, marked with its series.
 pub fn model_rows(app: &App, paint: Paint, models: &[ModelTotals]) -> Vec<Row> {
     models
@@ -477,11 +517,10 @@ pub fn agent_model_rows(app: &App, paint: Paint, groups: &[(Agent, Vec<ModelTota
     let mut rows = Vec::new();
     for (agent, models) in groups {
         rows.push(agent_row(paint, *agent, &sum(models)));
-        rows.extend(
-            models
-                .iter()
-                .map(|model| under_agent(&model_name(app, &model.model), &model.totals)),
-        );
+        rows.extend(models.iter().map(|model| {
+            let name = model_name(app, &model.model);
+            under_agent(name_under(*agent, &name), &model.totals)
+        }));
     }
     rows
 }
@@ -519,7 +558,7 @@ fn model_table(
         agent_model_rows(app, paint, groups)
     };
     let total = sum(models);
-    let mut out = table(paint, "Model", &rows, &total_row(&total));
+    let mut out = totals_table(paint, "Model", &rows, &total);
     if total.unpriced_requests > 0 && total.unpriced_requests < total.requests {
         let _ = writeln!(
             out,
@@ -563,7 +602,7 @@ fn days_table(paint: Paint, note: &str, days: &[DayTotals]) -> String {
             }
         })
         .collect();
-    out.push_str(&table(paint, "Day", &rows, &total_row(&total)));
+    out.push_str(&totals_table(paint, "Day", &rows, &total));
     out
 }
 
@@ -579,18 +618,19 @@ fn window_name(window: &str) -> String {
 }
 
 /// The plan-limits lines under a report, as the design writes them: Claude Code's windows on one
-/// line, and Copilot CLI's allowance on the next. A line shows for each of `agents`, the agents
-/// the report covers, and for any other whose readings `limits` holds; Claude Code's shows while
-/// no agent is known yet.
+/// line, and Copilot's allowance on the next. A line shows for the plan of each of `agents`, the
+/// agents the report covers, and for any other plan whose readings `limits` holds; Claude's shows
+/// while no agent is known yet.
 pub fn limits_line(app: &App, paint: Paint, limits: &[LimitSnapshot], agents: &[Agent]) -> String {
     let (copilot, claude): (Vec<&LimitSnapshot>, Vec<&LimitSnapshot>) = limits
         .iter()
-        .partition(|limit| limit.source.agent() == Agent::CopilotCli);
+        .partition(|limit| limit.source.plan() == Plan::Copilot);
+    let covers = |plan: Plan| agents.iter().any(|agent| agent.plan() == plan);
     let mut lines = Vec::new();
-    if agents.is_empty() || agents.contains(&Agent::ClaudeCode) || !claude.is_empty() {
+    if agents.is_empty() || covers(Plan::Claude) || !claude.is_empty() {
         lines.push(plan_limits_line(app, paint, &claude));
     }
-    if agents.contains(&Agent::CopilotCli) || !copilot.is_empty() {
+    if covers(Plan::Copilot) || !copilot.is_empty() {
         lines.push(allowance_line(app, paint, &copilot));
     }
     lines.join("\n")
@@ -692,13 +732,13 @@ fn plan_limits_line(app: &App, paint: Paint, limits: &[&LimitSnapshot]) -> Strin
     )
 }
 
-/// Copilot CLI's monthly allowance: `Copilot allowance, recorded, 1 h ago: 4% · 1,575 of 45,000
-/// AI credits · resets 1 Dec 13:00`.
+/// Copilot's monthly allowance: `Copilot allowance, recorded, 1 h ago: 4% · 1,575 of 45,000 AI
+/// credits · resets 1 Dec 13:00`.
 fn allowance_line(app: &App, paint: Paint, limits: &[&LimitSnapshot]) -> String {
     let now_ms = app.now.as_millisecond();
     let Some(limit) = limits.iter().max_by_key(|limit| limit.observed_ms) else {
         return paint.muted(
-            "Copilot allowance: none recorded. Copilot CLI records it as it runs, on a plan that has one.",
+            "Copilot allowance: none recorded. Copilot records it in its session files as it runs, on a plan that has one.",
         );
     };
     if limit.expired(now_ms) {
@@ -729,6 +769,7 @@ struct TodayJson {
 #[derive(Serialize)]
 struct LimitJson {
     agent: &'static str,
+    plan: &'static str,
     window: String,
     used_percentage: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -747,7 +788,8 @@ fn limit_json(limit: &LimitSnapshot) -> LimitJson {
             .ok()
     };
     LimitJson {
-        agent: limit.source.agent().as_str(),
+        agent: agent_field(limit.source.plan()),
+        plan: limit.source.plan().as_str(),
         window: limit.window.clone(),
         used_percentage: limit.used_percentage,
         used_credits: limit.used,

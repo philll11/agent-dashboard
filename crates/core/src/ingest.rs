@@ -9,15 +9,16 @@ use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::agent::Agent;
-use crate::copilot;
+use crate::agent::{Agent, VscodeHarness};
 use crate::history::{
     Attribution, History, HistoryError, Identity, ProjectKey, ReadPosition, ReportedCost, Request,
     SessionKey, SessionTitle, Writer,
 };
 use crate::roots::DataRoot;
-use crate::stats_cache;
-use crate::transcript::{self, ModelUsage, Parser, Read, Record, RequestRecord, Transcript};
+use crate::transcript::{
+    self, ModelUsage, Parser, Read, Record, RequestRecord, SessionDetails, Transcript,
+};
+use crate::{copilot, stats_cache, vscode};
 
 /// How much of a transcript one read takes in, so that a large transcript is written in parts.
 const CHUNK_BYTES: u64 = 8 << 20;
@@ -37,8 +38,13 @@ pub struct Report {
     pub transcripts_read: u64,
     /// Transcripts that had not changed.
     pub transcripts_unchanged: u64,
-    /// Request records read; a streamed response leaves several for one request.
+    /// Request records read; a streamed response leaves several for one request, and a VS Code
+    /// chat session file, read whole whenever it changes, its every prompt again.
     pub request_records: u64,
+    /// Requests that the history gained or that changed in it.
+    pub requests_changed: u64,
+    /// When the earliest and the latest of the requests that changed were made.
+    pub changed_between: Option<(i64, i64)>,
     /// Lines that this version cannot read.
     pub unreadable_lines: u64,
     /// Days with tokens from Claude Code's statistics, summed over the data roots.
@@ -77,6 +83,10 @@ pub struct Progress {
     pub request_records: u64,
     /// When the earliest and the latest request records written so far were written.
     pub requests_between: Option<(i64, i64)>,
+    /// Requests that the history gained or that changed in it so far.
+    pub requests_changed: u64,
+    /// When the earliest and the latest of the requests that changed so far were made.
+    pub changed_between: Option<(i64, i64)>,
 }
 
 /// [`ingest`], calling `progress` once it knows which transcripts changed, and again after each
@@ -101,6 +111,7 @@ pub fn ingest_with_progress(
         .flat_map(|root| match root.agent {
             Agent::ClaudeCode => transcript::find(&root.path),
             Agent::CopilotCli => copilot::find(&root.path),
+            Agent::CopilotVscode => vscode::find(&root.path),
         })
         .collect();
     transcripts.sort_by(|a, b| {
@@ -196,12 +207,7 @@ fn gone(
         .collect();
     let folders: Vec<String> = roots
         .iter()
-        .map(|root| {
-            root.path.join(match root.agent {
-                Agent::ClaudeCode => "projects",
-                Agent::CopilotCli => copilot::SESSIONS,
-            })
-        })
+        .map(DataRoot::transcripts)
         .filter(|folder| folder.is_dir())
         .map(|folder| path_key(&folder.join("")))
         .collect();
@@ -237,8 +243,9 @@ enum Found {
         last: bool,
         /// The kind of agent a subagent is, with the first part of its transcript.
         agent_type: Option<String>,
-        /// What a Copilot CLI session says about itself, with every part of its transcript.
-        session: Option<copilot::Session>,
+        /// What a Copilot or VS Code session says about itself, with every part of its
+        /// transcript.
+        session: Option<SessionDetails>,
     },
     /// Transcript `index` could not be read, or not to the end.
     Failed { index: usize, error: String },
@@ -290,6 +297,8 @@ fn read_transcripts(
         total,
         request_records: 0,
         requests_between: None,
+        requests_changed: 0,
+        changed_between: None,
     };
     if progress(first).is_break() {
         report.stopped = true;
@@ -311,19 +320,21 @@ fn read_transcripts(
         drop(sender);
         // Returning drops the receiver before the scope waits for the readers, so a reader
         // blocked on a full channel stops once it has read its part.
-        write_found(history, changed, &receiver, |found| {
+        write_found(history, changed, &receiver, |found, changes| {
             match found {
                 Found::Part { read, last, .. } => {
                     report.unreadable_lines += read.unreadable;
                     for record in &read.records {
                         if let Record::Request(request) = record {
                             report.request_records += 1;
-                            let at = request.timestamp_ms;
                             report.requests_between =
-                                Some(report.requests_between.map_or((at, at), |(first, last)| {
-                                    (first.min(at), last.max(at))
-                                }));
+                                Some(widen(report.requests_between, request.timestamp_ms));
                         }
+                    }
+                    report.requests_changed += changes.requests;
+                    if let Some((earliest, latest)) = changes.between {
+                        let (from, to) = widen(report.changed_between, earliest);
+                        report.changed_between = Some((from, to.max(latest)));
                     }
                     if last {
                         done += 1;
@@ -341,6 +352,8 @@ fn read_transcripts(
                 total,
                 request_records: report.request_records,
                 requests_between: report.requests_between,
+                requests_changed: report.requests_changed,
+                changed_between: report.changed_between,
             })
         })
     })?;
@@ -374,6 +387,27 @@ fn read_changed(changed: &[Changed<'_>], next: &AtomicUsize, sender: &SyncSender
                 copilot::parse_line,
                 Some(copilot::session(&transcript.path)),
             ),
+            // A VS Code chat session's log means something only from its first line, so it is
+            // read whole, in one part, whenever it changes.
+            Agent::CopilotVscode => {
+                let found = match vscode::read(&transcript.path) {
+                    Ok((read, session)) => Found::Part {
+                        index,
+                        read,
+                        last: true,
+                        agent_type: None,
+                        session: Some(session),
+                    },
+                    Err(error) => Found::Failed {
+                        index,
+                        error: error.to_string(),
+                    },
+                };
+                if sender.send(found).is_err() {
+                    return;
+                }
+                continue;
+            }
         };
         loop {
             let found =
@@ -408,25 +442,26 @@ fn read_changed(changed: &[Changed<'_>], next: &AtomicUsize, sender: &SyncSender
 }
 
 /// Writes what the readers found, a batch of parts per transaction, and hands each part on to
-/// `then` once it is written; stops after a batch when `then` breaks for one of its parts.
+/// `then` once it is written, with what it changed; stops after a batch when `then` breaks for
+/// one of its parts.
 fn write_found(
     history: &mut History,
     changed: &[Changed<'_>],
     receiver: &Receiver<Found>,
-    mut then: impl FnMut(Found) -> ControlFlow<()>,
+    mut then: impl FnMut(Found, Changes) -> ControlFlow<()>,
 ) -> Result<ControlFlow<()>, HistoryError> {
     let mut batch = Vec::new();
     while let Ok(found) = receiver.recv() {
         let mut records = found.records();
-        batch.push(found);
+        batch.push((found, Changes::default()));
         while records < RECORDS_PER_WRITE
             && let Ok(found) = receiver.try_recv()
         {
             records += found.records();
-            batch.push(found);
+            batch.push((found, Changes::default()));
         }
         history.write(|w| {
-            for found in &batch {
+            for (found, changes) in &mut batch {
                 if let Found::Part {
                     index,
                     read,
@@ -453,14 +488,14 @@ fn write_found(
                         agent_type: agent_type.as_deref(),
                         session: session.as_ref(),
                     };
-                    record(w, changed.transcript, &kept, &changed.key, position)?;
+                    *changes = record(w, changed.transcript, &kept, &changed.key, position)?;
                 }
             }
             Ok(())
         })?;
         let mut flow = ControlFlow::Continue(());
-        for found in batch.drain(..) {
-            if then(found).is_break() {
+        for (found, changes) in batch.drain(..) {
+            if then(found, changes).is_break() {
                 flow = ControlFlow::Break(());
             }
         }
@@ -476,23 +511,48 @@ struct Kept<'a> {
     records: &'a [Record],
     /// The kind of agent a subagent is.
     agent_type: Option<&'a str>,
-    /// What a Copilot CLI session says about itself.
-    session: Option<&'a copilot::Session>,
+    /// What a Copilot or VS Code session says about itself.
+    session: Option<&'a SessionDetails>,
 }
 
-/// Records what one read of a transcript found, and where the next read starts.
+/// The requests one read of a transcript added to the history or changed in it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct Changes {
+    requests: u64,
+    /// When the earliest and the latest of them were made.
+    between: Option<(i64, i64)>,
+}
+
+impl Changes {
+    fn add(&mut self, request: &RequestRecord, changed: bool) {
+        if changed {
+            self.requests += 1;
+            self.between = Some(widen(self.between, request.timestamp_ms));
+        }
+    }
+}
+
+/// A span of times widened to take in `at`.
+fn widen(span: Option<(i64, i64)>, at: i64) -> (i64, i64) {
+    span.map_or((at, at), |(first, last)| (first.min(at), last.max(at)))
+}
+
+/// Records what one read of a transcript found, and where the next read starts, and says which
+/// requests that changed.
 fn record(
     w: &mut Writer<'_>,
     transcript: &Transcript,
     kept: &Kept<'_>,
     key: &str,
     position: ReadPosition,
-) -> Result<(), HistoryError> {
-    match transcript.agent {
+) -> Result<Changes, HistoryError> {
+    let changes = match transcript.agent {
         Agent::ClaudeCode => record_claude_code(w, transcript, kept)?,
         Agent::CopilotCli => record_copilot(w, transcript, kept)?,
-    }
-    w.transcript_read(key, position)
+        Agent::CopilotVscode => record_vscode(w, transcript, kept)?,
+    };
+    w.transcript_read(key, position)?;
+    Ok(changes)
 }
 
 fn record_claude_code(
@@ -503,9 +563,10 @@ fn record_claude_code(
         agent_type,
         ..
     }: &Kept<'_>,
-) -> Result<(), HistoryError> {
+) -> Result<Changes, HistoryError> {
+    let mut changes = Changes::default();
     if records.is_empty() {
-        return Ok(());
+        return Ok(changes);
     }
     // A subagent may work in another folder, such as a worktree, so only the session's own
     // transcript names the project's working folder.
@@ -518,7 +579,7 @@ fn record_claude_code(
         None
     };
     let project = w.project(&transcript.project_folder, cwd)?;
-    let session = w.session(&transcript.session_id, project, Agent::ClaudeCode)?;
+    let session = w.session(&transcript.session_id, project, Agent::ClaudeCode, None)?;
     if let (Some(subagent_id), Some(agent_type)) = (&transcript.subagent_id, agent_type) {
         w.subagent_type(session, subagent_id, agent_type)?;
     }
@@ -527,10 +588,13 @@ fn record_claude_code(
         subagent_id: transcript.subagent_id.as_deref(),
         entrypoint: None,
         agent_version: None,
+        per_prompt: false,
     };
     for record in *records {
         match record {
-            Record::Request(request) => record_request(w, session, &context, request)?,
+            Record::Request(request) => {
+                changes.add(request, record_request(w, session, &context, request)?);
+            }
             Record::AiTitle(title) => w.session_title(session, SessionTitle::Ai(title))?,
             Record::CustomTitle(title) => {
                 w.session_title(session, SessionTitle::Custom(title))?;
@@ -554,28 +618,79 @@ fn record_claude_code(
             Record::Limit(_) | Record::SubagentType { .. } => {}
         }
     }
-    Ok(())
+    Ok(changes)
 }
 
-/// Records a part of a Copilot CLI session's transcript. Its project is the working folder the
-/// session names, shared with Claude Code's sessions in the same folder; a session with nothing
-/// new to record only takes its latest title, once the history holds it.
+/// Records a part of a Copilot session's transcript: Copilot CLI's, or Copilot in VS Code's when
+/// VS Code started the session on its Copilot harness.
 fn record_copilot(
     w: &mut Writer<'_>,
     transcript: &Transcript,
     Kept {
         records, session, ..
     }: &Kept<'_>,
-) -> Result<(), HistoryError> {
+) -> Result<Changes, HistoryError> {
     let details = session.cloned().unwrap_or_default();
+    let (agent, harness) = if copilot::started_by_vscode(&details) {
+        (Agent::CopilotVscode, Some(VscodeHarness::Copilot))
+    } else {
+        (Agent::CopilotCli, None)
+    };
+    let kind = SessionKind {
+        agent,
+        harness,
+        per_prompt: false,
+    };
+    record_session(w, transcript, records, &details, kind)
+}
+
+/// Records a VS Code chat session file, read whole: a session of Copilot in VS Code's Local
+/// harness, whose requests are prompts.
+fn record_vscode(
+    w: &mut Writer<'_>,
+    transcript: &Transcript,
+    Kept {
+        records, session, ..
+    }: &Kept<'_>,
+) -> Result<Changes, HistoryError> {
+    let details = session.cloned().unwrap_or_default();
+    let kind = SessionKind {
+        agent: Agent::CopilotVscode,
+        harness: Some(VscodeHarness::Local),
+        per_prompt: true,
+    };
+    record_session(w, transcript, records, &details, kind)
+}
+
+/// Whose a session is, where its transcript alone does not say.
+#[derive(Clone, Copy)]
+struct SessionKind {
+    agent: Agent,
+    harness: Option<VscodeHarness>,
+    /// Whether its requests are prompts, as VS Code's chat session files record them.
+    per_prompt: bool,
+}
+
+/// Records a part of a session whose agent keeps the session's details apart from its records.
+/// Its project is the working folder the session names, shared with every agent's sessions in
+/// the same folder; a session with nothing new to record only takes its latest title, once the
+/// history holds it.
+fn record_session(
+    w: &mut Writer<'_>,
+    transcript: &Transcript,
+    records: &[Record],
+    details: &SessionDetails,
+    kind: SessionKind,
+) -> Result<Changes, HistoryError> {
+    let mut changes = Changes::default();
     let key = if records.is_empty() {
         match w.known_session(&transcript.session_id)? {
             Some(key) => key,
-            None => return Ok(()),
+            None => return Ok(changes),
         }
     } else {
         let project = project_of(w, details.cwd.as_deref())?;
-        w.session(&transcript.session_id, project, Agent::CopilotCli)?
+        w.session(&transcript.session_id, project, kind.agent, kind.harness)?
     };
     if let Some(title) = &details.title {
         let title = if details.user_named {
@@ -585,16 +700,17 @@ fn record_copilot(
         };
         w.session_title(key, title)?;
     }
-    for record in *records {
+    for record in records {
         match record {
             Record::Request(request) => {
                 let context = Context {
-                    agent: Agent::CopilotCli,
+                    agent: kind.agent,
                     subagent_id: request.subagent_id.as_deref(),
                     entrypoint: details.client.as_deref(),
                     agent_version: details.version.as_deref(),
+                    per_prompt: kind.per_prompt,
                 };
-                record_request(w, key, &context, request)?;
+                changes.add(request, record_request(w, key, &context, request)?);
             }
             Record::Limit(snapshot) => w.limit_snapshot(snapshot)?,
             Record::SubagentType {
@@ -604,7 +720,7 @@ fn record_copilot(
             Record::AiTitle(_) | Record::CustomTitle(_) | Record::CostState(_) => {}
         }
     }
-    Ok(())
+    Ok(changes)
 }
 
 /// The project whose working folder is `cwd`: the one the history already knows by it, or one
@@ -628,9 +744,12 @@ struct Context<'a> {
     subagent_id: Option<&'a str>,
     entrypoint: Option<&'a str>,
     agent_version: Option<&'a str>,
+    /// Whether the transcript records a prompt and every model call it led to as one request.
+    per_prompt: bool,
 }
 
-/// Records the request a transcript record holds: one request per model it used.
+/// Records the request a transcript record holds: one request per model it used. Says whether
+/// that changed the history.
 ///
 /// The record's own model keeps the request's identity. An attempt on another model, such as
 /// one Claude Code made before falling back, is a request of its own, told apart by that model's
@@ -640,10 +759,11 @@ fn record_request(
     session: SessionKey,
     context: &Context<'_>,
     request: &RequestRecord,
-) -> Result<(), HistoryError> {
+) -> Result<bool, HistoryError> {
     if let (Some(name), Some(usage)) = (&request.model_name, request.usage.first()) {
         w.model_name(context.agent, &usage.model, name)?;
     }
+    let mut changed = false;
     for (index, ModelUsage { model, tokens }) in request.usage.iter().enumerate() {
         let tag = |id: &str| {
             if index == 0 {
@@ -659,7 +779,7 @@ fn record_request(
         };
         let record_id = tag(&request.record_id);
         let first = index == 0;
-        w.request(&Request {
+        changed |= w.request_changes(&Request {
             session,
             identity: Identity::from_ids(message_id.as_deref(), request_id.as_deref()),
             record_id: &record_id,
@@ -687,9 +807,10 @@ fn record_request(
             reasoning_tokens: if first { request.reasoning_tokens } else { 0 },
             initiator: request.initiator.as_deref(),
             charge: if first { request.charge } else { None },
+            per_prompt: context.per_prompt,
         })?;
     }
-    Ok(())
+    Ok(changed)
 }
 
 fn path_key(path: &Path) -> String {

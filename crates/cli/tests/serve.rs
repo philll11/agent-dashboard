@@ -55,6 +55,7 @@ impl Server {
             .args(options)
             .env("CLAUDE_CONFIG_DIR", &root)
             .env("COPILOT_HOME", root.with_file_name(".copilot"))
+            .env("AGENT_DASHBOARD_VSCODE_DATA", root.with_file_name("vscode"))
             .env("AGENT_DASHBOARD_HISTORY", &history)
             .env("AGENT_DASHBOARD_NOW", NOW)
             .env("TZ", "UTC")
@@ -325,6 +326,10 @@ fn shows_the_plan_limits_a_status_line_records() {
         .arg("statusline")
         .env("CLAUDE_CONFIG_DIR", &server.root)
         .env("COPILOT_HOME", server.root.with_file_name(".copilot"))
+        .env(
+            "AGENT_DASHBOARD_VSCODE_DATA",
+            server.root.with_file_name("vscode"),
+        )
         .env("AGENT_DASHBOARD_HISTORY", &server.history)
         .env("AGENT_DASHBOARD_NOW", NOW)
         .env("NO_COLOR", "1")
@@ -393,16 +398,19 @@ fn keeps_the_settings_every_surface_shares() {
     server.result("folders/add", &json!({"path": path}));
     let health = server.result("health", &Value::Null);
     let folders = health["folders"].as_array().unwrap();
-    assert_eq!(folders.len(), 3);
+    assert_eq!(folders.len(), 4);
     assert_eq!(folders[1]["agent"], "copilot-cli");
-    assert_eq!(folders[2]["agent"], "claude-code");
-    assert_eq!(folders[2]["source"], "added");
-    assert_eq!(folders[2]["path"], path);
+    assert_eq!(folders[2]["agent"], "copilot-vscode");
+    assert_eq!(folders[2]["source"], "environment");
+    assert_eq!(folders[2]["variable"], "AGENT_DASHBOARD_VSCODE_DATA");
+    assert_eq!(folders[3]["agent"], "claude-code");
+    assert_eq!(folders[3]["source"], "added");
+    assert_eq!(folders[3]["path"], path);
     let relative = server.request("folders/add", &json!({"path": "somewhere"}));
     assert_eq!(relative["error"]["code"], -32602);
     server.result("folders/remove", &json!({"path": path}));
     let health = server.result("health", &Value::Null);
-    assert_eq!(health["folders"].as_array().unwrap().len(), 2);
+    assert_eq!(health["folders"].as_array().unwrap().len(), 3);
     assert_eq!(health["history"]["requests"], 2);
     assert_eq!(health["cleanupDays"], 30);
 }
@@ -861,6 +869,7 @@ fn a_history_too_new_to_read_answers_with_a_code_of_its_own() {
         .arg("today")
         .env("CLAUDE_CONFIG_DIR", &root)
         .env("COPILOT_HOME", root.with_file_name(".copilot"))
+        .env("AGENT_DASHBOARD_VSCODE_DATA", root.with_file_name("vscode"))
         .env("AGENT_DASHBOARD_HISTORY", &history)
         .env("AGENT_DASHBOARD_NOW", NOW)
         .output()

@@ -10,7 +10,7 @@ export type Access = "readWrite" | "readOnly";
  */
 export type AgentChoice = { 
 /**
- * `claude-code` or `copilot-cli`.
+ * `claude-code`, `copilot-cli` or `copilot-vscode`.
  */
 id: string, 
 /**
@@ -174,7 +174,7 @@ export type FastPrices = { input: number, output: number, };
  */
 export type Filters = { 
 /**
- * An agent: `claude-code` or `copilot-cli`.
+ * An agent: `claude-code`, `copilot-cli` or `copilot-vscode`.
  */
 agent?: string | null, 
 /**
@@ -200,13 +200,17 @@ highest: number, totals: Totals, };
  */
 export type Folder = { path: string, 
 /**
- * The agent whose data the folder holds: `claude-code` or `copilot-cli`.
+ * The agent whose data the folder holds: `claude-code`, `copilot-cli` or `copilot-vscode`.
  */
 agent: string, 
 /**
  * `default`, `environment` or `added`.
  */
-source: string, state: FolderState, };
+source: string, 
+/**
+ * The environment variable that names an `environment` folder, such as `COPILOT_HOME`.
+ */
+variable?: string | null, state: FolderState, };
 
 /**
  * `folders/add` and `folders/remove` parameters.
@@ -502,7 +506,7 @@ export type SessionDetail = { id: string, title?: string | null, project: Projec
  */
 transcript?: string | null, firstMs: number, lastMs: number, agentVersion?: string | null, 
 /**
- * `claude-code` or `copilot-cli`.
+ * `claude-code`, `copilot-cli` or `copilot-vscode`.
  */
 agent: string, 
 /**
@@ -549,7 +553,7 @@ export type SessionRow = {
  */
 id: string, 
 /**
- * `claude-code` or `copilot-cli`.
+ * `claude-code`, `copilot-cli` or `copilot-vscode`.
  */
 agent: string, title?: string | null, project: Project, firstMs: number, lastMs: number, 
 /**
@@ -717,7 +721,7 @@ export type Totals = { requests: number, tokens: Tokens,
 reasoningTokens: number, 
 /**
  * The cost of the priced requests in US dollars: Claude Code's API-equivalent cost and the
- * charges Copilot CLI recorded.
+ * charges Copilot recorded. A per-prompt request's charge is one total, held as input.
  */
 cost: Cost, 
 /**
@@ -739,7 +743,12 @@ chargedCredits: number,
 /**
  * Requests with neither a price nor a recorded charge, whose cost is unknown.
  */
-unpricedRequests: number, webSearchRequests: number, fastRequests: number, };
+unpricedRequests: number, 
+/**
+ * Requests that are prompts, as VS Code's chat session files record them: their input and
+ * cache tokens are not recorded, so `tokens` holds only their output.
+ */
+perPromptRequests: number, webSearchRequests: number, fastRequests: number, };
 
 /**
  * One reading in a window's history.
@@ -764,12 +773,13 @@ agentType?: string | null, model: Model, firstMs: number, lastMs: number, totals
  */
 export type WindowReading = { 
 /**
- * The agent whose plan the window is of: `claude-code` or `copilot-cli`.
+ * The plan the window is of: `claude`, whose windows Claude Code reports, or `copilot`,
+ * whose allowance counts Copilot CLI and Copilot in VS Code alike.
  */
-agent: string, 
+plan: string, 
 /**
  * `five_hour`, `seven_day`, `seven_day:<model>` for one model's weekly window, another
- * window Claude Code reports, such as `spend_limit`, or Copilot CLI's `monthly` allowance.
+ * window Claude Code reports, such as `spend_limit`, or Copilot's `monthly` allowance.
  */
 window: string, 
 /**

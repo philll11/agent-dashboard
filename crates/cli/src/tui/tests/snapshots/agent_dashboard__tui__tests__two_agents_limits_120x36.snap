@@ -18,7 +18,7 @@ expression: shown(&state)
 13 ││   Use since Thu 8 Oct     ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁                                                   ││
 14 ││                                                                                                                      ││
 15 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
-16 │┌─ Copilot CLI ────────────────────────────────────────────────────────────────── recorded · session files · 1 h ago ──┐│
+16 │┌─ Copilot ────────────────────────────────────────────────────────────────────── recorded · session files · 1 h ago ──┐│
 17 ││ Monthly allowance     4%  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  1,575 of 45,000 AI credits                       ││
 18 ││   Resets Sun 1 Nov, 13:00 · at the pace since Fri 9 Oct, about 11% when it resets (estimate)                         ││
 19 ││   Use since Fri 9 Oct     ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁                                                   ││
@@ -56,7 +56,7 @@ styles
 13 │d   bbbbbbbbbbbbbbbbbbb     ffffffffffffffffffffffffffffffffffffffff                                                   d│
 14 │d                                                                                                                      d│
 15 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
-16 │ddaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbddd│
+16 │ddaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbddd│
 17 │d eeeeeeeeeeeeeeeee     aa  fggggggggggggggggggggggggggggggggggggggg  bbbbbbbbbbbbbbbbbbbbbbbbbb                       d│
 18 │d   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb                         d│
 19 │d   bbbbbbbbbbbbbbbbbbb     ffffffffffffffffffffffffffffffffffffffff                                                   d│
