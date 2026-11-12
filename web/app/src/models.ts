@@ -1,7 +1,7 @@
 // Which colour each model gets. Colours follow the model family, in the fixed order the design
 // validated (ADR 0007); a family's newest version gets its colour, and every other model shares
-// the neutral colour of "other models". Copilot CLI names Claude's models with dots, as in
-// `claude-opus-5.5`, so the same version under both agents' ids shares the family's colour.
+// the neutral colour of "other models". Copilot names Claude's models with dots, as in
+// `claude-opus-5.5`, so the same version under every agent's id shares the family's colour.
 
 export const SERIES = ["fable", "opus", "sonnet", "haiku", "gpt", "gemini"] as const;
 export type Family = (typeof SERIES)[number];

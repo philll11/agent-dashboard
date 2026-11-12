@@ -1,5 +1,5 @@
 // End-to-end tests: installs a package of the extension into a fresh VS Code, as a person would,
-// and checks what it shows, inside the dashboard's webview too, on a synthetic Claude Code folder.
+// and checks what it shows, inside the dashboard's webview too, on the agents' synthetic folders.
 // ExTester 8.27 drives VS Code 1.135 to 1.137, so the tests run on 1.137; the integration tests
 // cover the oldest VS Code the extension supports.
 //

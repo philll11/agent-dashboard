@@ -20,7 +20,7 @@ import { useHost } from "./context";
 import { useReadingProgress, useRequest } from "./data";
 import { addDays, ago, compact, duration, grouped, local, percent, resets, when } from "./format";
 import type { Host } from "./host";
-import { COST_WORDS, costText, tokensOf } from "./sections/common";
+import { COST_WORDS, costText, onlyPrompts, tokensOf } from "./sections/common";
 import { StatusLineDialog } from "./sections/dialogs";
 import { LevelIcon } from "./sections/provenance";
 import { isRunning, latestSession } from "./sessions";
@@ -28,7 +28,7 @@ import { Clock, Warning } from "./ui/icons";
 import { toTop } from "./ui/scroll";
 import { useNow } from "./ui/time";
 import { useView } from "./view";
-import { byAgent, LEVEL_TEXT, meterName, windowName } from "./windows";
+import { byPlan, LEVEL_TEXT, meterName, windowName } from "./windows";
 
 /** The sessions the latest is chosen from: enough for two busy days. */
 const SESSIONS = 200;
@@ -42,7 +42,7 @@ const DAY_MS = 24 * 60 * 60_000;
 /** What the strip shows, which it keeps in the view's state between showings. */
 interface Shown {
   timeZone: string;
-  /** Claude Code's five-hour and weekly windows and Copilot CLI's allowance, as far as they have
+  /** Claude Code's five-hour and weekly windows and Copilot's allowance, as far as they have
    * readings. */
   windows: WindowReading[];
   /** When Claude Code last passed a reading of any of its windows. */
@@ -102,11 +102,11 @@ export function Strip() {
     host.folders?.subscribe ?? NO_CHANGES,
     host.folders?.current ?? NO_FOLDERS,
   );
-  // Each agent's first windows: Claude Code's five-hour and weekly windows, or for a plan without
-  // them, the first two it has; then Copilot CLI's allowance.
+  // Each plan's first windows: Claude's five-hour and weekly windows, or for a plan without them,
+  // the first two it has; then Copilot's allowance.
   const windows = status
-    ? byAgent(status.limits).flatMap((group) =>
-        group.readings.slice(0, group.agent === "claude-code" ? 2 : 1),
+    ? byPlan(status.limits).flatMap((group) =>
+        group.readings.slice(0, group.plan === "claude" ? 2 : 1),
       )
     : undefined;
   const explain =
@@ -125,7 +125,7 @@ export function Strip() {
   if (status && windows) {
     fresh.timeZone = status.timeZone;
     fresh.windows = windows;
-    const claude = status.limits.filter((each) => each.agent === "claude-code");
+    const claude = status.limits.filter((each) => each.plan === "claude");
     if (claude.length > 0) {
       fresh.lastReadingMs = Math.max(...claude.map((each) => each.observedMs));
     }
@@ -236,9 +236,9 @@ function StripCells({ shown, folders }: { shown: Shown; folders: OpenFolders | u
       {shown.windows.length > 0 ? (
         shown.windows.map((reading, index) => (
           <WindowCell
-            key={`${reading.agent}:${reading.window}`}
+            key={`${reading.plan}:${reading.window}`}
             reading={reading}
-            first={shown.windows.findIndex((other) => other.agent === reading.agent) === index}
+            first={shown.windows.findIndex((other) => other.plan === reading.plan) === index}
             shown={shown}
             now={now}
           />
@@ -295,8 +295,8 @@ function WindowCell({
   }
   if (reading.expired) {
     facts.push("No reading since it reset");
-  } else if (old && first && reading.agent === "copilot-cli") {
-    facts.push(`Copilot CLI hasn't run for ${duration(now - reading.observedMs)}`);
+  } else if (old && first && reading.plan === "copilot") {
+    facts.push(`Copilot hasn't run for ${duration(now - reading.observedMs)}`);
   } else if (old && first) {
     const last = local(shown.lastReadingMs ?? reading.observedMs, shown.timeZone).time;
     facts.push(
@@ -502,7 +502,9 @@ function SessionCell({
             </span>
           ),
           `${grouped(totals.requests)} ${totals.requests === 1 ? "request" : "requests"}`,
-          `${compact(tokensOf(totals))} tokens`,
+          onlyPrompts(totals)
+            ? `${compact(totals.tokens.output)} output tokens`
+            : `${compact(tokensOf(totals))} tokens`,
           ...(model ? [model.name] : []),
         ]}
       />

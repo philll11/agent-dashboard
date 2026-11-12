@@ -19,6 +19,7 @@ import {
   costName,
   costText,
   ModelMenu,
+  promptsNote,
   RangeMenu,
   SectionHead,
   tokensOf,
@@ -73,6 +74,7 @@ export function Projects() {
     ),
   }));
   const small = groups.flatMap((part) => part.small);
+  const prompts = overview?.totals.perPromptRequests ?? 0;
   const provenance = useProvenance(overview?.totals);
   const summary = overview
     ? `${grouped(rows.length)} ${rows.length === 1 ? "project" : "projects"} ${
@@ -166,6 +168,7 @@ export function Projects() {
           (byAgent
             ? ` "Other projects" groups an agent's projects with less than 2% of its cost each; choose one in Sessions to see them.`
             : ` "Other projects" groups the ${String(small.length)} projects with less than 2% each; choose one in Sessions to see them.`)}
+        {prompts > 0 && ` ${promptsNote(prompts)}`}
       </p>
     </div>
   );

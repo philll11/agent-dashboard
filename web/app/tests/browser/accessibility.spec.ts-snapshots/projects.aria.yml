@@ -191,4 +191,47 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell /\$\d+\.\d+/
           - cell "5%"
-  - paragraph: A project is the folder a session ran in. "Other projects" groups an agent's projects with less than 2% of its cost each; choose one in Sessions to see them.
+      - rowgroup:
+        - 'row /Copilot in VS Code Daily cost for Copilot in VS Code over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 4 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ 1%/':
+          - rowheader "Copilot in VS Code"
+          - 'cell /Daily cost for Copilot in VS Code over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for Copilot in VS Code over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "4"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell "1%"
+        - 'row /agent-dashboard ~\/code\/agent-dashboard Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 2 \d+ [\d,.]+[bkmBKM]+ \$\d+\.\d+ \d+%/':
+          - rowheader "agent-dashboard ~/code/agent-dashboard":
+            - link "agent-dashboard ~/code/agent-dashboard":
+              - /url: "#project--home-you-code-agent-dashboard"
+          - 'cell /Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for agent-dashboard over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "2"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell /\d+%/
+        - 'row /infra ~\/code\/infra Daily cost for infra over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 1 4 [\d,.]+[bkmBKM]+ \$\d+\.\d+ \d+%/':
+          - rowheader "infra ~/code/infra":
+            - link "infra ~/code/infra":
+              - /url: "#project--home-you-code-infra"
+          - 'cell /Daily cost for infra over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for infra over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "1"
+          - cell "4"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell /\d+%/
+        - 'row /website ~\/code\/website Daily cost for website over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+ 1 3 [\d,.]+[bkmBKM]+ \$\d+\.\d+ \d+%/':
+          - rowheader "website ~/code/website":
+            - link "website ~/code/website":
+              - /url: "#project--home-you-code-website"
+          - 'cell /Daily cost for website over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/':
+            - 'img /Daily cost for website over \d+ days: lowest \$\d+\.\d+, highest \$\d+\.\d+, last \$\d+\.\d+/'
+          - cell "1"
+          - cell "3"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+          - cell /\d+%/
+  - paragraph: /A project is the folder a session ran in\. "Other projects" groups an agent's projects with less than 2% of its cost each; choose one in Sessions to see them\. VS Code's chat session files record a prompt's output tokens and charge alone, so the input and cache tokens leave out \d+ prompts\./

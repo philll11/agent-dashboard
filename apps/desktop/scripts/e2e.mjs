@@ -1,5 +1,5 @@
 // End-to-end tests: installs the desktop app from its installer, as a person would, and drives it
-// through tauri-driver on a synthetic Claude Code folder and a history of its own. Tauri's driver
+// through tauri-driver on the agents' synthetic folders and a history of its own. Tauri's driver
 // runs on Windows, with Microsoft Edge WebDriver matching the WebView2 runtime, which this
 // downloads from Microsoft unless --native-driver names one, and on Linux, with WebKitWebDriver;
 // macOS has none.

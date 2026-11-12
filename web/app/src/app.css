@@ -1379,6 +1379,9 @@ a:hover {
 /* Tables. */
 
 .table-scroll {
+  /* Contains what is positioned inside it, such as a cell's hidden text, so that a table wider
+     than the room scrolls here rather than widening the page. */
+  position: relative;
   overflow-x: auto;
 }
 

@@ -81,8 +81,8 @@ function NoHistory({ status, health }: { status: Status; health: Health }) {
             <span className="mono">{folder}</span>
           </span>
         ))}
-        . Claude Code and Copilot CLI save their history there after your first session. If you keep
-        it somewhere else, set <span className="mono">CLAUDE_CONFIG_DIR</span> or{" "}
+        . Each agent saves its history there after your first session. If you keep it somewhere
+        else, set <span className="mono">CLAUDE_CONFIG_DIR</span> or{" "}
         <span className="mono">COPILOT_HOME</span> to that folder, or add it in Settings.
       </p>
       <div className="actions">

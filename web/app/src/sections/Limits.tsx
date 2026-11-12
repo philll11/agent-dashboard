@@ -20,13 +20,13 @@ import { ago, dayAndTime, dayLabel, dayWordsAt, duration, local, money, percent 
 import { ChartIcon, TableIcon, Warning } from "../ui/icons";
 import { Panel, Pill, TableScroll } from "../ui/panels";
 import { useNow } from "../ui/time";
-import { agentName } from "../agents";
+import { planName, planOf } from "../agents";
 import { costText, SectionHead } from "./common";
 import { ExportMenu } from "../exports";
 import { grouped } from "../format";
 import { ConsentDialog, StatusLineDialog } from "./dialogs";
 import {
-  byAgent,
+  byPlan,
   creditsText,
   groupedName,
   inOrder,
@@ -45,14 +45,17 @@ export function Limits() {
   const limits = useRequest("limits", null).data;
   const known = useRequest("choices", null).data?.agents.map((agent) => agent.id) ?? [];
   const views = limits ? orderedViews(limits.windows) : [];
-  const groups = byAgent(views.map((view) => view.reading)).map((group) => ({
-    agent: group.agent,
-    views: views.filter((view) => view.reading.agent === group.agent),
+  const groups = byPlan(views.map((view) => view.reading)).map((group) => ({
+    plan: group.plan,
+    views: views.filter((view) => view.reading.plan === group.plan),
   }));
-  const agents = new Set([...known, ...groups.map((group) => group.agent)]);
-  const copilot = agents.has("copilot-cli");
+  const plans = new Set([
+    ...known.flatMap((agent) => planOf(agent) ?? []),
+    ...groups.map((group) => group.plan),
+  ]);
+  const copilot = plans.has("copilot");
   const summary =
-    copilot && agents.size > 1
+    copilot && plans.size > 1
       ? "Claude Code's limits are shared with claude.ai, and Copilot's allowance with Copilot everywhere"
       : copilot
         ? "Copilot's allowance counts Copilot wherever you use it"
@@ -83,12 +86,12 @@ export function Limits() {
         groups.length > 1 &&
         groups.map((group) => (
           <section
-            key={group.agent}
+            key={group.plan}
             className="agent-windows"
-            aria-labelledby={`windows-${group.agent}`}
+            aria-labelledby={`windows-${group.plan}`}
           >
             <div className="agent-windows-head">
-              <h2 id={`windows-${group.agent}`}>{agentName(group.agent)}</h2>
+              <h2 id={`windows-${group.plan}`}>{planName(group.plan)}</h2>
               <Provenance readings={group.views.map((view) => view.reading)} nowMs={now} />
             </div>
             <div className="window-cards">
@@ -182,7 +185,7 @@ function WindowCard({
       />
       {reading.window === "monthly" && (
         <p className="window-note">
-          {credits ? `${credits}. ` : ""}It counts Copilot wherever you use it, not just the CLI.
+          {credits ? `${credits}. ` : ""}It counts Copilot wherever you use it.
         </p>
       )}
       <PaceLine view={view} />
@@ -213,7 +216,7 @@ function PaceLine({ view }: { view: WindowView }) {
       ? "of the last 24 hours"
       : reading.window === "five_hour"
         ? "of this window so far"
-        : `since ${dayWordsAt(pace.sinceMs, now, status.timeZone)}`;
+        : `since ${dayWordsAt(pace.sinceMs, now, status.timeZone).replace(/^on /, "")}`;
   if (pace.limitReachedMs) {
     return (
       <p className="window-note">
@@ -426,7 +429,7 @@ function Sources({ limits, copilot }: { limits: LimitsAnswer; copilot: boolean }
         <div className="source">
           <div className="source-head">
             <span className="source-name">
-              Copilot CLI's session files
+              Copilot's session files
               <Pill tone="accent">Read</Pill>
             </span>
           </div>
@@ -535,8 +538,8 @@ function CopilotText() {
   const newest = Math.max(0, ...recorded.map((reading) => reading.observedMs));
   return (
     <p className="note">
-      Recorded. Copilot CLI notes the allowance GitHub reports with each request it makes, so there
-      is nothing to connect
+      Recorded. Copilot notes the allowance GitHub reports with each request in its session files,
+      so there is nothing to connect
       {newest > 0 ? `; last reading ${ago(newest, now)}` : "; no reading yet"}.
     </p>
   );

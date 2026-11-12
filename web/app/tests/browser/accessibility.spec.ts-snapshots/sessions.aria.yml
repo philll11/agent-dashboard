@@ -53,7 +53,7 @@
         - row /Tidy the CI matrix infra Copilot CLI Today \d+:\d+ \d+ min GPT-5\.5 \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Recorded cost/:
           - rowheader "Tidy the CI matrix infra":
             - link "Tidy the CI matrix infra":
-              - /url: "#session-301ac5fb-bcd8-4c6c-82d6-efff6f9f6b49"
+              - /url: "#session-d7954f4f-c564-4919-8545-67b640df7dc3"
           - cell "Copilot CLI"
           - cell /Today \d+:\d+/
           - cell /\d+ min/
@@ -78,15 +78,15 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell /\$\d+\.\d+/
           - cell "Within 0.3%"
-        - row /Review the release notes agent-dashboard Copilot CLI Today \d+:\d+ \d+ min Opus 5\.5, Copilot CLI \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Recorded cost/:
+        - row /Review the release notes agent-dashboard Copilot CLI Today \d+:\d+ \d+ min Opus 5\.5, Copilot \d+ 0 [\d,.]+[bkmBKM]+ \$\d+\.\d+ Recorded cost/:
           - rowheader "Review the release notes agent-dashboard":
             - link "Review the release notes agent-dashboard":
-              - /url: "#session-99730196-fbaa-4921-89cd-352c434b2e5c"
+              - /url: "#session-301ac5fb-bcd8-4c6c-82d6-efff6f9f6b49"
           - cell "Copilot CLI"
           - cell /Today \d+:\d+/
           - cell /\d+ min/
-          - cell "Opus 5.5, Copilot CLI":
-            - img "Opus 5.5, Copilot CLI"
+          - cell "Opus 5.5, Copilot":
+            - img "Opus 5.5, Copilot"
           - cell /\d+/
           - cell "0"
           - cell /[\d,.]+[bkmBKM]+/
@@ -207,4 +207,4 @@
     - text: /Showing 1 to \d+ of \d+ sessions/
     - button "Previous" [disabled]
     - button "Next"
-  - paragraph: "\"Claude Code's own figure\" compares our estimate with the session cost Claude Code records itself, which it writes as each of its processes ends. A figure that counts other requests than the history holds is not compared. Copilot CLI's sessions cost what Copilot CLI recorded, so there is nothing to compare."
+  - paragraph: "\"Claude Code's own figure\" compares our estimate with the session cost Claude Code records itself, which it writes as each of its processes ends. A figure that counts other requests than the history holds is not compared. Copilot's sessions cost what Copilot recorded, so there is nothing to compare."

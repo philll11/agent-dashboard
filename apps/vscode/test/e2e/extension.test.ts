@@ -1,5 +1,5 @@
 // The extension as a person meets it: installed from its package into a fresh VS Code, on the
-// synthetic Claude Code folder, whose moment and numbers are the design's. Each theme leaves a
+// agents' synthetic folders, whose moment and numbers are the design's. Each theme leaves a
 // screenshot in E2E_SCREENSHOTS to compare with the design's boards.
 
 import * as assert from "node:assert/strict";
@@ -136,12 +136,12 @@ describe(`${NAME}, installed from its package`, function () {
       return visible.length > 4 ? visible : undefined;
     }, 30_000);
     const shown = await rows(items ?? []);
-    assert.deepEqual(shown.slice(0, 17), [
+    assert.deepEqual(shown.slice(0, 18), [
       "Plan limits | official · 2 min ago",
       "Five-hour window | 42% · resets 14:20",
       "Weekly, all models | 71% · resets Thu 09:00",
       "Weekly, Fable | 18% · resets Thu 09:00",
-      "Copilot allowance | 4% · 1,608 of 45,000 AI credits",
+      "Copilot allowance | 4% · 1,704 of 45,000 AI credits",
       "Today | $6.84 · includes estimate",
       "Claude Code | $5.10 · estimate",
       "Opus 5.5 | $2.10",
@@ -151,12 +151,14 @@ describe(`${NAME}, installed from its package`, function () {
       "Copilot CLI | $1.74 · recorded",
       "GPT-5.5 | $1.33",
       "Opus 5.5 | $0.41",
-      "This week | $82.58 + unpriced · includes estimate",
+      "Copilot in VS Code | $0.00 · recorded",
+      "This week | $84.47 + unpriced · includes estimate",
       "Top projects | this week",
       "Claude Code | $69.46 + unpriced",
     ]);
-    assert.equal(shown[20], "Copilot CLI | $13.12");
-    assert.equal(shown.length, 24, "three projects of each agent follow");
+    assert.equal(shown[21], "Copilot CLI | $13.12");
+    assert.equal(shown[25], "Copilot in VS Code | $1.89");
+    assert.equal(shown.length, 28, "up to three projects of each agent follow");
   });
 
   it("opens the matching section of the dashboard from the sidebar", async () => {

@@ -3,11 +3,11 @@
 
 import type { Level, WindowReading } from "@agent-dashboard/protocol";
 
-import { AGENTS } from "./agents";
+import { PLANS } from "./agents";
 import { grouped } from "./format";
 
-/** What a window is called: `Five-hour window`, `Weekly, all models`, `Weekly, Fable`, or Copilot
- * CLI's `Copilot allowance`. */
+/** What a window is called: `Five-hour window`, `Weekly, all models`, `Weekly, Fable`, or Copilot's
+ * `Copilot allowance`. */
 export function windowName(reading: WindowReading): string {
   if (reading.window === "five_hour") return "Five-hour window";
   if (reading.window === "seven_day") return "Weekly, all models";
@@ -20,7 +20,7 @@ export function windowName(reading: WindowReading): string {
 /** What a screen reader calls a window's meter: `Weekly Fable window`. */
 export function meterName(reading: WindowReading): string {
   if (reading.window === "five_hour") return "Five-hour window";
-  if (reading.window === "monthly") return "Copilot CLI's monthly allowance";
+  if (reading.window === "monthly") return "Copilot's monthly allowance";
   if (reading.window === "seven_day") return "Weekly window";
   if (reading.model) return `Weekly ${reading.model} window`;
   return windowName(reading);
@@ -35,30 +35,29 @@ function rank(reading: WindowReading): number {
 }
 
 /** Claude Code's windows first: five-hour, then weekly, then each model's weekly window, then any
- * other; then Copilot CLI's allowance. */
+ * other; then Copilot's allowance. */
 export function inOrder(readings: readonly WindowReading[]): WindowReading[] {
   return [...readings].sort(
     (a, b) => rank(a) - rank(b) || (a.model ?? a.window).localeCompare(b.model ?? b.window),
   );
 }
 
-/** A window's name under its agent's heading, where Copilot CLI's allowance is its `Monthly
- * allowance`. */
+/** A window's name under its plan's heading, where Copilot's allowance is its `Monthly allowance`. */
 export function groupedName(reading: WindowReading): string {
   return reading.window === "monthly" ? "Monthly allowance" : windowName(reading);
 }
 
-/** The readings of each agent that has any, Claude Code's first, each in order. */
-export function byAgent(
+/** The readings of each plan that has any, Claude's first, each in order. */
+export function byPlan(
   readings: readonly WindowReading[],
-): { agent: string; readings: WindowReading[] }[] {
+): { plan: string; readings: WindowReading[] }[] {
   const ordered = inOrder(readings);
-  const agents = [
-    ...AGENTS,
-    ...ordered.map((reading) => reading.agent).filter((agent) => !AGENTS.some((a) => a === agent)),
+  const plans = [
+    ...PLANS,
+    ...ordered.map((reading) => reading.plan).filter((plan) => !PLANS.some((p) => p === plan)),
   ];
-  return [...new Set(agents)]
-    .map((agent) => ({ agent, readings: ordered.filter((reading) => reading.agent === agent) }))
+  return [...new Set(plans)]
+    .map((plan) => ({ plan, readings: ordered.filter((reading) => reading.plan === plan) }))
     .filter((group) => group.readings.length > 0);
 }
 

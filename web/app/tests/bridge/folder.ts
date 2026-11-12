@@ -1,7 +1,7 @@
-// A synthetic Claude Code folder read into a new history, in a temporary folder of its own, for
-// whatever runs agent-dashboard on it: the dashboard's previews and browser tests, and the VS Code
+// The agents' synthetic folders read into a new history, in a temporary folder of their own, for
+// whatever runs agent-dashboard on them: the dashboard's previews and browser tests, and the VS Code
 // extension's tests. agent-dashboard runs at a fixed moment (AGENT_DASHBOARD_NOW) in a fixed time
-// zone, so it never reads or changes the person's Claude Code folder or history.
+// zone, so it never reads or changes the person's own agents' folders or history.
 //
 // Node loads this file as it is, so it keeps to TypeScript that only needs its types removed.
 

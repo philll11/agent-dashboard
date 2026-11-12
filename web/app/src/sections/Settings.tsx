@@ -77,7 +77,7 @@ function sourceName(folder: Folder): string {
   if (folder.source === "default") return "Default";
   if (folder.source === "added") return "Added by you";
   if (folder.source === "environment") {
-    return folder.agent === "copilot-cli" ? "From COPILOT_HOME" : "From CLAUDE_CONFIG_DIR";
+    return folder.variable ? `From ${folder.variable}` : "From an environment variable";
   }
   return folder.source;
 }
@@ -100,7 +100,7 @@ function Folders({ health }: { health: Health }) {
   return (
     <Panel
       title="Data folders"
-      subtitle="Where to read each agent's transcripts from. CLAUDE_CONFIG_DIR and COPILOT_HOME are used when they are set."
+      subtitle="Where to read each agent's transcripts from. The agents' own variables, such as CLAUDE_CONFIG_DIR and COPILOT_HOME, are used when they are set."
       actions={
         host.pickFolder ? (
           <span className="add-folder">
@@ -133,6 +133,11 @@ function Folders({ health }: { health: Health }) {
               />
             ))}
           </ul>
+          {group.agent === "copilot-vscode" && (
+            <p className="footnote">
+              Sessions on VS Code's Copilot harness are read from Copilot CLI's folder.
+            </p>
+          )}
         </section>
       ))}
       {problem && <p className="note problem">{problem}</p>}
@@ -242,6 +247,11 @@ function History({ health }: { health: Health }) {
         {health.folders.some((folder) => folder.agent === "copilot-cli") && (
           <Fact name="Copilot CLI clean-up">
             Copilot CLI documents none; whatever it deletes, everything read stays here.
+          </Fact>
+        )}
+        {health.folders.some((folder) => folder.agent === "copilot-vscode") && (
+          <Fact name="Copilot in VS Code clean-up">
+            VS Code keeps a session until you delete it; everything read stays here.
           </Fact>
         )}
       </Facts>

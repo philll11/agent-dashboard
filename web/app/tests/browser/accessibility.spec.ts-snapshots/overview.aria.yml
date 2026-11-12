@@ -35,12 +35,12 @@
       - text: /Over \d+% Resets Thu \d+ Oct, \d+:\d+ Weekly, Fable \d+%/
       - meter /Weekly Fable window, \d+% used/
       - text: /Resets Thu \d+ Oct, \d+:\d+/
-    - region "Copilot CLI's plan limits":
-      - heading "Copilot CLI" [level=3]
-      - text: Recorded · Copilot CLI · 1 h ago Monthly allowance 4%
-      - meter "Copilot CLI's monthly allowance, 4% used"
+    - region "Copilot's plan limits":
+      - heading "Copilot" [level=3]
+      - text: Recorded · Copilot · 1 h ago Monthly allowance 4%
+      - meter "Copilot's monthly allowance, 4% used"
       - text: /\d+,\d+ of \d+,\d+ AI credits Resets Sun 1 Nov, \d+:\d+/
-      - paragraph: The allowance counts Copilot wherever you use it, not just the CLI, and updates while Copilot CLI runs.
+      - paragraph: The allowance counts Copilot wherever you use it, and updates while Copilot runs.
   - region "Today":
     - heading "Today" [level=2]
     - text: /Includes estimate \$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · −\d+% on yesterday/
@@ -49,6 +49,8 @@
     - definition: /\$\d+\.\d+ estimate/
     - term: Copilot CLI
     - definition: /\$\d+\.\d+ recorded · \d+ credits/
+    - term: Copilot in VS Code
+    - definition: /\$\d+\.\d+ recorded · 0 credits/
   - region "This week":
     - heading "This week" [level=2]
     - text: /Includes estimate \$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · \+\d+% on last week/
@@ -57,6 +59,8 @@
     - definition: /\$\d+\.\d+ estimate/
     - term: Copilot CLI
     - definition: /\$\d+\.\d+ recorded · \d+,\d+ credits/
+    - term: Copilot in VS Code
+    - definition: /\$\d+\.\d+ recorded · \d+ credits/
   - region "This month":
     - heading "This month" [level=2]
     - text: /Includes estimate \$\d+\.\d+ [\d,.]+[bkmBKM]+ tokens · month to date/
@@ -65,6 +69,8 @@
     - definition: /\$\d+\.\d+ estimate/
     - term: Copilot CLI
     - definition: /\$\d+\.\d+ recorded · \d+,\d+ credits/
+    - term: Copilot in VS Code
+    - definition: /\$\d+\.\d+ recorded · \d+ credits/
   - region "Cost per day":
     - heading "Cost per day" [level=2]
     - text: /Includes an estimate at Anthropic's list prices · last \d+ days/
@@ -72,6 +78,7 @@
     - list "Legend":
       - listitem: /Claude Code , \$\d+\.\d+/
       - listitem: /Copilot CLI , \$\d+\.\d+/
+      - listitem: /Copilot in VS Code , \$\d+\.\d+/
     - 'group /Cost per day by agent, last \d+ days: \$\d+\.\d+ in all, highest \$\d+\.\d+ on Thu 8 Oct\. The left and right arrow keys read each column\./'
   - region "Top projects":
     - heading "Top projects" [level=2]
@@ -90,6 +97,12 @@
         - listitem: /walkthrough , \$\d+\.\d+/
         - listitem: /agent-dashboard , \$\d+\.\d+/
         - listitem: /Other projects , \$\d+\.\d+/
+    - region "Copilot in VS Code's top projects":
+      - heading "Copilot in VS Code" [level=3]
+      - list:
+        - listitem: /agent-dashboard , \$\d+\.\d+/
+        - listitem: /infra , \$\d+\.\d+/
+        - listitem: /website , \$\d+\.\d+/
   - region /Models · last \d+ days/:
     - heading /Models · last \d+ days/ [level=2]
     - text: /\d+% of input read from cache/
@@ -185,4 +198,38 @@
           - cell /[\d,.]+[bkmBKM]+/
           - cell /[\d,.]+[bkmBKM]+/
           - cell /\$\d+\.\d+/
-    - text: /Recorded Copilot CLI's charges, at \$\d+\.\d+ an AI credit Estimate Price table of \d+ October \d+ · within 0\.4% of Claude Code's own session costs/
+      - rowgroup:
+        - row /Copilot in VS Code \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ \$\d+\.\d+/:
+          - rowheader "Copilot in VS Code"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+        - row /Sonnet 4\.6 9 not recorded [\d,.]+[bkmBKM]+ not recorded not recorded \$\d+\.\d+/:
+          - rowheader "Sonnet 4.6"
+          - cell "9"
+          - cell "not recorded"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "not recorded"
+          - cell "not recorded"
+          - cell /\$\d+\.\d+/
+        - row /Opus 5\.5 \d+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ [\d,.]+[bkmBKM]+ \$\d+\.\d+/:
+          - rowheader "Opus 5.5"
+          - cell /\d+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell /\$\d+\.\d+/
+        - row /GPT-5\.5 3 not recorded [\d,.]+[bkmBKM]+ not recorded not recorded \$\d+\.\d+/:
+          - rowheader "GPT-5.5"
+          - cell "3"
+          - cell "not recorded"
+          - cell /[\d,.]+[bkmBKM]+/
+          - cell "not recorded"
+          - cell "not recorded"
+          - cell /\$\d+\.\d+/
+    - paragraph: /VS Code's chat session files record a prompt's output tokens and charge alone, so the input and cache tokens leave out \d+ prompts\./
+    - text: /Recorded Copilot's charges, at \$\d+\.\d+ an AI credit Estimate Price table of \d+ October \d+ · within 0\.4% of Claude Code's own session costs/

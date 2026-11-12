@@ -111,7 +111,10 @@
           ["Copilot allowance", "4% · 1,620 of 45,000 AI credits"],
           ["Today", "$6.79"]
         ],
-        "sources": ["Official, status line, 2 min ago", "Recorded, Copilot's session files, 1 h ago"],
+        "sources": [
+          "Official, status line, 2 min ago",
+          "Recorded, Copilot's session files, 1 h ago"
+        ],
         "statusText": "5h 42% · 14:20 · Copilot 4%",
         "tooltip": "Dashboard for Coding Agents - 5h 42% · resets 14:20 · Copilot 4%",
         "title": "42%",
@@ -205,7 +208,10 @@
           ["Copilot allowance", "75% ▲ · 33,930 of 45,000 AI credits"],
           ["Today", "$6.79"]
         ],
-        "sources": ["Official, status line, 2 min ago", "Recorded, Copilot's session files, 1 h ago"],
+        "sources": [
+          "Official, status line, 2 min ago",
+          "Recorded, Copilot's session files, 1 h ago"
+        ],
         "statusText": "5h 42% · 14:20 · Copilot 75%",
         "tooltip": "Dashboard for Coding Agents - 5h 42% · resets 14:20 · Copilot 75% ▲",
         "title": "42% ▲",

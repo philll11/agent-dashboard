@@ -38,24 +38,24 @@
       - text: /Same week \d+% used · resets in 5 days/
       - meter /Weekly Fable window, \d+% used/
       - paragraph: A separate weekly limit for Fable.
-  - region "Copilot CLI":
-    - heading "Copilot CLI" [level=2]
-    - text: Recorded · Copilot CLI · 1 h ago
+  - region "Copilot":
+    - heading "Copilot" [level=2]
+    - text: Recorded · Copilot · 1 h ago
     - region "Monthly allowance":
       - heading "Monthly allowance" [level=2]
       - text: /Thu 1 Oct \d+:\d+ to Sun 1 Nov \d+:\d+ 4% used · resets in \d+ days/
-      - meter "Copilot CLI's monthly allowance, 4% used"
-      - paragraph: /\d+,\d+ of \d+,\d+ AI credits\. It counts Copilot wherever you use it, not just the CLI\./
-      - paragraph: /At the pace since on 8 October \d+ at \d+:\d+, about 8% when it resets \(estimate\)/
-      - img /Copilot allowance use rises from 0% on 1 October \d+ at \d+:\d+ to 4% today at \d+:\d+\. At the same pace it reaches about 8% when it resets\./
+      - meter "Copilot's monthly allowance, 4% used"
+      - paragraph: /\d+,\d+ of \d+,\d+ AI credits\. It counts Copilot wherever you use it\./
+      - paragraph: /At the pace since 8 October \d+ at \d+:\d+, about 9% when it resets \(estimate\)/
+      - img /Copilot allowance use rises from 0% on 1 October \d+ at \d+:\d+ to 4% today at \d+:\d+\. At the same pace it reaches about 9% when it resets\./
       - button "Show as table"
   - region "Where the limits come from":
     - heading "Where the limits come from" [level=2]
     - text: Claude Code's status line Connected
     - button "Disconnect"
     - paragraph: Official. Updates while Claude Code runs in a terminal; last reading 2 min ago.
-    - text: Copilot CLI's session files Read
-    - paragraph: Recorded. Copilot CLI notes the allowance GitHub reports with each request it makes, so there is nothing to connect; last reading 1 h ago.
+    - text: Copilot's session files Read
+    - paragraph: Recorded. Copilot notes the allowance GitHub reports with each request in its session files, so there is nothing to connect; last reading 1 h ago.
     - text: Anthropic's usage endpoint On Experimental
     - button "Turn off"
     - paragraph: Fills the gaps in Claude Code's windows when no terminal session is running. It reads your Claude Code login without changing it and asks at most once every 5 minutes. The endpoint is undocumented, so it may stop working without notice. Last asked 5 min ago.

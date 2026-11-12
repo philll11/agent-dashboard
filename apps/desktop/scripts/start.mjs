@@ -1,5 +1,5 @@
 // Starts the desktop app, built for a target, as a release publishes it, or installed from an
-// installer, where no WebDriver can drive it, on a synthetic Claude Code folder and a history of its
+// installer, where no WebDriver can drive it, on the agents' synthetic folders and a history of its
 // own that starts empty. It checks that the app keeps running, reads the transcripts into the
 // history, makes its item in the menu bar or the notification area, and shows its window once the
 // dashboard has drawn rather than through its fallback. On macOS it keeps a screenshot of the

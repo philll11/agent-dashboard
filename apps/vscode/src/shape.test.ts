@@ -24,6 +24,7 @@ function totals(usd: number, unpricedRequests = 0): Totals {
       webSearch: 0,
     },
     unpricedRequests,
+    perPromptRequests: 0,
     webSearchRequests: 0,
     fastRequests: 0,
     reasoningTokens: 0,
@@ -41,7 +42,7 @@ function window(
   extra: Partial<WindowReading> = {},
 ): WindowReading {
   return {
-    agent: "claude-code",
+    plan: "claude",
     window: name,
     usedPercentage,
     resetsAtMs,
@@ -265,7 +266,7 @@ describe("the sidebar tree", () => {
           overview: agentOverview(
             [
               {
-                model: { id: "claude-opus-5.5", name: "Opus 5.5, Copilot CLI" },
+                model: { id: "claude-opus-5.5", name: "Opus 5.5, Copilot" },
                 totals: copilot(0.41),
               },
             ],
@@ -296,6 +297,31 @@ describe("the sidebar tree", () => {
       project: "C--x",
       agent: "copilot-cli",
     });
+  });
+
+  it("says an agent's cost is recorded or an estimate on a day without its requests", () => {
+    const quiet: Totals = { ...totals(0), requests: 0, costProvenance: null };
+    const agentOverview = (cost: Totals): Overview => ({ ...overview([]), totals: cost });
+    const three = {
+      ...summary(),
+      todayByAgent: [
+        { agent: "claude-code", overview: agentOverview(totals(2.1)) },
+        { agent: "copilot-cli", overview: agentOverview(quiet) },
+        { agent: "copilot-vscode", overview: agentOverview(quiet) },
+      ],
+      weekByAgent: [],
+    };
+    const [, today] = tree(three, NOW);
+    expect(today?.children.map((child) => `${child.label} | ${child.description}`)).toEqual([
+      "Claude Code | $2.10 · estimate",
+      "Copilot CLI | $0.00 · recorded",
+      "Copilot in VS Code | $0.00 · recorded",
+    ]);
+    expect(today?.children.map((child) => child.icon)).toEqual([
+      { kind: "model", series: "fable" },
+      { kind: "model", series: "opus" },
+      { kind: "model", series: "sonnet" },
+    ]);
   });
 
   it("marks a window over 70% and colours each model by its family's newest", () => {

@@ -24,7 +24,15 @@ import { Panel, Pause, Problem, Tile, TableScroll } from "../ui/panels";
 import { useNow } from "../ui/time";
 import { useView } from "../view";
 import { ExportMenu } from "../exports";
-import { cacheShare, costText, tokensOf, useSeries } from "./common";
+import {
+  cacheShare,
+  costText,
+  NotRecorded,
+  onlyPrompts,
+  promptsNote,
+  tokensOf,
+  useSeries,
+} from "./common";
 import { isRunning } from "../sessions";
 import { OwnFigure, unpriced } from "./Sessions";
 
@@ -106,9 +114,11 @@ function Body({ detail }: { detail: Detail }) {
             label="Tokens"
             value={compact(tokensOf(detail.totals))}
             note={
-              detail.totals.reasoningTokens > 0
-                ? `${compact(detail.totals.reasoningTokens)} of them reasoning`
-                : `${percent(cacheShare(detail.totals) * 100)} read from the prompt cache`
+              onlyPrompts(detail.totals)
+                ? "Output alone, as VS Code records it"
+                : detail.totals.reasoningTokens > 0
+                  ? `${compact(detail.totals.reasoningTokens)} of them reasoning`
+                  : `${percent(cacheShare(detail.totals) * 100)} read from the prompt cache`
             }
           />
         </div>
@@ -377,16 +387,35 @@ function CostOverSession({ detail, timeZone }: { detail: Detail; timeZone: strin
 }
 
 /** Each type of token, with its cost where the cost is worked out by type: an agent's recorded
- * charge is for the whole request. */
+ * charge is for the whole request. A session of VS Code's prompts has its output tokens alone, so
+ * the other types show as not recorded, without a share column. */
 function TokensByType({ totals, costs }: { totals: Totals; costs: boolean }) {
   const { tokens, cost } = totals;
-  const rows = [
-    { name: "Cache reads", tokens: tokens.cacheRead, cost: cost.cacheRead },
-    { name: "Cache writes, 1 hour", tokens: tokens.cacheWrite1h, cost: cost.cacheWrite1h },
-    { name: "Cache writes, 5 minutes", tokens: tokens.cacheWrite5m, cost: cost.cacheWrite5m },
-    { name: "Output", tokens: tokens.output, cost: cost.output },
-    { name: "Input", tokens: tokens.input, cost: cost.input },
-  ].filter((row) => row.tokens > 0);
+  const prompts = onlyPrompts(totals);
+  const rows = prompts
+    ? [
+        { name: "Output", tokens: tokens.output, cost: cost.output, recorded: true },
+        { name: "Input", tokens: 0, cost: 0, recorded: false },
+        { name: "Cache writes", tokens: 0, cost: 0, recorded: false },
+        { name: "Cache reads", tokens: 0, cost: 0, recorded: false },
+      ]
+    : [
+        { name: "Cache reads", tokens: tokens.cacheRead, cost: cost.cacheRead, recorded: true },
+        {
+          name: "Cache writes, 1 hour",
+          tokens: tokens.cacheWrite1h,
+          cost: cost.cacheWrite1h,
+          recorded: true,
+        },
+        {
+          name: "Cache writes, 5 minutes",
+          tokens: tokens.cacheWrite5m,
+          cost: cost.cacheWrite5m,
+          recorded: true,
+        },
+        { name: "Output", tokens: tokens.output, cost: cost.output, recorded: true },
+        { name: "Input", tokens: tokens.input, cost: cost.input, recorded: true },
+      ].filter((row) => row.tokens > 0);
   const all = tokensOf(totals);
   const largest = Math.max(...rows.map((row) => row.tokens), 0);
   return (
@@ -396,9 +425,11 @@ function TokensByType({ totals, costs }: { totals: Totals; costs: boolean }) {
           <thead>
             <tr>
               <th scope="col">Type</th>
-              <th scope="col" className="left share-column nowrap">
-                Share of tokens
-              </th>
+              {!prompts && (
+                <th scope="col" className="left share-column nowrap">
+                  Share of tokens
+                </th>
+              )}
               <th scope="col">Tokens</th>
               {costs && <th scope="col">Cost</th>}
             </tr>
@@ -409,21 +440,23 @@ function TokensByType({ totals, costs }: { totals: Totals; costs: boolean }) {
                 <th scope="row" className="nowrap">
                   {row.name}
                 </th>
-                <td className="left">
-                  <span className="share-cell">
-                    <span
-                      className="bar"
-                      aria-hidden="true"
-                      style={{
-                        width: `${String(largest > 0 ? (row.tokens / largest) * 100 : 0)}%`,
-                      }}
-                    />
-                    <span className="share-text">
-                      {percent(all > 0 ? (row.tokens / all) * 100 : 0)}
+                {!prompts && (
+                  <td className="left">
+                    <span className="share-cell">
+                      <span
+                        className="bar"
+                        aria-hidden="true"
+                        style={{
+                          width: `${String(largest > 0 ? (row.tokens / largest) * 100 : 0)}%`,
+                        }}
+                      />
+                      <span className="share-text">
+                        {percent(all > 0 ? (row.tokens / all) * 100 : 0)}
+                      </span>
                     </span>
-                  </span>
-                </td>
-                <td>{compact(row.tokens)}</td>
+                  </td>
+                )}
+                <td>{row.recorded ? compact(row.tokens) : <NotRecorded />}</td>
                 {costs && <td className="strong">{money(row.cost)}</td>}
               </tr>
             ))}
@@ -432,7 +465,7 @@ function TokensByType({ totals, costs }: { totals: Totals; costs: boolean }) {
                 <th scope="row" className="nowrap">
                   Web searches
                 </th>
-                <td className="left" />
+                {!prompts && <td className="left" />}
                 <td>{grouped(totals.webSearchRequests)}</td>
                 {costs && <td className="strong">{money(cost.webSearch)}</td>}
               </tr>
@@ -440,6 +473,7 @@ function TokensByType({ totals, costs }: { totals: Totals; costs: boolean }) {
           </tbody>
         </table>
       </TableScroll>
+      {prompts && <p className="footnote">{promptsNote(totals.perPromptRequests)}</p>}
     </Panel>
   );
 }

@@ -20,6 +20,7 @@ const TOTALS: Totals = {
     webSearch: 0,
   },
   unpricedRequests: 0,
+  perPromptRequests: 0,
   webSearchRequests: 0,
   fastRequests: 0,
   reasoningTokens: 0,

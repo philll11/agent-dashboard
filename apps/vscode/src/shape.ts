@@ -11,7 +11,14 @@ import type {
   Totals,
   WindowReading,
 } from "@agent-dashboard/protocol";
-import { type AgentOverview, agentName, agentSeries, nameUnder } from "@agent-dashboard/app/agents";
+import {
+  type AgentOverview,
+  agentName,
+  agentSeries,
+  nameUnder,
+  PLANS,
+  recordsCharges,
+} from "@agent-dashboard/app/agents";
 import { ago, money, percent, when } from "@agent-dashboard/app/format";
 import { type Series, seriesOf } from "@agent-dashboard/app/models";
 import { creditsText, inOrder, LEVEL_TEXT, windowName } from "@agent-dashboard/app/windows";
@@ -117,26 +124,28 @@ function levelWords(level: Level): string | undefined {
 /** Where a reading comes from, for a sentence: `official, status line`. */
 function source(window: WindowReading): string {
   if (window.provenance === "official") return "official, status line";
-  if (window.provenance === "recorded") return "recorded, Copilot CLI";
+  if (window.provenance === "recorded") return "recorded, Copilot's session files";
   return "experimental, usage endpoint";
 }
 
 /** What a cost is, after its figure: `$5.10 · estimate`, `$1.74 · recorded`, `$6.84 · includes
- * estimate`. */
-function kind(totals: Totals): string {
+ * estimate`. An agent's cost without any priced request is what that agent's costs always are:
+ * recorded for a Copilot agent, an estimate for Claude Code. */
+function kind(totals: Totals, agent?: string): string {
   if (totals.costProvenance === "recorded") return "recorded";
   if (totals.costProvenance === "mixed") return "includes estimate";
+  if (!totals.costProvenance && agent !== undefined && recordsCharges(agent)) return "recorded";
   return "estimate";
 }
 
 /** What today's cost is, for a sentence, by where it comes from. */
 function costWords(totals: Totals): string {
-  if (totals.costProvenance === "recorded") return "as Copilot CLI recorded it";
+  if (totals.costProvenance === "recorded") return "as Copilot recorded it";
   if (totals.costProvenance === "mixed") return "includes an API-equivalent estimate";
   return "API-equivalent estimate";
 }
 
-/** The status bar item: the five-hour window and Copilot CLI's allowance while they have current
+/** The status bar item: the five-hour window and Copilot's allowance while they have current
  * readings, and otherwise today's cost. */
 export function statusItem(summary: Summary, nowMs: number): StatusItem {
   const { status } = summary;
@@ -146,9 +155,9 @@ export function statusItem(summary: Summary, nowMs: number): StatusItem {
     value: reading(window, nowMs, status.timeZone, true),
   }));
   lines.push({ label: "Today", value: cost(status.todayTotals) });
-  const latest = (["claude-code", "copilot-cli"] as const)
-    .map((agent) => newest(windows.filter((window) => window.agent === agent)))
-    .filter((window): window is WindowReading => window !== undefined);
+  const latest = PLANS.map((plan) =>
+    newest(windows.filter((window) => window.plan === plan)),
+  ).filter((window): window is WindowReading => window !== undefined);
   const costNote = `Cost: ${costWords(status.todayTotals)}.`;
   const note =
     latest.length > 0
@@ -226,7 +235,7 @@ export function tree(summary: Summary, nowMs: number): Node[] {
     show: { section: "limits" },
     expanded: true,
     children: windows.map((window) => ({
-      id: `limits/${window.agent}/${window.window}`,
+      id: `limits/${window.plan}/${window.window}`,
       label: windowName(window),
       description: reading(window, nowMs, status.timeZone),
       icon:
@@ -270,7 +279,7 @@ export function tree(summary: Summary, nowMs: number): Node[] {
     groups.map(({ agent, overview }) => ({
       id: `${id}/${agent}`,
       label: agentName(agent),
-      description: `${cost(overview.totals)} · ${kind(overview.totals)}`,
+      description: `${cost(overview.totals)} · ${kind(overview.totals, agent)}`,
       icon: { kind: "model", series: agentSeries(agent) },
       show: { section: "overview", agent, ...range },
       expanded,

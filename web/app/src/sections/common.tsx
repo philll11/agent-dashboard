@@ -2,9 +2,9 @@
 
 import { type ReactNode, useMemo } from "react";
 
-import type { CostProvenance, Days, Filters, Totals } from "@agent-dashboard/protocol";
+import type { CostProvenance, Days, Filters, Overview, Totals } from "@agent-dashboard/protocol";
 
-import type { AgentOverview } from "../agents";
+import { AGENTS, type AgentOverview, recordsCharges } from "../agents";
 
 import { useHost, useStatus } from "../context";
 import { useRequest } from "../data";
@@ -218,32 +218,44 @@ export function useAgents(): string[] {
 export function useByAgent(days: Days, filters: Filters): AgentOverview[] | undefined {
   const agents = useAgents();
   const split = agents.length > 1;
-  const claude = useRequest(
-    "overview",
-    { days, filters: { ...filters, agent: "claude-code" } },
-    split,
-  ).data;
-  const copilot = useRequest(
-    "overview",
-    { days, filters: { ...filters, agent: "copilot-cli" } },
-    split,
-  ).data;
+  const asked = (agent: string) => split && agents.includes(agent);
+  // One request per agent this version knows, always in the same order, each asked while its
+  // agent is in view.
+  const answers: Record<string, Overview | undefined> = {
+    "claude-code": useRequest(
+      "overview",
+      { days, filters: { ...filters, agent: "claude-code" } },
+      asked("claude-code"),
+    ).data,
+    "copilot-cli": useRequest(
+      "overview",
+      { days, filters: { ...filters, agent: "copilot-cli" } },
+      asked("copilot-cli"),
+    ).data,
+    "copilot-vscode": useRequest(
+      "overview",
+      { days, filters: { ...filters, agent: "copilot-vscode" } },
+      asked("copilot-vscode"),
+    ).data,
+  };
   if (!split) return undefined;
-  if (!claude || !copilot) return [];
-  return [
-    { agent: "claude-code", overview: claude },
-    { agent: "copilot-cli", overview: copilot },
-  ].filter((group) => agents.includes(group.agent));
+  const shown = AGENTS.filter((agent) => agents.includes(agent));
+  const groups: AgentOverview[] = shown.flatMap((agent) => {
+    const overview = answers[agent];
+    return overview ? [{ agent, overview }] : [];
+  });
+  return groups.length === shown.length ? groups : [];
 }
 
 /** Where the costs of `totals` come from; without any cost, where the agents in view would take
- * theirs from. */
+ * theirs from: Claude Code from estimates, the Copilot agents from their recorded charges. */
 export function useProvenance(totals: Totals | undefined): CostProvenance {
   const agents = useAgents();
   if (totals?.costProvenance) return totals.costProvenance;
-  const copilot = agents.includes("copilot-cli");
-  if (!copilot) return "estimate";
-  return agents.length > 1 ? "mixed" : "recorded";
+  const charges = agents.some((agent) => recordsCharges(agent));
+  const estimates = agents.some((agent) => !recordsCharges(agent));
+  if (!charges) return "estimate";
+  return estimates ? "mixed" : "recorded";
 }
 
 /** A cost's badge, by where it comes from. */
@@ -272,10 +284,34 @@ export function costSource(provenance: CostProvenance): string {
     case "estimate":
       return "Estimate at Anthropic's list prices";
     case "recorded":
-      return "As Copilot CLI recorded it";
+      return "As Copilot recorded it";
     case "mixed":
       return "Includes an estimate at Anthropic's list prices";
   }
+}
+
+/** A count the agent does not record, such as a VS Code prompt's input tokens, which never shows
+ * as 0. */
+export function NotRecorded() {
+  return (
+    <>
+      <span aria-hidden="true" className="muted">
+        –
+      </span>
+      <span className="visually-hidden">not recorded</span>
+    </>
+  );
+}
+
+/** Whether every request of `totals` is a prompt from VS Code's chat session files, whose input
+ * and cache tokens are not recorded. */
+export function onlyPrompts(totals: Totals): boolean {
+  return totals.requests > 0 && totals.perPromptRequests === totals.requests;
+}
+
+/** What the token figures leave out where some requests are VS Code's prompts. */
+export function promptsNote(prompts: number): string {
+  return `VS Code's chat session files record a prompt's output tokens and charge alone, so the input and cache tokens leave out ${grouped(prompts)} ${prompts === 1 ? "prompt" : "prompts"}.`;
 }
 
 /** Every token, of every kind. */
