@@ -42,6 +42,18 @@ pub struct StoredRequest<'a> {
     pub initiator: Option<&'a str>,
     /// What the request cost, as the agent recorded it; `None` where it records no charge.
     pub charge: Option<Charge>,
+    /// Whether the request is one prompt and every model call it led to, as VS Code's chat
+    /// session files record usage: its input and cache tokens are not recorded, and its charge
+    /// is one total that is not split by kind of token.
+    pub per_prompt: bool,
+}
+
+/// The agent of the session in a row of `sessions`: Copilot in VS Code for a session with a VS
+/// Code harness, which the history stores under Copilot CLI's name (ADR 0017).
+macro_rules! session_agent {
+    () => {
+        "CASE WHEN sessions.vscode_harness IS NOT NULL THEN 'copilot-vscode' ELSE sessions.agent END"
+    };
 }
 
 /// A session as the history holds it.
@@ -99,15 +111,21 @@ pub struct StoredReportedCost {
 /// The columns [`each_request`] reads, in its order.
 macro_rules! request_columns {
     () => {
-        "requests.session, sessions.project, subagent_id, timestamp_ms, model, input_tokens,
-         output_tokens, cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens,
-         web_search_requests, speed, inference_geo, skill, mcp_server, mcp_tool, entrypoint,
-         claude_code_version, web_fetch_requests, sessions.agent, reasoning_tokens, initiator,
-         charge_input_nano, charge_output_nano, charge_cache_read_nano, charge_cache_write_nano"
+        concat!(
+            "requests.session, sessions.project, subagent_id, timestamp_ms, model, input_tokens,
+             output_tokens, cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens,
+             web_search_requests, speed, inference_geo, skill, mcp_server, mcp_tool, entrypoint,
+             claude_code_version, web_fetch_requests, ",
+            session_agent!(),
+            ", reasoning_tokens, initiator, charge_input_nano, charge_output_nano,
+             charge_cache_read_nano, charge_cache_write_nano, requests.per_prompt"
+        )
     };
 }
 
-/// Calls `each` for every row of a query that selects [`request_columns`], until it breaks.
+/// Calls `each` for every row of a query that selects [`request_columns`], until it breaks. A
+/// request of an agent this version does not know is left out, since its tokens and cost may mean
+/// something else.
 fn each_request<B>(
     rows: &mut rusqlite::Rows<'_>,
     mut each: impl FnMut(&StoredRequest<'_>) -> ControlFlow<B>,
@@ -118,6 +136,9 @@ fn each_request<B>(
                 ValueRef::Text(text) => std::str::from_utf8(text).ok(),
                 _ => None,
             })
+        };
+        let Some(agent) = text(19)?.and_then(Agent::from_name) else {
+            continue;
         };
         let charge = match (
             row.get::<_, Option<u64>>(22)?,
@@ -136,9 +157,7 @@ fn each_request<B>(
         let flow = each(&StoredRequest {
             session: SessionKey(row.get(0)?),
             project: ProjectKey(row.get(1)?),
-            agent: text(19)?
-                .and_then(Agent::from_name)
-                .unwrap_or(Agent::ClaudeCode),
+            agent,
             subagent_id: text(2)?,
             timestamp_ms: row.get(3)?,
             model: text(4)?.unwrap_or_default(),
@@ -161,6 +180,7 @@ fn each_request<B>(
             reasoning_tokens: row.get(20)?,
             initiator: text(21)?,
             charge,
+            per_prompt: row.get(26)?,
         });
         if flow.is_break() {
             return Ok(flow);
@@ -179,15 +199,29 @@ fn to_the_end(
     }
 }
 
-/// A session from a row of its key, Claude Code's session id, its project and its title.
-fn stored_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredSession> {
-    Ok(StoredSession {
+/// The columns [`stored_session`] reads, in its order.
+macro_rules! session_columns {
+    () => {
+        concat!(
+            "id, session_id, project, coalesce(custom_title, ai_title), ",
+            session_agent!()
+        )
+    };
+}
+
+/// A session from a row of [`session_columns`]; `None` for a session of an agent this version
+/// does not know, which is left out as its requests are.
+fn stored_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<StoredSession>> {
+    let Some(agent) = Agent::from_name(&row.get::<_, String>(4)?) else {
+        return Ok(None);
+    };
+    Ok(Some(StoredSession {
         key: SessionKey(row.get(0)?),
         session_id: row.get(1)?,
         project: ProjectKey(row.get(2)?),
         title: row.get(3)?,
-        agent: Agent::from_name(&row.get::<_, String>(4)?).unwrap_or(Agent::ClaudeCode),
-    })
+        agent,
+    }))
 }
 
 /// A reported cost from a row of its session, model, cost and the four token sums.
@@ -387,28 +421,31 @@ impl History {
     ///
     /// SQLite errors.
     pub fn sessions(&self) -> Result<Vec<StoredSession>, HistoryError> {
-        let mut statement = self.conn.prepare_cached(
-            "SELECT id, session_id, project, coalesce(custom_title, ai_title), agent FROM sessions",
-        )?;
+        let mut statement =
+            self.conn
+                .prepare_cached(concat!("SELECT ", session_columns!(), " FROM sessions"))?;
         let sessions = statement
             .query_map([], stored_session)?
+            .filter_map(Result::transpose)
             .collect::<Result<_, _>>()?;
         Ok(sessions)
     }
 
-    /// The session with Claude Code's `session_id`, when the history holds it.
+    /// The session with the agent's `session_id`, when the history holds it.
     ///
     /// # Errors
     ///
     /// SQLite errors.
     pub fn session(&self, session_id: &str) -> Result<Option<StoredSession>, HistoryError> {
-        let mut statement = self.conn.prepare_cached(
-            "SELECT id, session_id, project, coalesce(custom_title, ai_title), agent FROM sessions
-             WHERE session_id = ?1",
-        )?;
+        let mut statement = self.conn.prepare_cached(concat!(
+            "SELECT ",
+            session_columns!(),
+            " FROM sessions WHERE session_id = ?1"
+        ))?;
         Ok(statement
             .query_row([session_id], stored_session)
-            .optional()?)
+            .optional()?
+            .flatten())
     }
 
     /// Every project the history holds.
@@ -640,7 +677,7 @@ impl History {
     }
 
     /// The data folders the person added, each with the agent whose data it holds, in the order
-    /// they were added.
+    /// they were added; a folder of an agent this version does not know is left out.
     ///
     /// # Errors
     ///
@@ -651,11 +688,10 @@ impl History {
             .prepare_cached("SELECT path, agent FROM data_folders ORDER BY added_ms, path")?;
         let folders = statement
             .query_map([], |row| {
-                Ok((
-                    PathBuf::from(row.get::<_, String>(0)?),
-                    Agent::from_name(&row.get::<_, String>(1)?).unwrap_or(Agent::ClaudeCode),
-                ))
+                let path = PathBuf::from(row.get::<_, String>(0)?);
+                Ok(Agent::from_name(&row.get::<_, String>(1)?).map(|agent| (path, agent)))
             })?
+            .filter_map(Result::transpose)
             .collect::<Result<_, _>>()?;
         Ok(folders)
     }
@@ -666,9 +702,11 @@ impl History {
     ///
     /// SQLite errors.
     pub fn agents(&self) -> Result<Vec<Agent>, HistoryError> {
-        let mut statement = self
-            .conn
-            .prepare_cached("SELECT DISTINCT agent FROM sessions")?;
+        let mut statement = self.conn.prepare_cached(concat!(
+            "SELECT DISTINCT ",
+            session_agent!(),
+            " FROM sessions"
+        ))?;
         let mut agents: Vec<Agent> = statement
             .query_map([], |row| row.get::<_, String>(0))?
             .filter_map(|name| name.ok().and_then(|name| Agent::from_name(&name)))

@@ -1,0 +1,68 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits                  │
+ 1 │                                                                                │
+ 2 │┌─ Plan limits ────────────────────────── official · status line · 2 min ago ──┐│
+ 3 ││ Five-hour window 42%  ███████░░░░░░░░░  17:00                                ││
+ 4 ││ Weekly, all      71%  ███████████░░░░░  ▲ over 70% · Thu 09:00               ││
+ 5 ││ Copilot           4%  █░░░░░░░░░░░░░░░  1 Nov 13:00                          ││
+ 6 │└──────────────────────────────────────────────────────────────────────────────┘│
+ 7 │┌─ Cost, includes estimate ────────────────────────────────────────────────────┐│
+ 8 ││ Today $5.43   Week $71.03   Month $108.31                                    ││
+ 9 │└──────────────────────────────────────────────────────────────────────────────┘│
+10 │┌─ Cost per day by agent · 30 days ──────────────┐┌─ Top projects · 30 days ───┐│
+11 ││  $20                                           ││ ■ Claude Code              ││
+12 ││                                                ││   agent-da… ████░░ $110.76 ││
+13 ││                █ █        █                    ││   Other pr… ██████ $180.71 ││
+14 ││           ███  ███ █  █   █  █ ███             ││ ■ Copilot CLI              ││
+15 ││  $10    █ ███  █████  █ █ █  █████             ││   agent-da… ░░░░░░  $10.31 ││
+16 ││      █  █████  █████  █████  █████             ││   Other pr… ░░░░░░   $6.87 ││
+17 ││      ██ ██████████████████████████             ││ ■ Copilot in VS Code       ││
+18 ││      ██████████████████████████████            ││   agent-da… ░░░░░░   $7.09 ││
+19 ││   $0 ██████████████████████████████            ││   website   ░░░░░░   $3.04 ││
+20 ││      11   16   21   26   1    6   10           ││                            ││
+21 ││ ■ Claude  ■ Copilot  ■ VS Code                 ││                            ││
+22 │└────────────────────────────────────────────────┘└────────────────────────────┘│
+23 │ q quit   ←→ sections   t table view   e export   ? help          Read just now │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb cccccccccc cccccccccc cccccccc cccccccc                 │
+ 1 │                                                                                │
+ 2 │ddaaaaaaaaaaaaaddddddddddddddddddddddddddccccccccccccccccccccccccccccccccccccddd│
+ 3 │d eeeeeeeeeeeeeeee aaa  fffffffggggggggg  ccccc                                d│
+ 4 │d eeeeeeeeeee      aaa  hhhhhhhhhhhggggg  iieeeeeeeeeeeeeeeeeeee               d│
+ 5 │d eeeeeee           aa  fggggggggggggggg  ccccccccccc                          d│
+ 6 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+ 7 │ddaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+ 8 │d ccccccaaaaa   cccccaaaaaa   ccccccaaaaaaa                                    d│
+ 9 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+10 │ddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaadddd│
+11 │d  ccc                                           dd j aaaaaaaaaaa              d│
+12 │d                                                dd   eeeeeeeee ccccgg aaaaaaa d│
+13 │d                j j        k                    dd   ccccccccc cccccc aaaaaaa d│
+14 │d           jkk  jjj j  j   j  k kjj             dd k aaaaaaaaaaa              d│
+15 │d  ccc    k jjj  jjjjj  j j j  jjjjj             dd   eeeeeeeee gggggg  aaaaaa d│
+16 │d      j  jjjjj  jjjjj  jkjjj  jjjjj             dd   ccccccccc gggggg   aaaaa d│
+17 │d      jl jjjjjlkjjjjjjjjjjjjjjjjjjj             dd l aaaaaaaaaaaaaaaaaa       d│
+18 │d      jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj            dd   eeeeeeeee gggggg   aaaaa d│
+19 │d   cc jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj            dd   eeeeeee   gggggg   aaaaa d│
+20 │d      cc   cc   cc   cc   c    c   cc           dd                            d│
+21 │d j eeeeee  k eeeeeee  l eeeeeee                 dd                            d│
+22 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+23 │ m cccc   mm cccccccc   m cccccccccc   m cccccc   m cccc          ccccccccccccc │
+
+a = #f0f2f5 bold
+b = #0b0d10 on #5cc8e8 bold
+c = #8a919c
+d = #3a404a
+e = #d7dae0
+f = #5cc8e8
+g = #2a2f37
+h = #fab219
+i = #fab219 bold
+j = #3987e5
+k = #d95926
+l = #199e70
+m = #5cc8e8 bold

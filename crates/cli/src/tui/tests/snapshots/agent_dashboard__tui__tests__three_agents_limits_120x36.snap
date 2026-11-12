@@ -1,0 +1,90 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits         30 days · all agents · all projects · all models │
+ 1 │                                                                                                                        │
+ 2 │┌─ Claude Code ────────────────────────────────────────────────────────────────── official · status line · 2 min ago ──┐│
+ 3 ││ Five-hour window     42%  █████████████████░░░░░░░░░░░░░░░░░░░░░░░                                                   ││
+ 4 ││   Resets 17:00, in 2 h 05 min · at the pace since 12:00, about 61% when it resets (estimate)                         ││
+ 5 ││   Use since 12:00         ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▃▃▃                                                   ││
+ 6 ││                                                                                                                      ││
+ 7 ││ Weekly, all models   71%  ████████████████████████████░░░░░░░░░░░░  ▲ over 70%                                       ││
+ 8 ││   Resets Thu 15 Oct, 09:00 · at the pace since Thu 8 Oct, about 88% when it resets (estimate)                        ││
+ 9 ││   Use since Thu 8 Oct     ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▆                                                   ││
+10 ││                                                                                                                      ││
+11 ││ Weekly, Fable        18%  ███████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                                                   ││
+12 ││   Resets Thu 15 Oct, 09:00 · at the pace since Thu 8 Oct, about 31% when it resets (estimate)                        ││
+13 ││   Use since Thu 8 Oct     ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁                                                   ││
+14 ││                                                                                                                      ││
+15 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+16 │┌─ Copilot ────────────────────────────────────────────────────────────────────── recorded · session files · 1 h ago ──┐│
+17 ││ Monthly allowance     4%  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  1,575 of 45,000 AI credits                       ││
+18 ││   Resets Sun 1 Nov, 13:00 · at the pace since Fri 9 Oct, about 11% when it resets (estimate)                         ││
+19 ││   Use since Fri 9 Oct     ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁                                                   ││
+20 ││                                                                                                                      ││
+21 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+22 │┌─ Recent five-hour windows ───────────────────────────────────────────────────────────────────────────────────────────┐│
+23 ││   Window                       Highest                     API-equivalent cost                                       ││
+24 ││   Sat 10 Oct 09:20–14:20           42%  ████████░░░░░░░░░░░░             $5.10                                       ││
+25 ││   Fri 9 Oct 18:05–23:05            64%  █████████████░░░░░░░             $8.12                                       ││
+26 ││   Fri 9 Oct 11:40–16:40            88%  ██████████████████░░            $11.04                                       ││
+27 ││   Thu 8 Oct 13:15–18:15            53%  ███████████░░░░░░░░░             $6.70                                       ││
+28 ││   Wed 7 Oct 09:00–14:00            37%  ███████░░░░░░░░░░░░░             $4.42                                       ││
+29 ││   Tue 6 Oct 15:30–20:30            71%  ██████████████░░░░░░             $8.90                                       ││
+30 ││   Mon 5 Oct 10:10–15:10            29%  ██████░░░░░░░░░░░░░░             $3.35                                       ││
+31 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+32 │┌─ Where the limits come from ─────────────────────────────────────────────────────────────────────────────────────────┐│
+33 ││ Status line         ✓ connected, wrapping your own status line       official, while Claude Code runs in a terminal  ││
+34 ││ Usage endpoint      off  agent-dashboard limits endpoint on        experimental, when no session runs in a terminal  ││
+35 │ q quit  ←→ sections  ↑↓ scroll  t table view  e export  ? help  Read just now · costs include API-equivalent estimates │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb bbbbbbbbbb bbbbbbbbbb bbbbbbbb cccccccc        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+ 1 │                                                                                                                        │
+ 2 │ddaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbddd│
+ 3 │d eeeeeeeeeeeeeeee     aaa  fffffffffffffffffggggggggggggggggggggggg                                                   d│
+ 4 │d   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb                         d│
+ 5 │d   bbbbbbbbbbbbbbb         ffffffffffffffffffffffffffffffffffffffff                                                   d│
+ 6 │d                                                                                                                      d│
+ 7 │d eeeeeeeeeeeeeeeeee   aaa  hhhhhhhhhhhhhhhhhhhhhhhhhhhhgggggggggggg  iieeeeeeee                                       d│
+ 8 │d   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb                        d│
+ 9 │d   bbbbbbbbbbbbbbbbbbb     ffffffffffffffffffffffffffffffffffffffff                                                   d│
+10 │d                                                                                                                      d│
+11 │d eeeeeeeeeeeee        aaa  fffffffggggggggggggggggggggggggggggggggg                                                   d│
+12 │d   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb                        d│
+13 │d   bbbbbbbbbbbbbbbbbbb     ffffffffffffffffffffffffffffffffffffffff                                                   d│
+14 │d                                                                                                                      d│
+15 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+16 │ddaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbddd│
+17 │d eeeeeeeeeeeeeeeee     aa  fggggggggggggggggggggggggggggggggggggggg  bbbbbbbbbbbbbbbbbbbbbbbbbb                       d│
+18 │d   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb                         d│
+19 │d   bbbbbbbbbbbbbbbbbbb     ffffffffffffffffffffffffffffffffffffffff                                                   d│
+20 │d                                                                                                                      d│
+21 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+22 │ddaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+23 │d   bbbbbb                       bbbbbbb                     bbbbbbbbbbbbbbbbbbb                                       d│
+24 │d   eeeeeeeeeeeeeeeeeeeeee           aaa  ffffffffgggggggggggg             aaaaa                                       d│
+25 │d   eeeeeeeeeeeeeeeeeeeee            aaa  fffffffffffffggggggg             aaaaa                                       d│
+26 │d   eeeeeeeeeeeeeeeeeeeee            aaa  hhhhhhhhhhhhhhhhhhgg            aaaaaa                                       d│
+27 │d   eeeeeeeeeeeeeeeeeeeee            aaa  fffffffffffggggggggg             aaaaa                                       d│
+28 │d   eeeeeeeeeeeeeeeeeeeee            aaa  fffffffggggggggggggg             aaaaa                                       d│
+29 │d   eeeeeeeeeeeeeeeeeeeee            aaa  hhhhhhhhhhhhhhgggggg             aaaaa                                       d│
+30 │d   eeeeeeeeeeeeeeeeeeeee            aaa  ffffffgggggggggggggg             aaaaa                                       d│
+31 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+32 │ddaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+33 │d aaaaaaaaaaa         jjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee       bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  d│
+34 │d aaaaaaaaaaaaaa      eeeeeffffffffffffffffffffffffffffffffff        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  d│
+35 │ k bbbb  kk bbbbbbbb  kk bbbbbb  k bbbbbbbbbb  k bbbbbb  k bbbb  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #3a404a
+e = #d7dae0
+f = #5cc8e8
+g = #2a2f37
+h = #fab219
+i = #fab219 bold
+j = #3fbf6b
+k = #5cc8e8 bold

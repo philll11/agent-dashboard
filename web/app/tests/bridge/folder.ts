@@ -179,6 +179,8 @@ export async function prepare(setup: Setup = {}): Promise<Prepared> {
     CLAUDE_CONFIG_DIR: root,
     // Copilot CLI's data root, kept apart from the computer's own sessions.
     COPILOT_HOME: join(folder, ".copilot"),
+    // VS Code's user data folder, kept apart from the computer's own chats.
+    AGENT_DASHBOARD_VSCODE_DATA: join(folder, "vscode"),
     AGENT_DASHBOARD_HISTORY: history,
     AGENT_DASHBOARD_NOW: new Date(NOW_MS).toISOString(),
     TZ: TIME_ZONE,

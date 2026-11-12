@@ -77,7 +77,7 @@ impl LoginSource {
             .iter()
             .find(|root| root.agent == Agent::ClaudeCode && root.source != RootSource::Added)?;
         let config_dir = match root.source {
-            RootSource::Environment => config_dir
+            RootSource::Environment { .. } => config_dir
                 .and_then(OsStr::to_str)
                 .and_then(|value| {
                     value

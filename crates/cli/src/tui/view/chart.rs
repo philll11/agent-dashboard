@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_core::report::Bucket;
 use agent_dashboard_server::fmt::{day_label, money, month_year};
 use agent_dashboard_server::protocol::{Day, ModelRow, Overview};
@@ -273,7 +274,7 @@ pub fn draw(c: &mut Canvas, (x0, y0, w, h): (i32, i32, i32, i32), chart: &Chart,
     for (x, label) in labels {
         c.text(x, axis, label, theme.muted());
     }
-    legend(c, x0 + 2, y0 + h - 2, chart, w >= 70);
+    legend(c, (x0 + 2, y0 + h - 2, w - 4), chart, w >= 70);
 }
 
 /// Where a chart's plot starts, from its box's left: after its scale's widest label, with a space
@@ -283,19 +284,62 @@ pub fn scale_room(labels: &[&str]) -> i32 {
     7.max(widest + 3)
 }
 
-/// The series' marks and names, in a row from `x`: full names when `long`, otherwise the
-/// family's alone; and each agent's full name with its cost, for a chart by agent.
-pub fn legend(c: &mut Canvas, x: i32, y: i32, chart: &Chart, long: bool) {
+/// The series' marks and names, in a row from `x` that has `room` columns: full names when
+/// `long`, otherwise the family's alone; and for a chart by agent, each agent's name with its
+/// cost, its short name where the full ones do not fit, and its short name alone where even
+/// those do not.
+pub fn legend(c: &mut Canvas, (x, y, room): (i32, i32, i32), chart: &Chart, long: bool) {
     let theme = c.theme;
     let mut x = x;
-    for (series, usd) in &chart.series {
+    if chart.agents {
+        let entries = |short: bool, costs: bool| -> Vec<(Series, String, Option<String>)> {
+            chart
+                .series
+                .iter()
+                .map(|(series, usd)| {
+                    let name = chart.names.get(*series);
+                    let name = if short {
+                        Agent::ALL
+                            .into_iter()
+                            .find(|agent| agent.display_name() == name)
+                            .map_or(name, |agent| agent.short_name())
+                    } else {
+                        name
+                    };
+                    (*series, name.to_owned(), costs.then(|| money(*usd)))
+                })
+                .collect()
+        };
+        let length = |entries: &[(Series, String, Option<String>)]| -> i32 {
+            entries
+                .iter()
+                .map(|(_, name, cost)| {
+                    2 + width(name) + cost.as_ref().map_or(0, |cost| 1 + width(cost))
+                })
+                .sum::<i32>()
+                + 2 * (i32::try_from(entries.len()).unwrap_or(1) - 1)
+        };
+        let fits = [
+            entries(false, true),
+            entries(true, true),
+            entries(true, false),
+        ]
+        .into_iter()
+        .find(|entries| length(entries) <= room)
+        .unwrap_or_else(|| entries(true, false));
+        for (series, name, cost) in fits {
+            c.put(x, y, theme.swatch(series), theme.series(series));
+            x = c.text(x + 2, y, &name, theme.text());
+            if let Some(cost) = cost {
+                x = c.text(x + 1, y, &cost, theme.strong());
+            }
+            x += 2;
+        }
+        return;
+    }
+    for (series, _) in &chart.series {
         c.put(x, y, theme.swatch(*series), theme.series(*series));
         let name = chart.names.get(*series);
-        if chart.agents {
-            x = c.text(x + 2, y, name, theme.text());
-            x = c.text(x + 1, y, &money(*usd), theme.strong()) + 2;
-            continue;
-        }
         let name = if long {
             name.to_owned()
         } else {

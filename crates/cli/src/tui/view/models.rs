@@ -3,14 +3,16 @@
 //! each agent's models come under its own row of their totals. A page that scrolls when it does
 //! not fit.
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_server::fmt::{compact, grouped, percent, price, short_date};
+use agent_dashboard_server::names::name_under;
 use agent_dashboard_server::protocol::{ModelRow, Overview, PriceRow, Prices, Totals};
 use ratatui::style::Style;
 
 use super::chart;
 use super::overview::{agent_chart, cost_chart, cost_text, tokens_of};
 use super::{AgentPart, KEYS, agent_parts, footer, header, notice, scrolled, series_of};
-use crate::tui::canvas::{Canvas, clean, fit};
+use crate::tui::canvas::{Canvas, clean, fit, width};
 use crate::tui::state::{Section, State, day};
 use crate::tui::theme::Series;
 
@@ -341,8 +343,11 @@ fn tokens_box(
                     (4, part.name.clone(), theme.strong(), Some(mark)),
                     &part.overview.totals,
                 ));
+                let agent = Agent::from_name(part.id);
                 for row in &part.overview.models {
-                    lines.push(((6, clean(&row.model.name), theme.text(), None), &row.totals));
+                    let name = clean(&row.model.name);
+                    let name = agent.map_or(name.as_str(), |agent| name_under(agent, &name));
+                    lines.push(((6, name.to_owned(), theme.text(), None), &row.totals));
                 }
             }
         }
@@ -398,10 +403,22 @@ fn token_row(
     if let Some((symbol, mark_style)) = mark {
         c.put(x - 2, y, symbol, *mark_style);
     }
-    c.text(*x, y, &fit(name, end("Requests") - 13 - (x - 4)), *style);
+    // An agent whose name does not fit goes by its short name rather than lose the end of it.
+    let room = end("Requests") - 13 - (x - 4);
+    let name = if width(name) > room {
+        Agent::ALL
+            .into_iter()
+            .find(|agent| agent.display_name() == name.as_str())
+            .map_or(name.as_str(), |agent| agent.short_name())
+    } else {
+        name.as_str()
+    };
+    c.text(*x, y, &fit(name, room), *style);
     let tokens = &totals.tokens;
     c.right(end("Requests"), y, &grouped(totals.requests), theme.text());
     if end("Input") > 0 {
+        // VS Code records a prompt's output tokens, not its input or cache tokens.
+        let prompts = totals.requests > 0 && totals.per_prompt_requests == totals.requests;
         for (label, count) in [
             ("Input", tokens.input),
             ("Output", tokens.output),
@@ -409,7 +426,11 @@ fn token_row(
             ("1 h", tokens.cache_write_1h),
             ("reads", tokens.cache_read),
         ] {
-            c.right(end(label), y, &compact(count), theme.text());
+            if prompts && label != "Output" {
+                c.right(end(label), y, "—", theme.muted());
+            } else {
+                c.right(end(label), y, &compact(count), theme.text());
+            }
         }
         if totals.fast_requests > 0 && totals.requests > 0 {
             #[allow(clippy::cast_precision_loss)]

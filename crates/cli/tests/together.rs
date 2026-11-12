@@ -36,6 +36,7 @@ impl Server {
             .args(["serve", "--stdio"])
             .env("CLAUDE_CONFIG_DIR", fixture.root())
             .env("COPILOT_HOME", fixture.copilot_root())
+            .env("AGENT_DASHBOARD_VSCODE_DATA", fixture.vscode_root())
             .env("AGENT_DASHBOARD_HISTORY", fixture.history())
             .env("AGENT_DASHBOARD_NOW", NOW)
             .env("TZ", "UTC")

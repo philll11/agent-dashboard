@@ -1,0 +1,89 @@
+---
+source: crates/cli/src/tui/tests/mod.rs
+expression: shown(&state)
+---
+ 0 │ Dashboard    Overview   Sessions   Projects   Models   Limits         30 days · all agents · all projects · all models │
+ 1 │                                                                                                                        │
+ 2 │┌─ Cost per day by agent · 30 days ────────────────────────────────────────────────────────────────────────────────────┐│
+ 3 ││  $20                                                                                                                 ││
+ 4 ││                                    █     █                                                                           ││
+ 5 ││                                    █  █  █              █           █                 █  █                           ││
+ 6 ││                     █  █  █        █  █  █  █  █        █     █     █        █  █  █  █  █                           ││
+ 7 ││  $10 █        █  █  █  █  █        █  █  █  █  █        █     █  █  █        █  █  █  █  █                           ││
+ 8 ││      █        █  █  █  █  █        █  █  █  █  █  █     █  █  █  █  █  █     █  █  █  █  █                           ││
+ 9 ││      █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █                        ││
+10 ││   $0 █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █  █                        ││
+11 ││      11             16             21             26             1              6           10                       ││
+12 ││ ■ Claude Code $291.46  ■ Copilot CLI $17.18  ■ Copilot in VS Code $10.13                                             ││
+13 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+14 │┌─ Tokens and cost · 30 days ──────────────────────────────────────────────────────────────────────────────────────────┐│
+15 ││                                                       Cache writes              Cache                                ││
+16 ││   Model           Requests    Input   Output          5 min          1 h        reads   Fast        Cost      Share  ││
+17 ││ ■ Claude Code        4,464     350K     6.1M          15.2M         2.6M        84.5M     6%     $291.46        91%  ││
+18 ││     Opus 5.5         2,101     180K     3.2M           7.8M         1.4M        43.5M    12%     $150.06        47%  ││
+19 ││     Fable 5.1          781     104K     1.8M           4.5M         782K        25.2M             $86.87        27%  ││
+20 ││     Sonnet 5.5       1,121      56K     983K           2.4M         421K        13.6M             $46.80        15%  ││
+21 ││     Haiku 5.5          461       9K     162K           402K          70K         2.2M              $7.73         2%  ││
+22 ││ ■ Copilot CLI          510      21K     361K           1.0M            0         5.0M             $17.18         5%  ││
+23 ││     GPT-5.5            510      21K     361K           1.0M            0         5.0M             $17.18         5%  ││
+24 ││ ■ VS Code              180        —     263K              —            —            —             $10.13         3%  ││
+25 ││     Sonnet 4.6         180        —     263K              —            —            —             $10.13         3%  ││
+26 ││   Total                                                                                          $318.77       100%  ││
+27 ││                                                                                                                      ││
+28 │└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘│
+29 │┌─ Prices used ─────────────────────────────────────────────────────────── per million tokens · table of 10 Oct 2026 ──┐│
+30 ││   Model                Input      Output   Cache write 5 min   Cache write 1 h    Cache read          Fast in / out  ││
+31 ││ ■ Fable 5.1           $10.00      $50.00              $12.50            $20.00         $0.25                         ││
+32 ││ ■ Opus 5.5             $4.00      $20.00               $5.00             $8.00         $0.20         $8.00 / $40.00  ││
+33 ││ ■ Sonnet 5.5           $2.00      $10.00               $2.50             $4.00         $0.10                         ││
+34 ││ ■ Haiku 5.5            $0.10       $0.50              $0.125             $0.20         $0.01                         ││
+35 │ q quit  ←→ sections  ↑↓ scroll  t table view  e export  ? help  Read just now · costs include API-equivalent estimates │
+
+styles
+ 0 │ aaaaaaaaa   bbbbbbbbbb bbbbbbbbbb bbbbbbbbbb cccccccc bbbbbbbb        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+ 1 │                                                                                                                        │
+ 2 │ddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+ 3 │d  bbb                                                                                                                 d│
+ 4 │d                                    e     e                                                                           d│
+ 5 │d                                    f  g  f              e           f                 e  e                           d│
+ 6 │d                     f  f  f        f  f  f  e  f        f     g     f        f  g  f  f  f                           d│
+ 7 │d  bbb g        f  e  f  f  f        f  f  f  f  f        f     f  g  f        f  f  f  f  f                           d│
+ 8 │d      f        f  f  f  f  f        f  f  f  f  f  e     f  f  f  f  f  f     f  f  f  f  f                           d│
+ 9 │d      f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f                        d│
+10 │d   bb f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f  f                        d│
+11 │d      bb             bb             bb             bb             b              b           bb                       d│
+12 │d f hhhhhhhhhhh aaaaaaa  g hhhhhhhhhhh aaaaaa  e hhhhhhhhhhhhhhhhhh aaaaaa                                             d│
+13 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+14 │ddaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+15 │d                                                       bbbbbbbbbbbb              bbbbb                                d│
+16 │d   bbbbb           bbbbbbbb    bbbbb   bbbbbb          bbbbb          bbb        bbbbb   bbbb        bbbb      bbbbb  d│
+17 │d f aaaaaaaaaaa        hhhhh     hhhh     hhhh          hhhhh         hhhh        hhhhh     hh     aaaaaaa        hhh  d│
+18 │d     hhhhhhhh         hhhhh     hhhh     hhhh           hhhh         hhhh        hhhhh    hhh     aaaaaaa        hhh  d│
+19 │d     hhhhhhhhh          hhh     hhhh     hhhh           hhhh         hhhh        hhhhh             aaaaaa        hhh  d│
+20 │d     hhhhhhhhhh       hhhhh      hhh     hhhh           hhhh         hhhh        hhhhh             aaaaaa        hhh  d│
+21 │d     hhhhhhhhh          hhh       hh     hhhh           hhhh          hhh         hhhh              aaaaa         hh  d│
+22 │d g aaaaaaaaaaa          hhh      hhh     hhhh           hhhh            h         hhhh             aaaaaa         hh  d│
+23 │d     hhhhhhh            hhh      hhh     hhhh           hhhh            h         hhhh             aaaaaa         hh  d│
+24 │d e aaaaaaa              hhh        b     hhhh              b            b            b             aaaaaa         hh  d│
+25 │d     hhhhhhhhhh         hhh        b     hhhh              b            b            b             aaaaaa         hh  d│
+26 │d   aaaaa                                                                                          aaaaaaa       hhhh  d│
+27 │d                                                                                                                      d│
+28 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
+29 │ddaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbddd│
+30 │d   bbbbb                bbbbb      bbbbbb   bbbbbbbbbbbbbbbbb   bbbbbbbbbbbbbbb    bbbbbbbbbb          bbbbbbbbbbbbb  d│
+31 │d f hhhhhhhhh           hhhhhh      hhhhhh              hhhhhh            hhhhhh         hhhhh                         d│
+32 │d g hhhhhhhh             hhhhh      hhhhhh               hhhhh             hhhhh         hhhhh         hhhhhhhhhhhhhh  d│
+33 │d e hhhhhhhhhh           hhhhh      hhhhhh               hhhhh             hhhhh         hhhhh                         d│
+34 │d i hhhhhhhhh            hhhhh       hhhhh              hhhhhh             hhhhh         hhhhh                         d│
+35 │ j bbbb  jj bbbbbbbb  jj bbbbbb  j bbbbbbbbbb  j bbbbbb  j bbbb  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │
+
+a = #f0f2f5 bold
+b = #8a919c
+c = #0b0d10 on #5cc8e8 bold
+d = #3a404a
+e = #199e70
+f = #3987e5
+g = #d95926
+h = #d7dae0
+i = #c98500
+j = #5cc8e8 bold

@@ -3,7 +3,7 @@
 use rusqlite::{OptionalExtension, Transaction, params};
 
 use super::HistoryError;
-use crate::agent::Agent;
+use crate::agent::{Agent, VscodeHarness};
 use crate::limits::LimitSnapshot;
 use crate::pricing::Charge;
 use crate::tokens::Tokens;
@@ -120,6 +120,18 @@ pub struct Request<'a> {
     pub initiator: Option<&'a str>,
     /// What the request cost, as the agent recorded it; `None` where it records no charge.
     pub charge: Option<Charge>,
+    /// Whether the request is one prompt and every model call it led to, as VS Code's chat
+    /// session files record usage: its output tokens and charge, without input or cache tokens.
+    pub per_prompt: bool,
+}
+
+/// The name the history stores an agent's sessions under: Copilot in VS Code's under Copilot
+/// CLI's, which versions before 2.1 read and price by their charges, with the harness beside it.
+pub(super) fn stored_agent(agent: Agent) -> &'static str {
+    match agent {
+        Agent::CopilotVscode => Agent::CopilotCli.as_str(),
+        agent => agent.as_str(),
+    }
 }
 
 /// Records into the history within one transaction, which [`History::write`] opens.
@@ -169,22 +181,32 @@ impl<'conn> Writer<'conn> {
         Ok(ProjectKey(id))
     }
 
-    /// The project whose working folder is `path`, if the history holds one.
+    /// The project whose working folder is `path`, if the history holds one; on Windows, whose
+    /// folders ignore case, in any case.
     ///
     /// # Errors
     ///
     /// SQLite errors.
     pub fn project_with_path(&mut self, path: &str) -> Result<Option<ProjectKey>, HistoryError> {
+        let sql = if cfg!(windows) {
+            "SELECT id FROM projects WHERE path = ?1 COLLATE NOCASE ORDER BY id LIMIT 1"
+        } else {
+            "SELECT id FROM projects WHERE path = ?1 ORDER BY id LIMIT 1"
+        };
         let id = self
             .tx
-            .prepare_cached("SELECT id FROM projects WHERE path = ?1 ORDER BY id LIMIT 1")?
+            .prepare_cached(sql)?
             .query_row([path], |row| row.get(0))
             .optional()?;
         Ok(id.map(ProjectKey))
     }
 
-    /// Records a session of a project in `agent`, identified by the agent's session id. Both
-    /// agents name sessions by UUID, so a session id is unique across them.
+    /// Records a session of a project in `agent`, identified by the agent's session id, which
+    /// every agent makes a UUID, so that it is unique across them. A session of Copilot in VS
+    /// Code names the `harness` that kept it.
+    ///
+    /// A session keeps the agent it was first recorded with, except that a Copilot CLI session
+    /// becomes Copilot in VS Code's once its details say VS Code started it; it never goes back.
     ///
     /// # Errors
     ///
@@ -194,13 +216,27 @@ impl<'conn> Writer<'conn> {
         session_id: &str,
         project: ProjectKey,
         agent: Agent,
+        harness: Option<VscodeHarness>,
     ) -> Result<SessionKey, HistoryError> {
+        debug_assert_eq!(
+            harness.is_some(),
+            agent == Agent::CopilotVscode,
+            "a session of Copilot in VS Code, and only one, names its harness"
+        );
         self.tx
             .prepare_cached(
-                "INSERT INTO sessions (session_id, project, agent) VALUES (?1, ?2, ?3)
-                 ON CONFLICT (session_id) DO NOTHING",
+                "INSERT INTO sessions (session_id, project, agent, vscode_harness)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT (session_id) DO UPDATE SET vscode_harness = excluded.vscode_harness
+                 WHERE sessions.vscode_harness IS NULL AND excluded.vscode_harness IS NOT NULL
+                     AND sessions.agent = excluded.agent",
             )?
-            .execute(params![session_id, project.0, agent.as_str()])?;
+            .execute(params![
+                session_id,
+                project.0,
+                stored_agent(agent),
+                harness.map(VscodeHarness::as_str)
+            ])?;
         let id = self
             .tx
             .prepare_cached("SELECT id FROM sessions WHERE session_id = ?1")?
@@ -507,16 +543,28 @@ impl<'conn> Writer<'conn> {
     ///
     /// Of the records that share an identity, one read from a transcript wins over an imported
     /// one, and then the one with the most tokens, because it carries the final tally of a
-    /// streamed response. Equal usage goes to the later record, then to the larger record id,
-    /// then to the larger session id, which separates a resumed session's verbatim copy from its
-    /// original. The winning record gives the request its details, and the earliest record its
-    /// time: when it was made. So the history never depends on the order records arrive in. A
-    /// request read from a transcript also replaces an imported request for the same message.
+    /// streamed response, then the one with the larger charge, because a prompt's charge in VS
+    /// Code grows with its subagents' while its output tokens stay. Equal usage goes to the later
+    /// record, then to the larger record id, then to the larger session id, which separates a
+    /// resumed session's verbatim copy from its original. The winning record gives the request
+    /// its details, and the earliest record its time: when it was made. So the history never
+    /// depends on the order records arrive in. A request read from a transcript also replaces an
+    /// imported request for the same message.
     ///
     /// # Errors
     ///
     /// SQLite errors.
     pub fn request(&mut self, request: &Request<'_>) -> Result<(), HistoryError> {
+        self.request_changes(request).map(|_| ())
+    }
+
+    /// Records a request as [`Self::request`] does, and says whether that changed the history:
+    /// whether the record was new, won over the recorded one, or made the request earlier.
+    ///
+    /// # Errors
+    ///
+    /// SQLite errors.
+    pub fn request_changes(&mut self, request: &Request<'_>) -> Result<bool, HistoryError> {
         let (sql, earlier, message_id, request_id) = match request.identity {
             Identity::MessageAndRequest {
                 message_id,
@@ -578,15 +626,17 @@ impl<'conn> Writer<'conn> {
             charge.map(|charge| charge.output),
             charge.map(|charge| charge.cache_read),
             charge.map(|charge| charge.cache_write),
+            request.per_prompt,
         ])?;
-        if changed == 0 {
-            self.tx.prepare_cached(earlier)?.execute(params![
+        let mut changed = changed > 0;
+        if !changed {
+            changed = self.tx.prepare_cached(earlier)?.execute(params![
                 request.session.0,
                 message_id,
                 request_id,
                 request.record_id,
                 request.timestamp_ms,
-            ])?;
+            ])? > 0;
         }
         if let (Identity::MessageAndRequest { message_id, .. }, None) =
             (request.identity, request.imported_from)
@@ -600,7 +650,7 @@ impl<'conn> Writer<'conn> {
                 )?
                 .execute(params![request.session.0, message_id])?;
         }
-        Ok(())
+        Ok(changed)
     }
 
     /// Records an import from `source`, adding `requests` to the requests it has added.
@@ -748,11 +798,11 @@ macro_rules! upsert_request {
                 service_tier, inference_geo, skill, mcp_server, mcp_tool, entrypoint,
                 claude_code_version, imported_from, record_ms, reasoning_tokens, initiator,
                 charge_input_nano, charge_output_nano, charge_cache_read_nano,
-                charge_cache_write_nano
+                charge_cache_write_nano, per_prompt
             )
             VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18,
-                ?19, ?20, ?21, ?22, ?23, ?6, ?24, ?25, ?26, ?27, ?28, ?29
+                ?19, ?20, ?21, ?22, ?23, ?6, ?24, ?25, ?26, ?27, ?28, ?29, ?30
             )
             ON CONFLICT ",
             $conflict_target,
@@ -784,11 +834,14 @@ macro_rules! upsert_request {
                 charge_input_nano = excluded.charge_input_nano,
                 charge_output_nano = excluded.charge_output_nano,
                 charge_cache_read_nano = excluded.charge_cache_read_nano,
-                charge_cache_write_nano = excluded.charge_cache_write_nano
+                charge_cache_write_nano = excluded.charge_cache_write_nano,
+                per_prompt = excluded.per_prompt
             WHERE (
                 excluded.imported_from IS NULL,
                 excluded.input_tokens + excluded.output_tokens + excluded.cache_read_tokens
                     + excluded.cache_write_5m_tokens + excluded.cache_write_1h_tokens,
+                coalesce(excluded.charge_input_nano + excluded.charge_output_nano
+                    + excluded.charge_cache_read_nano + excluded.charge_cache_write_nano, -1),
                 excluded.record_ms,
                 excluded.record_id,
                 (SELECT session_id FROM sessions WHERE id = excluded.session)
@@ -796,6 +849,8 @@ macro_rules! upsert_request {
                 requests.imported_from IS NULL,
                 requests.input_tokens + requests.output_tokens + requests.cache_read_tokens
                     + requests.cache_write_5m_tokens + requests.cache_write_1h_tokens,
+                coalesce(requests.charge_input_nano + requests.charge_output_nano
+                    + requests.charge_cache_read_nano + requests.charge_cache_write_nano, -1),
                 requests.record_ms,
                 requests.record_id,
                 (SELECT session_id FROM sessions WHERE id = requests.session)

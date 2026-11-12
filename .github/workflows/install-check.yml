@@ -75,6 +75,7 @@ jobs:
 
           export CLAUDE_CONFIG_DIR="$RUNNER_TEMP/claude-config"
           export COPILOT_HOME="$RUNNER_TEMP/copilot-home"
+          export AGENT_DASHBOARD_VSCODE_DATA="$RUNNER_TEMP/vscode-data"
           export AGENT_DASHBOARD_HISTORY="$RUNNER_TEMP/history.sqlite"
           export NO_COLOR=1 TZ=UTC
           project="$CLAUDE_CONFIG_DIR/projects/C--code-app"

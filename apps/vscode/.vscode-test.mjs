@@ -32,6 +32,7 @@ export default defineConfig({
   env: {
     CLAUDE_CONFIG_DIR: prepared.env.CLAUDE_CONFIG_DIR,
     COPILOT_HOME: prepared.env.COPILOT_HOME,
+    AGENT_DASHBOARD_VSCODE_DATA: prepared.env.AGENT_DASHBOARD_VSCODE_DATA,
     AGENT_DASHBOARD_HISTORY: prepared.env.AGENT_DASHBOARD_HISTORY,
     AGENT_DASHBOARD_NOW: prepared.env.AGENT_DASHBOARD_NOW,
     TZ: prepared.env.TZ,

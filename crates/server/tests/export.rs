@@ -48,7 +48,7 @@ fn setup() -> Setup {
     history
         .write(|w| {
             let project = w.project("C--code-app", Some(r"C:\code\app"))?;
-            let session = w.session("session-1", project, Agent::ClaudeCode)?;
+            let session = w.session("session-1", project, Agent::ClaudeCode, None)?;
             for index in 0..REQUESTS {
                 let message = format!("msg_{index}");
                 let request = format!("req_{index}");
@@ -78,6 +78,7 @@ fn setup() -> Setup {
                     reasoning_tokens: 0,
                     initiator: None,
                     charge: None,
+                    per_prompt: false,
                     imported_from: None,
                 })?;
             }
@@ -96,12 +97,14 @@ fn setup() -> Setup {
     drop(history);
     let exports = dir.path().join("exports");
     fs::create_dir(&exports).unwrap();
-    // The data root is a folder that does not exist, so that the server reads no transcripts,
+    // The data roots are folders that do not exist, so that the server reads no transcripts,
     // whatever this computer holds, and days are counted in UTC wherever the test runs.
     let app = App {
         history_path: Some(path),
         roots: Vec::new(),
         config_dir: Some(dir.path().join(".claude").into_os_string()),
+        copilot_home: Some(dir.path().join(".copilot").into_os_string()),
+        vscode_data: Some(dir.path().join("vscode").into_os_string()),
         home: Some(dir.path().to_owned()),
         zone: TimeZone::UTC,
         system_zone: TimeZone::UTC,

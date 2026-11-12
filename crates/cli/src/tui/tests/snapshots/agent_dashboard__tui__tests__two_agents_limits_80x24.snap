@@ -14,7 +14,7 @@ expression: shown(&state)
  9 ││ Weekly, Fable        18%  ████░░░░░░░░░░░░░░░░░░░░                           ││
 10 ││   Resets Thu 09:00 · about 31% when it resets (estimate)   ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  ││
 11 │└──────────────────────────────────────────────────────────────────────────────┘│
-12 │┌─ Copilot CLI ────────────────────────────────────────── recorded · 1 h ago ──┐│
+12 │┌─ Copilot ────────────────────────────────────────────── recorded · 1 h ago ──┐│
 13 ││ Monthly allowance     4%  █░░░░░░░░░░░░░░░░░░░░░░░                           ││
 14 ││   Resets 1 Nov 13:00 · 1,575 of 45,000 AI credits          ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  ││
 15 │└──────────────────────────────────────────────────────────────────────────────┘│
@@ -40,7 +40,7 @@ styles
  9 │d eeeeeeeeeeeee        aaa  ffffgggggggggggggggggggg                           d│
 10 │d   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb   ffffffffffffffff  d│
 11 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│
-12 │ddaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbddd│
+12 │ddaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbddd│
 13 │d eeeeeeeeeeeeeeeee     aa  fggggggggggggggggggggggg                           d│
 14 │d   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb          ffffffffffffffff  d│
 15 │dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd│

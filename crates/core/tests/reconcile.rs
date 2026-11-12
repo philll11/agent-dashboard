@@ -39,7 +39,7 @@ impl Fixture {
         self.history
             .write(|w| {
                 let project = w.project("C--code-app", None)?;
-                w.session(session_id, project, Agent::ClaudeCode)
+                w.session(session_id, project, Agent::ClaudeCode, None)
             })
             .unwrap()
     }
@@ -66,6 +66,7 @@ impl Fixture {
                     reasoning_tokens: 0,
                     initiator: None,
                     charge: None,
+                    per_prompt: false,
                     imported_from: None,
                 })
             })

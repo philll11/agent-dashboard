@@ -10,7 +10,10 @@ use agent_dashboard_core::history::{self, History};
 use agent_dashboard_core::price_refresh;
 use agent_dashboard_core::pricing::PriceTable;
 use agent_dashboard_core::report::Bucket;
-use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, COPILOT_HOME_ENV, DataRoot};
+use agent_dashboard_core::roots::{
+    self, CONFIG_DIR_ENV, COPILOT_HOME_ENV, DataRoot, VSCODE_APPDATA_ENV, VSCODE_DATA_ENV,
+    VSCODE_PORTABLE_ENV,
+};
 use agent_dashboard_core::usage_endpoint::LoginSource;
 use jiff::civil::{Date, Weekday};
 use jiff::tz::TimeZone;
@@ -96,6 +99,14 @@ pub struct App {
     pub config_dir: Option<OsString>,
     /// The value of `COPILOT_HOME`.
     pub copilot_home: Option<OsString>,
+    /// The value of `AGENT_DASHBOARD_VSCODE_DATA`.
+    pub vscode_data: Option<OsString>,
+    /// The value of `VSCODE_PORTABLE`.
+    pub vscode_portable: Option<OsString>,
+    /// The value of `VSCODE_APPDATA`.
+    pub vscode_appdata: Option<OsString>,
+    /// The folder VS Code keeps each product's user data in by default.
+    pub app_data: Option<PathBuf>,
     /// The names the agents show for models the price table does not list, by model id.
     pub model_names: Arc<HashMap<String, String>>,
     pub home: Option<PathBuf>,
@@ -131,20 +142,22 @@ impl App {
             .filter(|path| !path.is_empty())
             .map(PathBuf::from)
             .or_else(history::default_path);
-        let config_dir = std::env::var_os(CONFIG_DIR_ENV);
-        let copilot_home = std::env::var_os(COPILOT_HOME_ENV);
         let home = std::env::home_dir();
+        let app_data = roots::app_data(
+            home.as_deref(),
+            std::env::var_os("APPDATA").as_deref(),
+            std::env::var_os("XDG_CONFIG_HOME").as_deref(),
+        );
         let zone = TimeZone::system();
-        Self {
+        let mut app = Self {
             history_path,
-            roots: roots::data_roots(
-                config_dir.as_deref(),
-                copilot_home.as_deref(),
-                home.as_deref(),
-                &[],
-            ),
-            config_dir,
-            copilot_home,
+            roots: Vec::new(),
+            config_dir: std::env::var_os(CONFIG_DIR_ENV),
+            copilot_home: std::env::var_os(COPILOT_HOME_ENV),
+            vscode_data: std::env::var_os(VSCODE_DATA_ENV),
+            vscode_portable: std::env::var_os(VSCODE_PORTABLE_ENV),
+            vscode_appdata: std::env::var_os(VSCODE_APPDATA_ENV),
+            app_data,
             model_names: Arc::default(),
             home,
             system_zone: zone.clone(),
@@ -153,6 +166,22 @@ impl App {
             now: now(),
             prices: PriceTable::bundled_shared(),
             status_line_copy: None,
+        };
+        app.roots = roots::data_roots(&app.environment(), &[]);
+        app
+    }
+
+    /// What the agents' data roots are found from.
+    #[must_use]
+    pub fn environment(&self) -> roots::Environment<'_> {
+        roots::Environment {
+            home: self.home.as_deref(),
+            app_data: self.app_data.as_deref(),
+            claude_config_dir: self.config_dir.as_deref(),
+            copilot_home: self.copilot_home.as_deref(),
+            vscode_data: self.vscode_data.as_deref(),
+            vscode_portable: self.vscode_portable.as_deref(),
+            vscode_appdata: self.vscode_appdata.as_deref(),
         }
     }
 
@@ -175,12 +204,7 @@ impl App {
     pub fn with_shared(&self, history: &History) -> Self {
         let mut app = self.clone();
         if let Ok(folders) = history.data_folders() {
-            app.roots = roots::data_roots(
-                app.config_dir.as_deref(),
-                app.copilot_home.as_deref(),
-                app.home.as_deref(),
-                &folders,
-            );
+            app.roots = roots::data_roots(&app.environment(), &folders);
         }
         if let Ok(names) = history.model_names() {
             app.model_names = Arc::new(

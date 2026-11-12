@@ -11,7 +11,7 @@ use agent_dashboard_core::price_refresh::{self, Outcome};
 use agent_dashboard_core::pricing::PriceTable;
 use agent_dashboard_core::reconcile;
 use agent_dashboard_core::report::{self, Filter, Range};
-use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, COPILOT_HOME_ENV, RootSource, RootStatus};
+use agent_dashboard_core::roots::{self, CONFIG_DIR_ENV, RootSource, RootStatus};
 use jiff::Timestamp;
 
 use agent_dashboard_server::app::App;
@@ -91,8 +91,10 @@ fn failed(label: &'static str, detail: String) -> Line {
     }
 }
 
-/// A line for each data root, labelled with its agent. Copilot CLI's folder is missing until
-/// Copilot CLI first runs, which is no fault; a missing Claude Code folder is.
+/// A line for each data root, labelled with whose folder it is: Copilot's holds the sessions of
+/// Copilot CLI and of VS Code's Copilot harness, and VS Code's holds its own chat session files.
+/// Copilot's and VS Code's folders are missing until they first run, which is no fault; a missing
+/// Claude Code folder is.
 fn data_folders(app: &App) -> Vec<Line> {
     if app.roots.is_empty() {
         return vec![failed(
@@ -121,7 +123,11 @@ fn data_folders(app: &App) -> Vec<Line> {
                     Agent::ClaudeCode => (Mark::Failed, "not found".to_owned()),
                     Agent::CopilotCli => (
                         Mark::Off,
-                        "not found; Copilot CLI makes it when it first runs".to_owned(),
+                        "not found; Copilot makes it when it first runs".to_owned(),
+                    ),
+                    Agent::CopilotVscode => (
+                        Mark::Off,
+                        "not found; VS Code makes it when it first runs".to_owned(),
                     ),
                 },
                 RootStatus::Unreachable { reason } => {
@@ -131,17 +137,17 @@ fn data_folders(app: &App) -> Vec<Line> {
                     (Mark::Failed, format!("cannot be read: {reason}"))
                 }
             };
-            let variable = match root.agent {
-                Agent::ClaudeCode => CONFIG_DIR_ENV,
-                Agent::CopilotCli => COPILOT_HOME_ENV,
-            };
             let detail = match root.source {
-                RootSource::Environment => format!("{detail} ({variable})"),
+                RootSource::Environment { variable } => format!("{detail} ({variable})"),
                 RootSource::Default | RootSource::Added => detail,
             };
             Line {
                 mark,
-                label: root.agent.display_name(),
+                label: match root.agent {
+                    Agent::ClaudeCode => "Claude Code",
+                    Agent::CopilotCli => "Copilot",
+                    Agent::CopilotVscode => "VS Code",
+                },
                 path: Some(root.path.display().to_string()),
                 detail,
             }
@@ -200,7 +206,7 @@ fn prices_line(app: &App, history: &History) -> Line {
         from_ms: i64::MIN,
         to_ms: i64::MAX,
     };
-    // The price table covers Claude Code's models; Copilot CLI records its own charges.
+    // The price table covers Claude Code's models; Copilot records its own charges.
     let models = match report::by_model(
         history,
         &app.prices,

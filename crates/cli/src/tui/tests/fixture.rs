@@ -34,6 +34,14 @@ pub enum Variant {
     Error,
     /// Copilot CLI's sessions and allowance beside Claude Code's.
     TwoAgents,
+    /// Copilot CLI's and Copilot in VS Code's sessions, and Copilot's allowance, beside Claude
+    /// Code's.
+    ThreeAgents,
+}
+
+/// Whether the variant has Copilot CLI's sessions and Copilot's allowance.
+fn has_copilot(variant: Variant) -> bool {
+    matches!(variant, Variant::TwoAgents | Variant::ThreeAgents)
 }
 
 pub const ZONE: &str = "Pacific/Auckland";
@@ -58,9 +66,71 @@ fn copilot_cost(day: Date) -> f64 {
     if weekend { cost * 0.4 } else { cost }
 }
 
-/// Whether the session at `index` of the list is Copilot CLI's, in the variant that has some.
+/// Whether the session at `index` of the list is Copilot CLI's, in the variants that have some.
 fn copilot_session(variant: Variant, index: usize) -> bool {
-    variant == Variant::TwoAgents && index % 3 == 1
+    has_copilot(variant) && index % 3 == 1
+}
+
+/// The model of Copilot in VS Code's prompts, by its id and the name VS Code shows for it.
+const VSCODE_MODEL: (&str, &str) = ("claude-sonnet-4.6", "Sonnet 4.6");
+
+/// The Copilot in VS Code session whose detail the fixture has.
+pub const VSCODE_SESSION: &str = "5463ddbb-0000-4000-8000-000000000002";
+
+/// The projects Copilot in VS Code works in, by their place among the projects, with its share of
+/// its cost and its sessions there.
+const VSCODE_PROJECTS: [(usize, f64, u64); 2] = [(0, 0.7, 8), (2, 0.3, 4)];
+
+/// What VS Code recorded as charged for its prompts on `day`: less at weekends.
+fn vscode_cost(day: Date) -> f64 {
+    let weekend = matches!(
+        day.weekday(),
+        jiff::civil::Weekday::Saturday | jiff::civil::Weekday::Sunday
+    );
+    let cost = 0.25 + f64::from(day.day() % 5) * 0.09;
+    if weekend { cost * 0.3 } else { cost }
+}
+
+/// Whether the session at `index` of the list is Copilot in VS Code's, in the variant that has
+/// some.
+fn vscode_session(variant: Variant, index: usize) -> bool {
+    variant == Variant::ThreeAgents && index % 3 == 2
+}
+
+/// What a Copilot agent adds to a day, at a share of its cost.
+type CopilotPart = fn(Date, f64) -> Totals;
+
+/// What Copilot CLI adds to a day.
+fn copilot_part(day: Date, share: f64) -> Totals {
+    charged(copilot_cost(day) * share, whole(17.0 * share))
+}
+
+/// What Copilot in VS Code adds to a day.
+fn vscode_part(day: Date, share: f64) -> Totals {
+    prompts(vscode_cost(day) * share, whole(6.0 * share))
+}
+
+/// What `cost` dollars of prompts in VS Code look like: their output tokens and their charge, one
+/// total that VS Code does not split by kind of token.
+fn prompts(cost: f64, requests: u64) -> Totals {
+    Totals {
+        requests,
+        tokens: Tokens {
+            output: whole(cost * 26_000.0),
+            ..Tokens::default()
+        },
+        cost: Cost {
+            total: cost,
+            input: cost,
+            ..Cost::default()
+        },
+        cost_provenance: Some(CostProvenance::Recorded),
+        charged_requests: requests,
+        charged_usd: cost,
+        charged_credits: cost * 100.0,
+        per_prompt_requests: requests,
+        ..Totals::default()
+    }
 }
 
 /// What `cost` dollars of Copilot CLI's recorded charges look like: one kind of cache write, and
@@ -180,6 +250,7 @@ fn session_totals() -> Totals {
             web_search: 0.03,
         },
         unpriced_requests: 0,
+        per_prompt_requests: 0,
         web_search_requests: 3,
         fast_requests: 0,
         reasoning_tokens: 0,
@@ -247,6 +318,7 @@ fn totals(cost: f64, requests_per_dollar: f64, fast_share: f64) -> Totals {
             web_search: 0.0,
         },
         unpriced_requests: 0,
+        per_prompt_requests: 0,
         web_search_requests: 0,
         fast_requests: whole(f64::from(u32::try_from(requests).unwrap_or(0)) * fast_share),
         reasoning_tokens: 0,
@@ -271,6 +343,7 @@ fn add(sum: &mut Totals, more: &Totals) {
     sum.cost.cache_write_5m += more.cost.cache_write_5m;
     sum.cost.cache_write_1h += more.cost.cache_write_1h;
     sum.unpriced_requests += more.unpriced_requests;
+    sum.per_prompt_requests += more.per_prompt_requests;
     sum.fast_requests += more.fast_requests;
 }
 
@@ -285,6 +358,13 @@ fn copilot_model() -> Model {
     Model {
         id: COPILOT_MODEL.0.to_owned(),
         name: COPILOT_MODEL.1.to_owned(),
+    }
+}
+
+fn vscode_model() -> Model {
+    Model {
+        id: VSCODE_MODEL.0.to_owned(),
+        name: VSCODE_MODEL.1.to_owned(),
     }
 }
 
@@ -369,6 +449,7 @@ impl Fixture {
             "import/offer" => json_of(self.import_offer()),
             "sessions" => json_of(self.sessions(params)),
             "session" if params["id"] == COPILOT_SESSION => json_of(self.copilot_session()),
+            "session" if params["id"] == VSCODE_SESSION => json_of(self.vscode_session()),
             "session" => json_of(self.session()),
             other => Err(format!("the fixture has no answer to {other}")),
         }
@@ -435,6 +516,7 @@ impl Fixture {
                 path: r"C:\Users\you\.claude".to_owned(),
                 agent: "claude-code".to_owned(),
                 source: "default".to_owned(),
+                variable: None,
                 state: if self.variant == Variant::Empty {
                     FolderState::Missing
                 } else {
@@ -448,10 +530,25 @@ impl Fixture {
                 path: r"C:\Users\you\.copilot".to_owned(),
                 agent: "copilot-cli".to_owned(),
                 source: "default".to_owned(),
-                state: if self.variant == Variant::TwoAgents {
+                variable: None,
+                state: if has_copilot(self.variant) {
                     FolderState::Found {
                         transcripts: 71,
                         bytes: 240_000_000,
+                    }
+                } else {
+                    FolderState::Missing
+                },
+            },
+            Folder {
+                path: r"C:\Users\you\AppData\Roaming\Code".to_owned(),
+                agent: "copilot-vscode".to_owned(),
+                source: "default".to_owned(),
+                variable: None,
+                state: if self.variant == Variant::ThreeAgents {
+                    FolderState::Found {
+                        transcripts: 36,
+                        bytes: 118_000_000,
                     }
                 } else {
                     FolderState::Missing
@@ -463,6 +560,7 @@ impl Fixture {
                 path: r"\\wsl.localhost\Ubuntu\home\you\.claude".to_owned(),
                 agent: "claude-code".to_owned(),
                 source: "added".to_owned(),
+                variable: None,
                 state: FolderState::Unreachable {
                     reason: "WSL is not running".to_owned(),
                 },
@@ -511,8 +609,11 @@ impl Fixture {
                 name: (*name).to_owned(),
             }));
         }
-        if self.variant == Variant::TwoAgents {
+        if has_copilot(self.variant) {
             models.push(copilot_model());
+        }
+        if self.variant == Variant::ThreeAgents {
+            models.push(vscode_model());
         }
         models
     }
@@ -526,10 +627,16 @@ impl Fixture {
             id: "claude-code".to_owned(),
             name: "Claude Code".to_owned(),
         }];
-        if self.variant == Variant::TwoAgents {
+        if has_copilot(self.variant) {
             agents.push(AgentChoice {
                 id: "copilot-cli".to_owned(),
                 name: "Copilot CLI".to_owned(),
+            });
+        }
+        if self.variant == Variant::ThreeAgents {
+            agents.push(AgentChoice {
+                id: "copilot-vscode".to_owned(),
+                name: "Copilot in VS Code".to_owned(),
             });
         }
         Choices {
@@ -542,12 +649,40 @@ impl Fixture {
     /// The share of `agent`'s cost, or every agent's, a project filter keeps.
     fn project_share(id: &str, agent: Option<&str>) -> f64 {
         let index = PROJECTS.iter().position(|(project, ..)| *project == id);
-        if agent == Some("copilot-cli") {
+        let of_agent = match agent {
+            Some("copilot-cli") => Some(&COPILOT_PROJECTS[..]),
+            Some("copilot-vscode") => Some(&VSCODE_PROJECTS[..]),
+            _ => None,
+        };
+        if let Some(projects) = of_agent {
             return index
-                .and_then(|index| COPILOT_PROJECTS.iter().find(|(of, ..)| *of == index))
+                .and_then(|index| projects.iter().find(|(of, ..)| *of == index))
                 .map_or(0.0, |(_, share, _)| *share);
         }
         index.map_or(1.0, |index| PROJECTS[index].2)
+    }
+
+    /// Each Copilot agent that `agent` and `model_filter` keep in view: its model, and what it
+    /// adds to a day.
+    fn copilots(
+        &self,
+        agent: Option<&str>,
+        model_filter: Option<&str>,
+    ) -> Vec<(Model, CopilotPart)> {
+        let shows = |id: &str, model: &str| {
+            agent.is_none_or(|agent| agent == id) && model_filter.is_none_or(|of| of == model)
+        };
+        let copilot = has_copilot(self.variant) && shows("copilot-cli", COPILOT_MODEL.0);
+        let vscode =
+            self.variant == Variant::ThreeAgents && shows("copilot-vscode", VSCODE_MODEL.0);
+        [
+            (copilot, copilot_model(), copilot_part as CopilotPart),
+            (vscode, vscode_model(), vscode_part),
+        ]
+        .into_iter()
+        .filter(|(shown, ..)| *shown)
+        .map(|(_, model, part)| (model, part))
+        .collect()
     }
 
     fn overview(&self, params: &Value) -> Overview {
@@ -556,13 +691,11 @@ impl Fixture {
         let model_filter = params["filters"]["model"].as_str();
         let agent = params["filters"]["agent"].as_str();
         let claude_code = agent.is_none_or(|agent| agent == "claude-code");
-        let copilot = self.variant == Variant::TwoAgents
-            && agent.is_none_or(|agent| agent == "copilot-cli")
-            && model_filter.is_none_or(|id| id == COPILOT_MODEL.0);
         let share = project.map_or(1.0, |id| Self::project_share(id, agent));
+        let copilots = self.copilots(agent, model_filter);
         let mut by_day = Vec::new();
         let mut model_totals: Vec<Totals> = vec![Totals::default(); MODELS.len()];
-        let mut copilot_totals = Totals::default();
+        let mut copilot_totals: Vec<Totals> = vec![Totals::default(); copilots.len()];
         let mut all = Totals::default();
         for (day, costs) in self
             .days
@@ -590,12 +723,12 @@ impl Fixture {
                     totals: part,
                 });
             }
-            if copilot {
-                let part = charged(copilot_cost(*day) * share, whole(17.0 * share));
+            for ((model, part), sum) in copilots.iter().zip(&mut copilot_totals) {
+                let part = part(*day, share);
                 add(&mut day_totals, &part);
-                add(&mut copilot_totals, &part);
+                add(sum, &part);
                 parts.push(ModelDay {
-                    model: COPILOT_MODEL.0.to_owned(),
+                    model: model.id.clone(),
                     totals: part,
                 });
             }
@@ -619,11 +752,10 @@ impl Fixture {
                 totals,
             })
             .collect();
-        if copilot_totals.requests > 0 {
-            models.push(ModelRow {
-                model: copilot_model(),
-                totals: copilot_totals,
-            });
+        for ((model, _), totals) in copilots.into_iter().zip(copilot_totals) {
+            if totals.requests > 0 {
+                models.push(ModelRow { model, totals });
+            }
         }
         if model_filter.is_none() {
             for row in self.more_models(share) {
@@ -673,6 +805,7 @@ impl Fixture {
                         cache_write_1h: 0,
                     },
                     unpriced_requests: 12,
+                    per_prompt_requests: 0,
                     ..Totals::default()
                 },
             )],
@@ -687,16 +820,20 @@ impl Fixture {
     /// Each project's totals, of `agent` or every agent's.
     fn project_rows(&self, by_day: &[Day], total: f64, agent: Option<&str>) -> Vec<ProjectRow> {
         let base = self.at(date(2026, 10, 10), 13, 42);
-        let copilot = agent == Some("copilot-cli");
+        let of_agent = match agent {
+            Some("copilot-cli") => Some(&COPILOT_PROJECTS[..]),
+            Some("copilot-vscode") => Some(&VSCODE_PROJECTS[..]),
+            _ => None,
+        };
         PROJECTS
             .iter()
             .enumerate()
             .filter(|_| total > 0.0)
             .filter_map(|(index, (_, _, share, sessions))| {
-                if !copilot {
+                let Some(projects) = of_agent else {
                     return Some((index, *share, *sessions));
-                }
-                COPILOT_PROJECTS
+                };
+                projects
                     .iter()
                     .find(|(of, ..)| *of == index)
                     .map(|(_, share, sessions)| (index, *share, *sessions))
@@ -720,10 +857,10 @@ impl Fixture {
                     project: project(index),
                     sessions,
                     last_ms: base - i64::try_from(index).unwrap_or(0) * 26 * 60 * 60 * 1000,
-                    totals: if copilot {
-                        charged(cost, whole(cost * 17.0))
-                    } else {
-                        totals(cost, 25.0, 0.0)
+                    totals: match agent {
+                        Some("copilot-cli") => charged(cost, whole(cost * 17.0)),
+                        Some("copilot-vscode") => prompts(cost, whole(cost * 6.0)),
+                        _ => totals(cost, 25.0, 0.0),
                     },
                     daily_cost,
                 }
@@ -752,7 +889,7 @@ impl Fixture {
         };
         let reading = |window: &str, model: Option<&str>, used: f64, resets: i64, level: Level| {
             WindowReading {
-                agent: "claude-code".to_owned(),
+                plan: "claude".to_owned(),
                 window: window.to_owned(),
                 model: model.map(str::to_owned),
                 used_percentage: used,
@@ -823,13 +960,13 @@ impl Fixture {
                 pace: (!stale).then(|| pace(31.0, week_start)),
             },
         ];
-        if self.variant == Variant::TwoAgents {
+        if has_copilot(self.variant) {
             windows.push(self.allowance());
         }
         windows
     }
 
-    /// Copilot CLI's monthly allowance, as its session files recorded it an hour ago.
+    /// Copilot's monthly allowance, as its session files recorded it an hour ago.
     fn allowance(&self) -> WindowView {
         let observed = self.now_ms() - 60 * 60_000;
         let start = ms("2026-10-01T00:00:00+00:00[UTC]");
@@ -837,7 +974,7 @@ impl Fixture {
         let used = 3.5;
         WindowView {
             reading: WindowReading {
-                agent: "copilot-cli".to_owned(),
+                plan: "copilot".to_owned(),
                 window: "monthly".to_owned(),
                 model: None,
                 used_percentage: used,
@@ -995,6 +1132,22 @@ impl Fixture {
                 let title = TITLES[index % TITLES.len()];
                 let project_index = [0, 0, 1, 0, 2, 0, 3, 4][index % 8];
                 let requests = 40 + (u64::try_from(index).unwrap_or(0) * 53) % 220;
+                if vscode_session(self.variant, index) {
+                    let cost = cost / 6.0;
+                    return SessionRow {
+                        id: format!("5463ddbb-0000-4000-8000-{index:012}"),
+                        agent: "copilot-vscode".to_owned(),
+                        title: (!title.is_empty()).then(|| title.to_owned()),
+                        project: project(project_index),
+                        first_ms,
+                        last_ms: first_ms + minutes * 60_000,
+                        models: vec![vscode_model()],
+                        subagents: 0,
+                        totals: prompts(cost, requests / 20 + 1),
+                        reported_usd: None,
+                        drift: None,
+                    };
+                }
                 if copilot_session(self.variant, index) {
                     let cost = cost / 4.0;
                     return SessionRow {
@@ -1217,6 +1370,49 @@ impl Fixture {
                     totals: charged(0.27, 6),
                 },
             ],
+            skills: Vec::new(),
+            mcp_tools: Vec::new(),
+            uncredited: totals,
+        }
+    }
+
+    /// A Copilot in VS Code session of its Local harness: prompts, whose output tokens and charge
+    /// VS Code records, and nothing else.
+    fn vscode_session(&self) -> SessionDetail {
+        let first = self.at(date(2026, 10, 10), 9, 5);
+        let last = self.at(date(2026, 10, 10), 10, 40);
+        let (cost, requests) = (0.94, 9);
+        let cumulative_cost = (1..=requests)
+            .map(|step: i64| CostPoint {
+                ms: first + (last - first) * step / requests,
+                usd: cost * f64::from(u8::try_from(step).unwrap_or(0)) / 9.0,
+            })
+            .collect();
+        let totals = prompts(cost, 9);
+        SessionDetail {
+            id: VSCODE_SESSION.to_owned(),
+            title: Some(TITLES[3].to_owned()),
+            project: project(0),
+            transcript: None,
+            first_ms: first,
+            last_ms: last,
+            agent_version: Some("0.73.0".to_owned()),
+            agent: "copilot-vscode".to_owned(),
+            initiators: None,
+            entrypoint: None,
+            totals: totals.clone(),
+            own: totals.clone(),
+            reported_usd: None,
+            drift: None,
+            cumulative_cost,
+            who: vec![WhoRow {
+                subagent: None,
+                agent_type: None,
+                model: vscode_model(),
+                first_ms: first,
+                last_ms: last,
+                totals: totals.clone(),
+            }],
             skills: Vec::new(),
             mcp_tools: Vec::new(),
             uncredited: totals,

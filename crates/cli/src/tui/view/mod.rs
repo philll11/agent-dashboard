@@ -11,6 +11,7 @@ mod series;
 mod session;
 mod sessions;
 
+use agent_dashboard_core::agent::Agent;
 use agent_dashboard_server::fmt::{ago, grouped};
 use agent_dashboard_server::protocol::{CostProvenance, Overview, Totals};
 use jiff::Timestamp;
@@ -98,10 +99,14 @@ pub fn provenance(state: &State, totals: Option<&Totals>) -> CostProvenance {
     if let Some(provenance) = totals.and_then(|totals| totals.cost_provenance) {
         return provenance;
     }
-    let agents = state.agents_in_view();
+    let agents: Vec<Agent> = state
+        .agents_in_view()
+        .into_iter()
+        .filter_map(Agent::from_name)
+        .collect();
     match (
-        agents.contains(&"claude-code"),
-        agents.contains(&"copilot-cli"),
+        agents.iter().any(|agent| !agent.records_charges()),
+        agents.iter().any(|agent| agent.records_charges()),
     ) {
         (true, true) => CostProvenance::Mixed,
         (false, true) => CostProvenance::Recorded,
@@ -286,7 +291,7 @@ pub fn footer(c: &mut Canvas, state: &State, keys: &[(&str, &str)], note: Option
         let shown = if state.wide() && !read.is_empty() {
             let costs = match provenance(state, None) {
                 CostProvenance::Estimate => "costs are API-equivalent estimates",
-                CostProvenance::Recorded => "costs are as Copilot CLI recorded them",
+                CostProvenance::Recorded => "costs are as Copilot recorded them",
                 CostProvenance::Mixed => "costs include API-equivalent estimates",
             };
             format!("{read} · {costs}")
@@ -491,18 +496,31 @@ fn empty(c: &mut Canvas, state: &State) {
             "To read another folder, set CLAUDE_CONFIG_DIR or COPILOT_HOME to it.",
         ),
     };
+    let looked = wrapped(&looked, c.w - 2);
+    let mut lines = vec![("No history found", theme.strong()), ("", theme.text())];
+    lines.extend(looked.iter().map(|line| (line.as_str(), theme.text())));
+    lines.extend([(saves, theme.text()), (elsewhere, theme.text())]);
     message(
         c,
-        &[
-            ("No history found", theme.strong()),
-            ("", theme.text()),
-            (&looked, theme.text()),
-            (saves, theme.text()),
-            (elsewhere, theme.text()),
-        ],
+        &lines,
         Some(&[("q", "quit"), ("R", "check again"), ("?", "help")]),
         state,
     );
+}
+
+/// `text` in lines of at most `room` columns, broken between words.
+fn wrapped(text: &str, room: i32) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for word in text.split(' ') {
+        match lines.last_mut() {
+            Some(line) if width(line) + 1 + width(word) <= room => {
+                line.push(' ');
+                line.push_str(word);
+            }
+            _ => lines.push(word.to_owned()),
+        }
+    }
+    lines
 }
 
 /// A history that a newer agent-dashboard upgraded beyond what this one reads: nothing else

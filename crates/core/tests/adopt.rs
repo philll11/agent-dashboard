@@ -39,6 +39,7 @@ fn request(session: SessionKey, record_id: &str) -> Request<'_> {
         reasoning_tokens: 0,
         initiator: None,
         charge: None,
+        per_prompt: false,
         imported_from: None,
     }
 }
@@ -51,7 +52,7 @@ fn predecessor(dir: &Path, requests: usize) -> PathBuf {
     history
         .write(|w| {
             let project = w.project("C--code-app", Some(r"C:\code\app"))?;
-            let session = w.session("session-1", project, Agent::ClaudeCode)?;
+            let session = w.session("session-1", project, Agent::ClaudeCode, None)?;
             ids.iter()
                 .try_for_each(|id| w.request(&request(session, id)))
         })
@@ -108,7 +109,7 @@ fn a_history_that_exists_is_never_replaced() {
     history
         .write(|w| {
             let project = w.project("C--code-other", Some(r"C:\code\other"))?;
-            let session = w.session("session-2", project, Agent::ClaudeCode)?;
+            let session = w.session("session-2", project, Agent::ClaudeCode, None)?;
             w.request(&request(session, "rec-new"))
         })
         .unwrap();

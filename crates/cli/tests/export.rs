@@ -629,7 +629,8 @@ fn the_report_json_nests_tokens_and_cost_and_adds_up_to_the_same_requests() {
                     "output",
                     "cache_write_5m",
                     "cache_write_1h",
-                    "cache_read"
+                    "cache_read",
+                    "per_prompt_requests"
                 ],
                 "{command}"
             );

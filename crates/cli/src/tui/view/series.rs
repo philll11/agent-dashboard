@@ -75,11 +75,13 @@ pub fn series_of<'a>(models: impl IntoIterator<Item = &'a str>) -> HashMap<Strin
 }
 
 /// The series an agent's part of a chart takes while usage splits by agent: Claude Code the first
-/// palette slot, Copilot CLI the second, in every theme.
+/// palette slot, Copilot CLI the second and Copilot in VS Code the third, in every theme, so that
+/// no two agents share one.
 pub fn agent_series(agent: &str) -> Series {
     match agent {
         "claude-code" => Series::Fable,
         "copilot-cli" => Series::Opus,
+        "copilot-vscode" => Series::Sonnet,
         _ => Series::Other,
     }
 }
@@ -141,6 +143,7 @@ mod tests {
     fn each_agent_takes_a_palette_slot_of_its_own() {
         assert_eq!(agent_series("claude-code"), Series::Fable);
         assert_eq!(agent_series("copilot-cli"), Series::Opus);
+        assert_eq!(agent_series("copilot-vscode"), Series::Sonnet);
         assert_eq!(agent_series("codex"), Series::Other);
     }
 

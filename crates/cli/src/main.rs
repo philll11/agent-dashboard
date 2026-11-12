@@ -291,6 +291,8 @@ enum AgentName {
     ClaudeCode,
     /// GitHub Copilot CLI
     CopilotCli,
+    /// GitHub Copilot in VS Code
+    CopilotVscode,
 }
 
 impl AgentName {
@@ -298,6 +300,7 @@ impl AgentName {
         match self {
             Self::ClaudeCode => Agent::ClaudeCode,
             Self::CopilotCli => Agent::CopilotCli,
+            Self::CopilotVscode => Agent::CopilotVscode,
         }
     }
 }

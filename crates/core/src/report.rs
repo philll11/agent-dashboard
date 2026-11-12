@@ -1,8 +1,8 @@
 //! Totals of the history's requests for reports: by model, by day, by session and by project.
 //!
-//! Cost is a Claude Code request's API-equivalent cost and a Copilot CLI request's recorded
-//! charge, added up in US dollars; totals say which kinds they hold (ADR 0015). Requests with
-//! neither are counted apart as unpriced, so that a missing price never shows as free.
+//! Cost is a Claude Code request's API-equivalent cost and a Copilot request's recorded charge,
+//! added up in US dollars; totals say which kinds they hold (ADR 0015). Requests with neither are
+//! counted apart as unpriced, so that a missing price never shows as free.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -31,6 +31,9 @@ pub struct Totals {
     pub charge: Charge,
     /// Requests with neither a price nor a recorded charge, whose cost is unknown.
     pub unpriced_requests: u64,
+    /// Requests that are prompts, as VS Code's chat session files record them, whose input and
+    /// cache tokens are not recorded: the token totals leave those out.
+    pub per_prompt_requests: u64,
     pub web_search_requests: u64,
     /// Requests made in fast mode.
     pub fast_requests: u64,
@@ -56,6 +59,9 @@ impl Totals {
         if request.speed == Some("fast") {
             self.fast_requests += 1;
         }
+        if request.per_prompt {
+            self.per_prompt_requests += 1;
+        }
         match cost {
             Some(cost) => {
                 self.cost.add(cost);
@@ -77,6 +83,7 @@ impl Totals {
         self.charged_requests += other.charged_requests;
         self.charge.add(other.charge);
         self.unpriced_requests += other.unpriced_requests;
+        self.per_prompt_requests += other.per_prompt_requests;
         self.web_search_requests += other.web_search_requests;
         self.fast_requests += other.fast_requests;
     }
@@ -141,7 +148,7 @@ impl Range {
 #[must_use]
 pub fn price(table: &PriceTable, request: &StoredRequest<'_>) -> Option<Cost> {
     match request.agent {
-        Agent::CopilotCli => request.charge.map(Charge::cost),
+        Agent::CopilotCli | Agent::CopilotVscode => request.charge.map(Charge::cost),
         Agent::ClaudeCode => table.cost(&pricing::Request {
             model: request.model,
             timestamp_ms: request.timestamp_ms,
@@ -155,7 +162,22 @@ pub fn price(table: &PriceTable, request: &StoredRequest<'_>) -> Option<Cost> {
 
 /// Whether a request's cost is a charge its agent recorded.
 fn charged(request: &StoredRequest<'_>) -> bool {
-    request.agent == Agent::CopilotCli && request.charge.is_some()
+    request.agent.records_charges() && request.charge.is_some()
+}
+
+/// A day's or a bucket's totals, with its models by cost. The models are added up in that order,
+/// so that the floating-point sums never depend on the order a map gives them in.
+fn day_totals(day: Date, models: HashMap<String, Totals>) -> DayTotals {
+    let models = by_cost(models);
+    let mut totals = Totals::default();
+    for model in &models {
+        totals.merge(&model.totals);
+    }
+    DayTotals {
+        day,
+        totals,
+        models,
+    }
 }
 
 fn by_cost(models: HashMap<String, Totals>) -> Vec<ModelTotals> {
@@ -227,17 +249,7 @@ pub fn by_day(
     })?;
     Ok(days
         .into_iter()
-        .map(|(day, models)| {
-            let mut totals = Totals::default();
-            for model in models.values() {
-                totals.merge(model);
-            }
-            DayTotals {
-                day,
-                totals,
-                models: by_cost(models),
-            }
-        })
+        .map(|(day, models)| day_totals(day, models))
         .collect())
 }
 
@@ -310,17 +322,7 @@ pub fn by_bucket(days: &[DayTotals], bucket: Bucket, week_start: Weekday) -> Vec
     }
     buckets
         .into_iter()
-        .map(|(day, models)| {
-            let mut totals = Totals::default();
-            for model in models.values() {
-                totals.merge(model);
-            }
-            DayTotals {
-                day,
-                totals,
-                models: by_cost(models),
-            }
-        })
+        .map(|(day, models)| day_totals(day, models))
         .collect()
 }
 
@@ -605,17 +607,7 @@ pub fn summary(
     })?;
     let days = days
         .into_iter()
-        .map(|(day, models)| {
-            let mut totals = Totals::default();
-            for model in models.values() {
-                totals.merge(model);
-            }
-            DayTotals {
-                day,
-                totals,
-                models: by_cost(models),
-            }
-        })
+        .map(|(day, models)| day_totals(day, models))
         .collect();
     let mut projects: Vec<ProjectSummary> = projects
         .into_values()

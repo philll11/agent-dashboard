@@ -446,6 +446,8 @@ fn many_transcripts_are_read_at_once_and_progress_counts_each() {
             total: 40,
             request_records: 40,
             requests_between: Some((at, at)),
+            requests_changed: 40,
+            changed_between: Some((at, at)),
         })
     );
 }

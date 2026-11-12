@@ -696,10 +696,14 @@ impl Answers {
                 agent: root.agent.as_str().to_owned(),
                 source: match root.source {
                     RootSource::Default => "default",
-                    RootSource::Environment => "environment",
+                    RootSource::Environment { .. } => "environment",
                     RootSource::Added => "added",
                 }
                 .to_owned(),
+                variable: match root.source {
+                    RootSource::Environment { variable } => Some(variable.to_owned()),
+                    RootSource::Default | RootSource::Added => None,
+                },
                 state: match roots::inspect(&root.path, root.agent) {
                     RootStatus::Found { transcripts, bytes } => {
                         FolderState::Found { transcripts, bytes }
@@ -1004,6 +1008,7 @@ pub(crate) fn totals(totals: &report::Totals) -> Totals {
             web_search,
         },
         unpriced_requests: totals.unpriced_requests,
+        per_prompt_requests: totals.per_prompt_requests,
         web_search_requests: totals.web_search_requests,
         fast_requests: totals.fast_requests,
     }
@@ -1012,7 +1017,7 @@ pub(crate) fn totals(totals: &report::Totals) -> Totals {
 pub(crate) fn window_reading(app: &App, reading: &LimitSnapshot) -> WindowReading {
     let now_ms = app.now.as_millisecond();
     WindowReading {
-        agent: reading.source.agent().as_str().to_owned(),
+        plan: reading.source.plan().as_str().to_owned(),
         window: reading.window.clone(),
         model: limits::weekly_model(&reading.window).map(str::to_owned),
         used_percentage: reading.used_percentage,
@@ -1050,8 +1055,14 @@ fn own_figure<'a>(
     let Some(reported) = reported else {
         return (None, None);
     };
+    // Summed in the models' order, so that the figure never depends on the map's order.
+    let mut figures: Vec<(&String, f64)> = reported
+        .iter()
+        .map(|(model, figure)| (model, figure.cost_usd))
+        .collect();
+    figures.sort_by(|a, b| a.0.cmp(b.0));
     (
-        Some(reported.values().map(|figure| figure.cost_usd).sum()),
+        Some(figures.into_iter().map(|(_, cost)| cost).sum()),
         reconcile::session_drift(models, reported),
     )
 }

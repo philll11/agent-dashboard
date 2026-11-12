@@ -27,7 +27,13 @@ impl Fixture {
         let dir = tempfile::tempdir().unwrap();
         let config = dir.path().join("claude-config");
         fs::create_dir_all(&config).unwrap();
-        let roots = roots::data_roots(Some(config.as_os_str()), None, None, &[]);
+        let roots = roots::data_roots(
+            &roots::Environment {
+                claude_config_dir: Some(config.as_os_str()),
+                ..roots::Environment::default()
+            },
+            &[],
+        );
         let login = LoginSource::of(&roots, Some(config.as_os_str())).unwrap();
         let history = History::open(&dir.path().join("history.sqlite")).unwrap();
         Self {

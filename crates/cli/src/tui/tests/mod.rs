@@ -15,7 +15,7 @@ use serde_json::json;
 
 use agent_dashboard_server::protocol::{Dataset, ExportFormat, Exported};
 
-use self::fixture::{COPILOT_SESSION, Fixture, Variant};
+use self::fixture::{COPILOT_SESSION, Fixture, VSCODE_SESSION, Variant};
 use super::state::{Event, ExportNotice, Flow, Overlay, Range, Section, State};
 use super::theme::Theme;
 use super::view::HELP_KEYS;
@@ -301,6 +301,44 @@ fn two_agents_side_by_side() {
     });
     check("help_two_agents", Variant::TwoAgents, NARROW, |state| {
         state.overlay = Some(Overlay::Help);
+    });
+}
+
+#[test]
+fn three_agents_side_by_side() {
+    for size in [WIDE, NARROW] {
+        check("three_agents_overview", Variant::ThreeAgents, size, |_| {});
+        check(
+            "three_agents_sessions",
+            Variant::ThreeAgents,
+            size,
+            |state| {
+                state.section = Section::Sessions;
+                state.sessions.selected = 2;
+            },
+        );
+        check("three_agents_models", Variant::ThreeAgents, size, |state| {
+            state.section = Section::Models;
+        });
+        check("three_agents_limits", Variant::ThreeAgents, size, |state| {
+            state.section = Section::Limits;
+        });
+        check("vscode_session", Variant::ThreeAgents, size, |state| {
+            state.section = Section::Sessions;
+            state.session = Some(VSCODE_SESSION.to_owned());
+        });
+    }
+    check(
+        "three_agents_picker",
+        Variant::ThreeAgents,
+        NARROW,
+        |state| {
+            state.overlay = Some(Overlay::Agent { hover: 3 });
+        },
+    );
+    check("vscode_limits", Variant::ThreeAgents, NARROW, |state| {
+        state.section = Section::Limits;
+        state.agent = Some("copilot-vscode".to_owned());
     });
 }
 

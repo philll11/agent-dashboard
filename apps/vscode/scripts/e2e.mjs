@@ -50,6 +50,7 @@ const project = join(prepared.home, "code", "agent-dashboard");
 for (const key of [
   "CLAUDE_CONFIG_DIR",
   "COPILOT_HOME",
+  "AGENT_DASHBOARD_VSCODE_DATA",
   "AGENT_DASHBOARD_HISTORY",
   "AGENT_DASHBOARD_NOW",
   "TZ",
