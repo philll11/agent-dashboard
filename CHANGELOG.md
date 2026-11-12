@@ -31,6 +31,7 @@ The binaries are not signed.
 - On Windows, a project is found by its folder whatever the case of its letters.
 - Days and windows add up their requests in a fixed order, so the same history always shows the same cents.
 - Limits says "At the pace since 8 October" for a pace that starts on an earlier day.
+- The SQLite inside agent-dashboard is 3.54.1, past a flaw through which a crafted database and write-ahead log could return stale memory (RUSTSEC-2026-0459).
 
 ## Version 2.0.0 (2026-11-07)
 
