@@ -1,6 +1,6 @@
 # Agent Dashboard
 
-Agent Dashboard shows a person how they use their coding agents, Claude Code and GitHub Copilot CLI: what their usage costs, where it goes, and how close they are to their plan limits.
+Agent Dashboard shows a person how they use their coding agents, Claude Code, GitHub Copilot CLI and GitHub Copilot in VS Code: what their usage costs, where it goes, and how close they are to their plan limits.
 It keeps that history after the agents delete their own transcripts.
 
 ## Language
@@ -8,20 +8,26 @@ It keeps that history after the agents delete their own transcripts.
 ### The agents' data
 
 **Agent**:
-A coding assistant whose usage we read: Claude Code or Copilot CLI.
+A coding assistant whose usage we read: Claude Code, Copilot CLI or Copilot in VS Code, which covers the person's sessions in VS Code's Chat view, whichever harness ran them.
 _Avoid_: tool, source, provider, client
 
+**Harness**:
+What runs a session of Copilot in VS Code: the Copilot harness, which keeps the session where Copilot CLI keeps its own, or the Local harness, which keeps it in VS Code's own files.
+_Avoid_: agent host, backend, runtime
+
 **Data root**:
-A folder in which an agent keeps its transcripts, such as Claude Code's `~/.claude` or Copilot CLI's `~/.copilot`, unless the person has moved it.
+A folder in which an agent keeps its transcripts, such as Claude Code's `~/.claude`, Copilot CLI's `~/.copilot` or VS Code's user data folder, unless the person has moved it.
+Copilot CLI's also holds the sessions of Copilot in VS Code that ran on the Copilot harness.
 _Avoid_: config dir, Claude folder
 
 **Transcript**:
 The file in which an agent records one session, or for Claude Code, one subagent's part of a session.
-A Copilot CLI session's `events.jsonl` is its transcript.
+A Copilot CLI session's `events.jsonl` is its transcript, and so is VS Code's chat session file for a session on the Local harness.
 _Avoid_: log, JSONL file, conversation file
 
 **Session**:
 One conversation with an agent, identified by its session id.
+VS Code calls it a chat.
 _Avoid_: conversation, chat, thread
 
 **Running session**:
@@ -39,6 +45,7 @@ _Avoid_: workspace, repo, cwd
 
 **Request**:
 One call from an agent to a model, with the tokens it used.
+A session on VS Code's Local harness records one per prompt instead, covering every call the prompt led to, with its output tokens and charge alone.
 _Avoid_: turn, message, entry, API call
 
 **Initiator**:
@@ -79,7 +86,7 @@ What Claude Code's requests would cost at Anthropic's published API prices; an e
 _Avoid_: cost (on its own), spend, bill, price
 
 **Charge**:
-What a request cost, as the agent recorded it from its provider's billing, such as Copilot CLI's AI credits.
+What a request cost, as the agent recorded it from its provider's billing, such as the AI credits Copilot records.
 _Avoid_: bill, spend, price
 
 **AI credit**:
@@ -91,7 +98,7 @@ The dated list of API prices per model from which API-equivalent cost is calcula
 _Avoid_: pricing, rates, rate card
 
 **Unpriced**:
-A request with neither a price in the price table nor a charge, such as a request to a model the table does not list, or Copilot CLI's on the person's own key; its cost is unknown, never zero.
+A request with neither a price in the price table nor a charge, such as a request to a model the table does not list, or Copilot's on the person's own key; its cost is unknown, never zero.
 _Avoid_: unknown model, free model
 
 **Cache write**:
@@ -103,7 +110,7 @@ Tokens served from a provider's prompt cache instead of being processed again.
 _Avoid_: cache hit
 
 **Reasoning tokens**:
-Output tokens a model spends thinking before it answers, which Copilot CLI records apart; they are part of the output, never added to it.
+Output tokens a model spends thinking before it answers, which Copilot's session files record apart; they are part of the output, never added to it.
 _Avoid_: thinking tokens
 
 **Reported session cost**:
@@ -126,6 +133,7 @@ _Avoid_: block, session limit, rate limit
 
 **Monthly allowance**:
 The AI credits a Copilot plan includes each calendar month, reset at 00:00 UTC on the 1st, counting Copilot wherever the person uses it.
+It belongs to the plan, not to either Copilot agent.
 _Avoid_: quota, premium requests
 
 **Limit snapshot**:
@@ -134,8 +142,8 @@ _Avoid_: quota, usage bar
 
 **Provenance**:
 Where a number comes from.
-For plan limits: official (documented by the agent's maker, Claude Code's status line), recorded (from the agent's own files, Copilot CLI's allowance) or experimental (Anthropic's undocumented usage endpoint).
-For cost: estimate (our price table), recorded (the agent's charges) or mixed (both).
+For plan limits: official (documented by the agent's maker, Claude Code's status line), recorded (from the agent's own files, the allowance in Copilot's session files) or experimental (Anthropic's undocumented usage endpoint).
+For cost: estimate (our price table), recorded (the agents' charges) or mixed (both).
 _Avoid_: source, confidence
 
 ### Product

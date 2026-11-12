@@ -1,6 +1,6 @@
 # Product brief
 
-agent-dashboard shows a person how they use their coding agents, Claude Code and GitHub Copilot CLI: how close they are to their plan limits, what their usage costs, and where it goes.
+agent-dashboard shows a person how they use their coding agents, Claude Code, GitHub Copilot CLI and GitHub Copilot in VS Code: how close they are to their plan limits, what their usage costs, and where it goes.
 It does so in three surfaces, VS Code, a desktop app and the terminal, from one shared history that outlives the agents' own transcripts.
 This brief is the input for the design; the words it uses are defined in [`CONTEXT.md`](../CONTEXT.md).
 
@@ -8,8 +8,8 @@ This brief is the input for the design; the words it uses are defined in [`CONTE
 
 - **Pro and Max subscribers** who want to know how close they are to a plan limit, and what is using it up.
 - **API users** who want to see what Claude Code costs them, by day, project and model.
-- **Copilot subscribers** who want to see how much of their monthly allowance Copilot CLI uses, and on what.
-- **People who use both agents** and want one figure for what their agents cost, split by agent when they ask.
+- **Copilot subscribers** who want to see how much of their monthly allowance Copilot uses, in the terminal and in VS Code, and on what.
+- **People who use several agents** and want one figure for what their agents cost, split by agent when they ask.
 - **Heavy users** of subagents, skills and MCP servers who want to know which of them drive their usage.
 
 Claude Code's own `/usage` screen covers the current session, plan usage bars and the last 7 days on one machine.
@@ -54,7 +54,7 @@ The desktop app and VS Code's dashboard, in its view and its tab, share these se
 | Section | Answers | Content |
 |---|---|---|
 | Overview | Jobs 1 and 2 | Plan window meters by agent with reset times; today, this week and this month (tokens, cost with its provenance, split by agent); daily usage by model for the chosen range; top projects; cache efficiency |
-| Sessions | Job 3 | Sessions with title, agent, project, start, duration, models, requests, tokens, cost and, for Claude Code, reported session cost; each opens a session view with its requests over time, models, subagents, initiators for Copilot CLI and attribution for Claude Code |
+| Sessions | Job 3 | Sessions with title, agent, project, start, duration, models, requests, tokens, cost and, for Claude Code, reported session cost; each opens a session view with its requests over time, models, subagents, initiators for Copilot and attribution for Claude Code |
 | Projects | Jobs 3 and 4 | Projects with totals and trend; each opens its sessions and models |
 | Models | Jobs 3 and 4 | Tokens and cost per model over time; input, output, reasoning, cache writes and cache reads; fast mode |
 | Limits | Job 1 | Current limit snapshots by agent with provenance, age and reset countdown; plan-window use over time; connection status of each limit source |
@@ -109,13 +109,13 @@ Every surface handles each of these:
 
 - Team or organisation analytics.
 - Usage from claude.ai chat or Cowork, which is not stored on the machine.
-- VS Code's Copilot Chat sessions, which Copilot keeps in a different store and format.
-- A status line for Copilot CLI, which has none.
+- Copilot's inline chat and code completions in VS Code, which leave no usage on disk.
+- A status line for Copilot, which has none.
 - Notifications when a plan window passes a threshold.
 
 ## How we know it works
 
 - API-equivalent cost agrees with reported session cost within rounding for every priced model.
-- Copilot CLI's recorded charges add up to the totals each of its sessions records.
+- Copilot's recorded charges add up to the totals each of its sessions records, and a prompt's charge in VS Code to the one VS Code shows for it.
 - On a first run, the last 7 days appear within 3 seconds.
 - It installs and runs on Windows, macOS and Linux without anything else installed.

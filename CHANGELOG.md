@@ -3,6 +3,35 @@
 Every release of agent-dashboard, called claude-dashboard before version 2, newest first.
 A release's notes on GitHub come from its section here.
 
+## Version 2.1.0 (2026-11-12)
+
+GitHub Copilot in VS Code joins Claude Code and Copilot CLI as a third agent.
+Every surface has the same version number.
+The binaries are not signed.
+
+### What is new
+
+- **Copilot in VS Code**: the sessions in VS Code's Chat view, whichever harness ran them.
+  - Sessions on the Copilot harness, VS Code's default, are read from `~/.copilot` beside Copilot CLI's, with their tokens by kind and their charges.
+  - Sessions on the Local harness are read from VS Code's own chat session files, in its user data folder and Insiders': one request per prompt, with its output tokens and the charge in AI credits that VS Code records from version 1.126.
+  - It is in every section, filter and export, and `--agent copilot-vscode` chooses it on every report, with projects shared with the other agents by working folder.
+- **Prompts without input and cache tokens**: VS Code's chat session files record a prompt's output tokens and charge alone, so every surface shows its input and cache tokens as not recorded, never as 0, and says how many prompts a total leaves out.
+- **Copilot's allowance under either Copilot agent**: the monthly allowance belongs to the Copilot plan, so the Overview and Limits show it whenever either Copilot agent is in view.
+- **VS Code's folder in Settings and `doctor`**: VS Code's user data folder, found from `VSCODE_PORTABLE`, `VSCODE_APPDATA` or the platform's default, or named by `AGENT_DASHBOARD_VSCODE_DATA`; Settings can add another, such as the folder of a VS Code started with `--user-data-dir`.
+
+### Changed
+
+- Sessions that VS Code runs on its Copilot harness belong to Copilot in VS Code, those already in the history included.
+  A 2.0 surface still reads the same history and shows them as Copilot CLI's, but records nothing new until it is updated.
+- The limits report's JSON has a `plan` field, `claude` or `copilot`, and its CSV a last `plan` column; `agent` says `copilot-cli` for Copilot's allowance, whichever Copilot agent recorded it.
+- Exports have a last `per_prompt_requests` column, and an export of requests a last `per_prompt` column, whose prompts have empty input and cache cells.
+- Of a request's records with the same tokens, the one with the larger charge wins, so a prompt's newest reading counts while its charge grows.
+- A Copilot model that shares its name with one Claude Code uses is named with ", Copilot", such as "Opus 5.5, Copilot", under either Copilot agent.
+- Where a column has no room for an agent's full name, the terminal shows its short name: Claude, Copilot or VS Code.
+- On Windows, a project is found by its folder whatever the case of its letters.
+- Days and windows add up their requests in a fixed order, so the same history always shows the same cents.
+- Limits says "At the pace since 8 October" for a pace that starts on an earlier day.
+
 ## Version 2.0.0 (2026-11-07)
 
 GitHub Copilot CLI joins Claude Code, and the dashboard becomes agent-dashboard, "Dashboard for Coding Agents", with the short name `agd`.

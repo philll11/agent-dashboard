@@ -3,6 +3,7 @@
 Copilot CLI records with each request what GitHub charged for it, in nano AI credits, so the history stores that charge per request and never prices Copilot CLI's requests from a table.
 GitHub's figure includes what no price table reproduces, such as the 10% it adds to requests that stay in a data residency region, and it is what the person's plan counts.
 This amends ADR 0004 for Copilot CLI: Claude Code's API-equivalent cost is still calculated when queried, from the price table.
+ADR 0017 records Copilot in VS Code's charges the same way, as one total per prompt where VS Code's own files hold them.
 
 Cost adds up across agents into one figure in US dollars, at $0.01 an AI credit, and every figure says where it comes from: an estimate when it holds Claude Code's API-equivalent cost alone, recorded when it holds Copilot CLI's charges alone, and mixed when it holds both.
 The agent filter splits a mixed figure into its parts.

@@ -1,8 +1,8 @@
 {
   "name": "agent-dashboard",
   "displayName": "Dashboard for Coding Agents",
-  "description": "See how you use Claude Code and GitHub Copilot CLI: plan limits, usage, cost and where it goes.",
-  "version": "2.0.0",
+  "description": "See how you use Claude Code, GitHub Copilot CLI and GitHub Copilot in VS Code: plan limits, usage, cost and where it goes.",
+  "version": "2.1.0",
   "publisher": "philll11",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -203,7 +203,7 @@
       {
         "id": "start",
         "title": "Get started with Dashboard for Coding Agents",
-        "description": "Record your plan limits, bring in older history, and choose where Claude Code and Copilot CLI keep their data.",
+        "description": "Record your plan limits, bring in older history, and choose where your coding agents keep their data.",
         "steps": [
           {
             "id": "connectLimits",
@@ -231,7 +231,7 @@
           {
             "id": "chooseFolders",
             "title": "Choose your data folders",
-            "description": "agent-dashboard reads the folders where Claude Code and Copilot CLI keep their data. Add any other, such as an agent's folder in WSL.\n[Choose data folders](command:agentDashboard.chooseFolders)",
+            "description": "agent-dashboard reads the folders where Claude Code, Copilot CLI and VS Code keep their data. Add any other, such as an agent's folder in WSL.\n[Choose data folders](command:agentDashboard.chooseFolders)",
             "media": {
               "markdown": "media/walkthrough/folders.md"
             },
